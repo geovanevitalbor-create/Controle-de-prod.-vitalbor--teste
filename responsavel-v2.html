@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Chamados · Responsável · Vitalbor</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0A0E0D; --surf:#131A18; --surf2:#1B2422; --surf3:#243130; --line:#2B3937;
+    --txt:#ECF4F0; --txt2:#8CA39B; --txt3:#5E736C;
+    --verde:#00D26A; --verde-2:#00A855; --amarelo:#FFC53D; --vermelho:#FF5A5A;
+    --azul:#4C8DFF; --roxo:#A78BFA;
+    --r:16px; --toque:78px;
+    --mono:ui-monospace,"SF Mono","Roboto Mono","DejaVu Sans Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,"Segoe UI",Roboto,Arial,sans-serif;overscroll-behavior:none;-webkit-font-smoothing:antialiased}
+  #app{max-width:900px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;position:relative}
+
+  main{flex:1;display:flex;flex-direction:column}
+  .tela{display:none;flex:1;flex-direction:column;padding:20px 16px 0}
+  .tela.on{display:flex;animation:entra .22s ease-out}
+  @keyframes entra{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.tela.on{animation:none}}
+  h2.tit{font-size:29px;font-weight:750;margin:0 0 6px;letter-spacing:-.6px}
+  p.sub{font-size:15px;color:var(--txt2);margin:0 0 20px;line-height:1.4}
+
+  /* SPLASH */
+  #t0{justify-content:center;align-items:center;text-align:center;padding:36px 24px}
+  #t0::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 60% at 50% 0%,rgba(167,139,250,.16),transparent 60%)}
+  .brand{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:auto;padding-top:28px}
+  .brand-ponto{width:11px;height:11px;border-radius:50%;background:var(--roxo);box-shadow:0 0 16px var(--roxo)}
+  .brand span{font-size:13px;letter-spacing:5px;text-transform:uppercase;font-weight:700;color:var(--txt2)}
+  .splash-hora{font-family:var(--mono);font-size:88px;font-weight:600;letter-spacing:-4px;line-height:1;position:relative}
+  .splash-data{color:var(--txt2);font-size:15px;letter-spacing:1px;text-transform:uppercase;margin-top:12px}
+  .splash-chip{margin-top:24px;display:inline-flex;align-items:center;gap:9px;background:var(--surf2);border:1px solid var(--line);border-radius:99px;padding:9px 18px;font-size:14px;color:var(--txt2);position:relative}
+  .pulso{width:9px;height:9px;border-radius:50%;background:var(--roxo);animation:pulsa 2s infinite}
+  @keyframes pulsa{0%,100%{opacity:1}50%{opacity:.25}}
+  .btn-start{position:relative;margin:44px 0 auto;width:100%;max-width:440px;background:linear-gradient(180deg,var(--roxo),#8B6BF0);color:#170A34;border:0;border-radius:22px;padding:34px 20px;font-size:26px;font-weight:850;letter-spacing:3px;cursor:pointer;box-shadow:0 16px 44px rgba(167,139,250,.28)}
+  .btn-start:active{transform:translateY(3px)}
+  .rodape-splash{font-size:11.5px;color:var(--txt3);letter-spacing:1.6px;padding:26px 0 22px;position:relative}
+
+  /* TOPO DOS PASSOS */
+  .topo{display:none;padding:14px 16px 0;flex-direction:column;gap:14px}
+  .topo.on{display:flex}
+  .topo-l{display:flex;align-items:center;gap:14px}
+  .voltar{width:56px;height:56px;flex:0 0 auto;border-radius:14px;background:var(--surf2);border:1px solid var(--line);color:var(--txt);font-size:26px;cursor:pointer}
+  .voltar:active{background:var(--surf3)}
+  .topo-tit{font-size:13px;letter-spacing:2.4px;text-transform:uppercase;color:var(--txt2);font-weight:700}
+  .topo-nome{font-size:22px;font-weight:750;margin-top:2px}
+  .hora{margin-left:auto;text-align:right}
+  .hora b{display:block;font-family:var(--mono);font-size:24px;font-weight:600}
+  .hora span{font-size:11px;color:var(--txt2)}
+  .trilha{display:flex;gap:4px}
+  .etapa{flex:1;display:flex;flex-direction:column;gap:7px}
+  .etapa-barra{height:4px;border-radius:99px;background:var(--surf3)}
+  .etapa.feita .etapa-barra{background:#7C5CE0}
+  .etapa.atual .etapa-barra{background:var(--roxo);box-shadow:0 0 14px rgba(167,139,250,.5)}
+  .etapa-txt{font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--txt3);font-weight:700}
+  .etapa.atual .etapa-txt{color:var(--roxo)}
+
+  /* CARDS / LISTAS */
+  .grade{display:grid;gap:12px}
+  .card{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-height:var(--toque);cursor:pointer;color:var(--txt);font-family:inherit;text-align:left;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
+  .card:active{background:var(--surf2)}
+  .card.sel{border-color:var(--roxo);background:rgba(167,139,250,.1)}
+  .card.sel::after{content:"✓";position:absolute;top:12px;right:14px;color:var(--roxo);font-size:20px;font-weight:800}
+  .card.lin{flex-direction:row;align-items:center;gap:14px}
+  .card-nome{font-size:19px;font-weight:700}
+  .card-info{font-size:13px;color:var(--txt2);line-height:1.35}
+  .pill{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;margin-top:4px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;border-radius:8px;background:rgba(255,197,61,.16);color:var(--amarelo)}
+  .led{width:8px;height:8px;border-radius:50%;background:currentColor}
+  .ini{width:50px;height:50px;flex:0 0 auto;border-radius:14px;background:var(--surf3);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:var(--roxo)}
+  .vazio{padding:30px 12px;text-align:center;color:var(--txt3)}
+  .rol{max-height:58vh;overflow-y:auto}
+  .busca{width:100%;padding:18px;font-size:18px;font-family:inherit;color:var(--txt);background:var(--surf);border:1px solid var(--line);border-radius:var(--r);margin-bottom:12px}
+  .busca::placeholder{color:var(--txt3)}
+  .busca:focus{outline:0;border-color:var(--roxo)}
+  .campo{margin-bottom:20px}
+  .campo-rot{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+  .campo-rot span:first-child{font-size:11.5px;letter-spacing:2px;text-transform:uppercase;color:var(--txt3);font-weight:800}
+  .campo-rot em{font-style:normal;font-size:12px;color:var(--txt3)}
+  .valor{width:100%;background:var(--surf);border:1px solid var(--line);border-radius:var(--r);min-height:74px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:20px;font-weight:700;color:var(--txt);cursor:pointer;text-align:left;font-family:inherit}
+  .valor.placeholder{color:var(--txt3);font-size:17px;font-weight:600}
+  .valor .seta{color:var(--txt3);font-size:20px}
+
+  .rodape{position:sticky;bottom:0;margin-top:auto;padding:16px;display:flex;gap:12px;background:linear-gradient(to top,var(--bg) 68%,rgba(10,14,13,0))}
+  .btn{flex:1;min-height:var(--toque);border:0;border-radius:var(--r);font-size:20px;font-weight:800;font-family:inherit;cursor:pointer}
+  .b1{background:var(--roxo);color:#1B0E38;box-shadow:0 10px 26px rgba(167,139,250,.22)}
+  .b1:active{transform:translateY(2px)}
+  .b1:disabled{background:var(--surf3);color:var(--txt3);box-shadow:none;cursor:not-allowed}
+  .b2{flex:0 0 33%;background:var(--surf2);border:1px solid var(--line);color:var(--txt2)}
+  .bverde{background:var(--verde);color:#00230F;box-shadow:0 10px 26px rgba(0,210,106,.2)}
+
+  /* PAINEL */
+  .painel-cab{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+  .painel-tag{margin-left:auto;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;font-weight:800;
+    color:var(--roxo);background:rgba(167,139,250,.14);padding:7px 12px;border-radius:9px;display:flex;align-items:center;gap:8px;font-family:var(--mono)}
+  .resumo-fila{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;margin:18px 0 20px}
+  .rf{background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:14px 15px;position:relative;overflow:hidden}
+  .rf::before{content:"";position:absolute;left:0;top:13px;bottom:13px;width:3px;border-radius:0 3px 3px 0;background:var(--roxo)}
+  .rf.b::before{background:var(--amarelo)}
+  .rf.c::before{background:var(--verde)}
+  .rf-rot{font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--txt3);font-weight:800}
+  .rf-num{font-family:var(--mono);font-size:30px;font-weight:600;margin-top:6px;line-height:1}
+
+  .chamado{position:relative;background:linear-gradient(160deg,var(--surf) 60%,var(--surf2));
+    border:1px solid var(--line);border-left:5px solid var(--roxo);border-radius:18px;
+    padding:17px 18px;margin-bottom:12px;cursor:pointer;width:100%;font-family:inherit;color:var(--txt);text-align:left;display:block}
+  .chamado:active{background:var(--surf2)}
+  .chamado.urg{border-left-color:var(--amarelo)}
+  .chamado.crit{border-left-color:var(--vermelho);box-shadow:0 0 0 1px rgba(255,90,90,.25)}
+  .chamado.fech{opacity:.62;border-left-color:var(--verde)}
+  .ch-topo{display:flex;align-items:flex-start;gap:14px}
+  .ch-maq{flex:0 0 auto;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;padding:10px 14px;text-align:center;min-width:98px}
+  .ch-maq b{display:block;font-family:var(--mono);font-size:26px;font-weight:700;letter-spacing:-.5px}
+  .ch-maq span{font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--txt3);font-weight:800}
+  .ch-info{flex:1;min-width:0}
+  .ch-oper{font-size:19px;font-weight:750}
+  .ch-oper small{display:block;font-size:12px;color:var(--txt3);font-weight:600;margin-top:3px;font-family:var(--mono)}
+  .ch-prob{margin-top:11px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+  .ch-prob-rot{font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--txt3);font-weight:800}
+  .ch-prob-txt{font-size:16px;font-weight:650;margin-top:5px;line-height:1.35;word-break:break-word}
+  .ch-tempo{flex:0 0 auto;text-align:right}
+  .ch-tempo b{display:block;font-family:var(--mono);font-size:26px;font-weight:700;letter-spacing:-1px;color:var(--roxo)}
+  .chamado.urg .ch-tempo b{color:var(--amarelo)}
+  .chamado.crit .ch-tempo b{color:var(--vermelho)}
+  .chamado.fech .ch-tempo b{color:var(--verde)}
+  .ch-tempo span{font-size:10px;letter-spacing:1.3px;text-transform:uppercase;color:var(--txt3);font-weight:800}
+  .ch-pe{display:flex;align-items:center;justify-content:space-between;margin-top:13px;font-size:12px;color:var(--txt3);font-family:var(--mono)}
+  .ch-pe .abrir{color:var(--roxo);font-weight:800;font-family:inherit;letter-spacing:.4px}
+  .ch-ack{margin-top:11px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--verde);font-weight:700}
+  .fila-vazia{text-align:center;padding:56px 20px;color:var(--txt3)}
+  .fila-vazia b{display:block;font-size:19px;color:var(--txt2);margin-bottom:6px;font-weight:700}
+  .sec-t{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--txt3);font-weight:800;margin:22px 0 12px}
+
+  /* DETALHE */
+  .det-head{background:linear-gradient(165deg,rgba(167,139,250,.2),rgba(167,139,250,.03));
+    border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:16px}
+  .det-timer{font-family:var(--mono);font-size:52px;font-weight:600;letter-spacing:-2px;line-height:1;margin:12px 0 4px}
+  .det-tags{display:flex;gap:7px;flex-wrap:wrap}
+  .tagi{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--txt2);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:8px;padding:5px 9px}
+  .bloco{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:4px 18px;margin-bottom:16px}
+  .linha{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+  .linha:last-child{border-bottom:0}
+  .linha-rot{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--txt3);font-weight:800}
+  .linha-val{font-size:16px;font-weight:700;text-align:right}
+  .linha-val.mono{font-family:var(--mono);font-weight:600}
+
+  .tl{position:relative;padding-left:28px}
+  .tl::before{content:"";position:absolute;left:8px;top:6px;bottom:10px;width:2px;background:var(--line)}
+  .tl-i{position:relative;padding:0 0 20px}
+  .tl-i::before{content:"";position:absolute;left:-24px;top:4px;width:12px;height:12px;border-radius:50%;
+    background:var(--surf);border:2px solid var(--txt3)}
+  .tl-i.roxo::before{border-color:var(--roxo);box-shadow:0 0 10px rgba(167,139,250,.5)}
+  .tl-i.verde::before{border-color:var(--verde);box-shadow:0 0 10px rgba(0,210,106,.4)}
+  .tl-i.amar::before{border-color:var(--amarelo)}
+  .tl-i.verm::before{border-color:var(--vermelho)}
+  .tl-h{font-family:var(--mono);font-size:12px;color:var(--txt3);font-weight:600}
+  .tl-t{font-size:16px;font-weight:700;margin-top:3px}
+  .tl-s{font-size:13.5px;color:var(--txt2);margin-top:3px;line-height:1.4}
+
+  .hist-i{display:flex;align-items:center;gap:12px;background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:13px 15px;margin-bottom:9px}
+  .hist-n{width:38px;height:38px;border-radius:11px;background:var(--surf3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--roxo);flex:0 0 auto}
+  .hist-txt{flex:1;font-size:14.5px;font-weight:600}
+  .hist-sub{font-size:12px;color:var(--txt2);margin-top:2px;font-weight:500}
+  .hist-val{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--txt2)}
+
+  /* MODAL / GAVETA */
+  .fundo{position:fixed;inset:0;background:rgba(4,7,6,.78);backdrop-filter:blur(4px);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  .fundo.on{display:flex}
+  .folha{width:100%;max-width:900px;background:var(--surf);border-top:1px solid var(--line);border-radius:26px 26px 0 0;padding:22px 18px 18px;animation:sobe .22s ease-out;max-height:94vh;overflow-y:auto}
+  @keyframes sobe{from{transform:translateY(60px)}to{transform:none}}
+  .puxador{width:44px;height:5px;border-radius:99px;background:var(--surf3);margin:0 auto 18px}
+  .folha h3{font-size:23px;margin:0 0 4px;font-weight:750}
+  .folha .h3sub{font-size:14px;color:var(--txt2);margin:0 0 18px;line-height:1.4}
+  .entrada{width:100%;background:var(--surf2);border:1px solid var(--line);border-radius:14px;padding:16px;font-size:18px;color:var(--txt);font-family:inherit;margin-bottom:14px}
+  .entrada:focus{outline:0;border-color:var(--roxo)}
+  .entrada::placeholder{color:var(--txt3)}
+  .acoes-modal{display:flex;gap:12px;margin-top:20px}
+  .aviso{border-radius:12px;padding:13px 15px;font-size:14px;line-height:1.45;margin-top:12px;font-weight:600}
+  .aviso.verm{background:rgba(255,90,90,.12);color:var(--vermelho);border:1px solid rgba(255,90,90,.3)}
+  .aviso.azul{background:rgba(76,141,255,.12);color:var(--azul);border:1px solid rgba(76,141,255,.3)}
+
+  @media (max-width:420px){
+    .resumo-fila{grid-template-columns:1fr 1fr}
+    .splash-hora{font-size:70px}
+    .det-timer{font-size:42px}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="topo" id="topo">
+    <div class="topo-l">
+      <button class="voltar" id="voltar">‹</button>
+      <div><div class="topo-tit" id="topoPasso">Passo 1 de 2</div><div class="topo-nome" id="topoNome">Turno</div></div>
+      <div class="hora"><b id="horaTopo">--:--</b><span id="dataTopo"></span></div>
+    </div>
+    <div class="trilha" id="trilha"></div>
+  </header>
+
+  <main>
+    <!-- 0 SPLASH -->
+    <section class="tela on" id="t0">
+      <div class="brand"><i class="brand-ponto"></i><span>Vitalbor</span></div>
+      <div class="splash-hora" id="horaSplash">--:--</div>
+      <div class="splash-data" id="dataSplash"></div>
+      <div class="splash-chip"><i class="pulso"></i><span id="chipTurno">—</span></div>
+      <button class="btn-start" id="btnStart">INICIAR</button>
+      <div class="rodape-splash">PAINEL DO RESPONSÁVEL · CHAMADOS DE PRODUÇÃO · v2.0<br><span id="conexao" style="color:var(--txt3)">verificando conexão…</span></div>
+    </section>
+
+    <!-- 1 TURNO -->
+    <section class="tela" id="t1">
+      <h2 class="tit">Selecione o turno</h2>
+      <p class="sub">Você vai acompanhar os chamados deste turno.</p>
+      <div class="grade" id="lTurnos"></div>
+      <div class="rodape"><button class="btn b1" id="okTurno" disabled>Continuar</button></div>
+    </section>
+
+    <!-- 2 RESPONSÁVEL -->
+    <section class="tela" id="t2">
+      <h2 class="tit">Quem está respondendo</h2>
+      <p class="sub">Abra a lista e escolha o responsável de plantão.</p>
+      <div class="campo">
+        <div class="campo-rot"><span>Responsável</span><em id="respDica">nenhum selecionado</em></div>
+        <button class="valor placeholder" id="campoResp">Toque para abrir a lista<span class="seta">▾</span></button>
+      </div>
+      <div class="rodape"><button class="btn b1" id="okResp" disabled>Abrir painel</button></div>
+    </section>
+
+    <!-- 3 PAINEL -->
+    <section class="tela" id="t3">
+      <div class="painel-cab">
+        <button class="voltar" id="painelVoltar">‹</button>
+        <div><div class="topo-tit" id="painelQuem">—</div><div class="topo-nome">Chamados abertos</div></div>
+        <span class="painel-tag"><i class="pulso"></i><span id="painelRelogio">--:--:--</span></span>
+      </div>
+      <div class="resumo-fila">
+        <div class="rf"><div class="rf-rot">Abertos</div><div class="rf-num" id="rfAbertos">0</div></div>
+        <div class="rf b"><div class="rf-rot">Espera mais longa</div><div class="rf-num" id="rfMaior">—</div></div>
+        <div class="rf c"><div class="rf-rot">Atendidos no turno</div><div class="rf-num" id="rfAtend">0</div></div>
+      </div>
+      <div id="listaChamados"></div>
+      <div class="rodape">
+        <button class="btn b2" id="painelSair">Sair</button>
+        <button class="btn b1" id="simular" style="background:var(--surf2);border:1px solid var(--line);color:var(--txt2);box-shadow:none">Simular novo chamado</button>
+      </div>
+    </section>
+
+    <!-- 4 DETALHE -->
+    <section class="tela" id="t4">
+      <div class="painel-cab" style="margin-bottom:16px">
+        <button class="voltar" id="detVoltar">‹</button>
+        <div><div class="topo-tit">Chamado</div><div class="topo-nome" id="detId">—</div></div>
+        <span class="painel-tag" id="detStatus">—</span>
+      </div>
+      <div id="detConteudo"></div>
+      <div class="rodape" id="detAcoes"></div>
+    </section>
+  </main>
+
+  <div class="fundo" id="fundo"><div class="folha" id="folha"></div></div>
+  <div class="fundo" id="gaveta" style="z-index:60"><div class="folha" id="gavetaIn"></div></div>
+</div>
+
+<script>
+/* =============================================================================
+   DADOS — hoje em memória, para o protótipo. Na versão real:
+   - RESPONSAVEIS  -> select em `perfis` where papel = 'responsavel'
+   - CHAMADOS      -> select em `chamados` where tipo = 'responsavel'
+   - cada ação     -> insert em `chamado_atualizacoes` (mesma ideia do sistema
+                      da Juntas) + update do status no chamado
+   - a lista       -> assinatura realtime, em vez de render local
+   ============================================================================= */
+const TURNOS=[{id:'T1',nome:'Turno 1',ini:'06:00',fim:'14:20'},{id:'T2',nome:'Turno 2',ini:'14:20',fim:'22:40'},{id:'T3',nome:'Turno 3',ini:'22:40',fim:'06:00'}];
+let RESPONSAVEIS=[
+  {mat:'R012',nome:'Adriano Bueno',cargo:'Líder de produção'},
+  {mat:'R027',nome:'Cláudia Marin',cargo:'Supervisora de turno'},
+  {mat:'R033',nome:'Everton Sales',cargo:'Líder de injeção'},
+  {mat:'R048',nome:'Silvana Costa',cargo:'Coordenadora de produção'}
+];
+let MAQ={'IJ-01':'Injetora 1 Engel','IJ-02':'Injetora 2 Engel','IJ-03':'Injetora 3 Engel','IJ-04':'Injetora 4 Engel','IJ-05':'Injetora 5 Engel'};
+
+const min=m=>m*60000;
+const agora=Date.now();
+let SEQ=1043;
+
+/* chamados de exemplo — 2 abertos e 2 já atendidos no turno */
+let CHAMADOS=[
+  {id:'CH1041',maquina:'IJ-02',operador:'Jhenifer Luana A.',matricula:'0290',turno:'Turno 1',
+   op:'4821',peca:'295 COL-100 NBR',lote:'N-2607',cavidades:24,caixas:3,
+   problema:'Banheiro',abertoEm:agora-min(3.5),status:'aberto',
+   eventos:[{t:agora-min(3.5),tipo:'abriu',txt:'Chamado aberto pelo operador',sub:'Motivo: Banheiro'}]},
+
+  {id:'CH1042',maquina:'IJ-04',operador:'Marcos Vinícius Souza',matricula:'0312',turno:'Turno 1',
+   op:'4835',peca:'118 RET-220 EPDM',lote:'E-2606',cavidades:16,caixas:1,
+   problema:'Acabou a borracha do lote e não achei o próximo palete',abertoEm:agora-min(17),status:'a_caminho',
+   eventos:[
+     {t:agora-min(17),tipo:'abriu',txt:'Chamado aberto pelo operador',sub:'Motivo informado como "Outro"'},
+     {t:agora-min(11),tipo:'caminho',txt:'Adriano Bueno marcou "a caminho"',sub:''}
+   ]},
+
+  {id:'CH1039',maquina:'IJ-01',operador:'Ana Paula Ribeiro',matricula:'0142',turno:'Turno 1',
+   op:'4840',peca:'077 ANEL-45 VMQ',lote:'V-2605',cavidades:48,caixas:2,
+   problema:'Refeição',abertoEm:agora-min(96),status:'atendido',atendidoEm:agora-min(64),
+   eventos:[
+     {t:agora-min(96),tipo:'abriu',txt:'Chamado aberto pelo operador',sub:'Motivo: Refeição'},
+     {t:agora-min(93),tipo:'caminho',txt:'Cláudia Marin marcou "a caminho"',sub:''},
+     {t:agora-min(90),tipo:'chegou',txt:'Cláudia Marin chegou na máquina',sub:'Cobertura durante a refeição'},
+     {t:agora-min(64),tipo:'fechou',txt:'Operador retomou a produção',sub:'Ausência total de 32min'}
+   ]},
+
+  {id:'CH1040',maquina:'IJ-05',operador:'Patrícia Moraes',matricula:'0344',turno:'Turno 1',
+   op:'4821',peca:'295 COL-100 NBR',lote:'N-2607',cavidades:24,caixas:4,
+   problema:'Falar com líder',abertoEm:agora-min(52),status:'atendido',atendidoEm:agora-min(44),
+   eventos:[
+     {t:agora-min(52),tipo:'abriu',txt:'Chamado aberto pelo operador',sub:'Motivo: Falar com líder'},
+     {t:agora-min(44),tipo:'chegou',txt:'Everton Sales chegou na máquina',sub:'Ninguém marcou "a caminho" antes'},
+     {t:agora-min(44),tipo:'fechou',txt:'Chamado encerrado',sub:'Dúvida sobre troca de molde resolvida na máquina'}
+   ]}
+];
+
+/* fonte dos chamados simulados */
+const SIM=[
+  {maquina:'IJ-03',operador:'Eduardo Farias',matricula:'0231',op:'4835',peca:'118 RET-220 EPDM',lote:'E-2606',cavidades:16,caixas:0,problema:'Buscar material'},
+  {maquina:'IJ-01',operador:'Fernanda Alves',matricula:'0255',op:'4821',peca:'295 COL-100 NBR',lote:'N-2607',cavidades:24,caixas:5,problema:'Caixa de refugo cheia, preciso de alguém para trocar'},
+  {maquina:'IJ-05',operador:'Gustavo Pereira',matricula:'0268',op:'4840',peca:'077 ANEL-45 VMQ',lote:'V-2605',cavidades:48,caixas:2,problema:'Banheiro'}
+];
+
+/* =============================================================================
+   SUPABASE — mesma configuração do app do operador (mesmo projeto).
+   Em branco = modo demonstração com os chamados de exemplo acima.
+   ============================================================================= */
+const CFG={url:'',anon:''};
+let sb=null, MODO='demo';
+
+function pintaConexao(){
+  const el=document.getElementById('conexao'); if(!el) return;
+  const t={demo:['modo demonstração — sem banco','var(--txt3)'],
+           online:['conectado · atualizando em tempo real','var(--verde)'],
+           offline:['sem conexão com o banco','var(--amarelo)']}[MODO];
+  el.textContent=t[0]; el.style.color=t[1];
+}
+function iniciaBanco(){
+  if(!CFG.url||!CFG.anon||!window.supabase){MODO='demo';pintaConexao();return}
+  try{sb=window.supabase.createClient(CFG.url,CFG.anon,{auth:{persistSession:false}});MODO='online'}
+  catch(e){MODO='demo'}
+  pintaConexao();
+}
+
+const deLinha=r=>({
+  id:r.id, maquina:r.maquina, operador:r.operador_nome||'—', matricula:r.operador_matricula||'—',
+  turno:r.turno||'', op:r.ordem||'—', peca:r.peca||'—', lote:r.lote||'—',
+  cavidades:r.cavidades||0, caixas:r.caixas_fechadas||0, problema:r.problema,
+  abertoEm:new Date(r.aberto_em).getTime(),
+  atendidoEm:r.atendido_em?new Date(r.atendido_em).getTime():null,
+  status:r.status==='atendido'?'atendido':r.status==='a_caminho'?'a_caminho':'aberto',
+  fechadoPeloOperador:!!r.fechado_pelo_operador, eventos:[]
+});
+
+async function carregaTudo(){
+  if(MODO!=='online') return;
+  try{
+    const [resp,maq,ch]=await Promise.all([
+      sb.from('responsaveis').select('*').eq('ativo',true).order('nome'),
+      sb.from('maquinas').select('id,descricao'),
+      sb.from('chamados').select('*').eq('tipo','responsavel')
+        .gte('aberto_em',new Date(Date.now()-12*3600e3).toISOString())
+        .order('aberto_em',{ascending:false})
+    ]);
+    if(resp.data&&resp.data.length)RESPONSAVEIS=resp.data.map(r=>({mat:r.matricula,nome:r.nome,cargo:r.cargo||''}));
+    if(maq.data){MAQ={};maq.data.forEach(m=>MAQ[m.id]=m.descricao)}
+    if(ch.data)CHAMADOS=ch.data.map(deLinha);
+    pintaResp();pintaFila();
+  }catch(e){console.warn(e);MODO='offline';pintaConexao()}
+}
+
+/* realtime: o card entra na tela no instante em que o operador chama */
+function escutaChamados(){
+  if(MODO!=='online') return;
+  sb.channel('chamados-responsavel')
+    .on('postgres_changes',{event:'*',schema:'public',table:'chamados'},payload=>{
+      const r=payload.new; if(!r||r.tipo!=='responsavel') return;
+      const novo=deLinha(r), i=CHAMADOS.findIndex(c=>c.id===novo.id);
+      if(i<0)CHAMADOS.unshift(novo); else CHAMADOS[i]=Object.assign(CHAMADOS[i],novo);
+      if($('#t3').classList.contains('on'))pintaFila();
+      if($('#t4').classList.contains('on')&&S.chamadoAberto===novo.id)abreDetalhe(novo.id);
+    }).subscribe();
+}
+
+async function carregaHistorico(id){
+  if(MODO!=='online') return null;
+  try{
+    const {data,error}=await sb.from('chamado_atualizacoes').select('*')
+      .eq('chamado_id',id).order('criado_em');
+    if(error) throw error;
+    return data.map(a=>({t:new Date(a.criado_em).getTime(),tipo:a.tipo,txt:a.texto,sub:a.detalhe||''}));
+  }catch(e){return null}
+}
+
+async function gravaChamado(id,campos,atualizacao){
+  if(MODO!=='online') return;
+  try{
+    await sb.from('chamados').update(campos).eq('id',id);
+    if(atualizacao) await sb.from('chamado_atualizacoes').insert(Object.assign({chamado_id:id},atualizacao));
+  }catch(e){console.warn('gravar chamado:',e.message||e);MODO='offline';pintaConexao()}
+}
+
+/* ================= ESTADO ================= */
+const S={turno:null,resp:null,chamadoAberto:null};
+let passo=0;
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const dd=n=>String(n).padStart(2,'0');
+const hms=s=>dd(Math.floor(s/3600))+':'+dd(Math.floor(s/60)%60)+':'+dd(s%60);
+const hm=s=>{const m=Math.floor(s/60);return m<60?m+'min':Math.floor(m/60)+'h '+dd(m%60)+'min'};
+const hhmm=t=>new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+const semAcento=t=>(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const iniciais=n=>n.split(' ').filter(p=>p.length>2).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+const nomeTurno=()=>(TURNOS.find(t=>t.id===S.turno)||{}).nome||'—';
+const respInfo=()=>RESPONSAVEIS.find(r=>r.mat===S.resp)||null;
+const espera=c=>Math.floor(((c.status==='atendido'?c.atendidoEm:Date.now())-c.abertoEm)/1000);
+
+/* ================= RELÓGIO ================= */
+function turnoAgora(){const d=new Date(),m=d.getHours()*60+d.getMinutes();return m>=360&&m<860?'T1':m>=860&&m<1360?'T2':'T3'}
+function tick(){
+  const d=new Date(),h=dd(d.getHours())+':'+dd(d.getMinutes());
+  $('#horaSplash').textContent=h;$('#horaTopo').textContent=h;
+  $('#dataSplash').textContent=d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  $('#dataTopo').textContent=d.toLocaleDateString('pt-BR');
+  const t=TURNOS.find(x=>x.id===turnoAgora());
+  $('#chipTurno').textContent=t.nome+' em andamento · '+t.ini+' às '+t.fim;
+  $('#painelRelogio').textContent=d.toLocaleTimeString('pt-BR');
+}
+setInterval(tick,1000);tick();
+
+/* ================= NAVEGAÇÃO ================= */
+const NOMES=['','Turno','Responsável'];
+$('#trilha').innerHTML=[1,2].map(i=>`<div class="etapa" data-e="${i}"><div class="etapa-barra"></div><div class="etapa-txt">${NOMES[i]}</div></div>`).join('');
+function ir(i){
+  passo=i;
+  ['t0','t1','t2','t3','t4'].forEach((t,k)=>$('#'+t).classList.toggle('on',k===i));
+  const m=i>=1&&i<=2;$('#topo').classList.toggle('on',m);
+  if(m){$('#topoPasso').textContent='Passo '+i+' de 2';$('#topoNome').textContent=NOMES[i];
+    $$('#trilha .etapa').forEach(e=>{const n=+e.dataset.e;e.classList.toggle('feita',n<i);e.classList.toggle('atual',n===i)})}
+  window.scrollTo(0,0);
+}
+$('#voltar').onclick=()=>ir(Math.max(0,passo-1));
+$('#btnStart').onclick=()=>{S.turno=null;S.resp=null;pintaTurnos();pintaResp();ir(1)};
+
+/* ================= GAVETA (lista) ================= */
+function abreLista(o){
+  $('#gavetaIn').innerHTML=`<div class="puxador"></div>
+    <div class="topo-tit">${o.titulo}</div><p class="sub" style="margin:6px 0 0">${o.sub||''}</p>
+    ${o.busca?'<input class="busca" id="gavBusca" placeholder="Buscar" autocomplete="off" style="margin-top:14px">':''}
+    <div class="rol"><div class="grade" id="gavLista"></div></div>
+    <div class="acoes-modal"><button class="btn b2" id="gavCancel" style="flex:1">Cancelar</button></div>`;
+  function pinta(){
+    const q=semAcento(($('#gavBusca')?$('#gavBusca').value:'').trim());
+    const l=o.itens.filter(i=>!q||semAcento(i.titulo+' '+(i.sub||'')).includes(q));
+    $('#gavLista').innerHTML=l.length?l.map(i=>`<button class="card lin ${o.sel===i.v?'sel':''}" data-v="${i.v}">
+      ${i.ini?`<span class="ini">${i.ini}</span>`:''}
+      <span style="display:flex;flex-direction:column;gap:3px">
+        <span class="card-nome">${i.titulo}</span>${i.sub?`<span class="card-info">${i.sub}</span>`:''}</span></button>`).join('')
+      :'<div class="vazio">Nada encontrado.</div>';
+    $$('#gavLista .card').forEach(b=>b.onclick=()=>{const v=b.dataset.v;$('#gaveta').classList.remove('on');o.onOk(v)});
+  }
+  if(o.busca)$('#gavBusca').oninput=pinta;
+  $('#gavCancel').onclick=()=>$('#gaveta').classList.remove('on');
+  $('#gaveta').classList.add('on');pinta();
+}
+$('#gaveta').onclick=e=>{if(e.target===$('#gaveta'))$('#gaveta').classList.remove('on')};
+
+function abreModal(html){$('#folha').innerHTML='<div class="puxador"></div>'+html;$('#fundo').classList.add('on')}
+function fechaModal(){$('#fundo').classList.remove('on')}
+$('#fundo').onclick=e=>{if(e.target===$('#fundo'))fechaModal()};
+
+/* ================= PASSO 1 — TURNO ================= */
+function pintaTurnos(){
+  const ag=turnoAgora();
+  $('#lTurnos').innerHTML=TURNOS.map(t=>`<button class="card ${S.turno===t.id?'sel':''}" data-t="${t.id}">
+    <span class="card-nome">${t.nome}</span><span class="card-info">${t.ini} às ${t.fim}</span>
+    ${t.id===ag?'<span class="pill"><i class="led"></i>Horário atual</span>':''}</button>`).join('');
+  $$('#lTurnos .card').forEach(b=>b.onclick=()=>{S.turno=b.dataset.t;pintaTurnos();$('#okTurno').disabled=false});
+}
+$('#okTurno').onclick=()=>ir(2);
+
+/* ================= PASSO 2 — RESPONSÁVEL ================= */
+$('#campoResp').onclick=()=>abreLista({
+  titulo:'Responsável',sub:'Quem está de plantão neste turno.',busca:true,sel:S.resp,
+  itens:RESPONSAVEIS.map(r=>({v:r.mat,titulo:r.nome,sub:r.cargo+' · '+r.mat,ini:iniciais(r.nome)})),
+  onOk:v=>{S.resp=v;pintaResp()}});
+function pintaResp(){
+  const r=respInfo(),c=$('#campoResp');
+  if(r){c.className='valor';c.innerHTML=`${r.nome}<span class="seta">▾</span>`;$('#respDica').textContent=r.cargo}
+  else{c.className='valor placeholder';c.innerHTML='Toque para abrir a lista<span class="seta">▾</span>';$('#respDica').textContent='nenhum selecionado'}
+  $('#okResp').disabled=!r;
+}
+$('#okResp').onclick=()=>{
+  $('#painelQuem').textContent=respInfo().nome+' · '+nomeTurno();
+  pintaFila();ir(3);
+};
+$('#painelVoltar').onclick=()=>ir(2);
+$('#painelSair').onclick=()=>ir(0);
+
+/* ================= PAINEL ================= */
+function pintaFila(){
+  const ab=CHAMADOS.filter(c=>c.status!=='atendido').sort((a,b)=>a.abertoEm-b.abertoEm);
+  const at=CHAMADOS.filter(c=>c.status==='atendido').sort((a,b)=>b.atendidoEm-a.atendidoEm);
+  $('#rfAbertos').textContent=ab.length;
+  $('#rfMaior').textContent=ab.length?hms(espera(ab[0])):'—';
+  $('#rfAtend').textContent=at.length;
+
+  const cardHTML=(c,fech)=>{
+    const seg=espera(c),cls=fech?'fech':seg>=900?'crit':seg>=300?'urg':'';
+    return `<button class="chamado ${cls}" data-id="${c.id}">
+      <div class="ch-topo">
+        <div class="ch-maq"><b>${c.maquina}</b><span>máquina</span></div>
+        <div class="ch-info"><div class="ch-oper">${c.operador}
+          <small>matrícula ${c.matricula} · ${c.turno} · OP ${c.op}</small></div></div>
+        <div class="ch-tempo"><b ${fech?'':'class="tmp" data-t="'+c.abertoEm+'"'}>${hms(seg)}</b>
+          <span>${fech?'esperou':'parada há'}</span></div>
+      </div>
+      <div class="ch-prob"><div class="ch-prob-rot">Problema informado</div>
+        <div class="ch-prob-txt">${c.problema}</div></div>
+      ${c.status==='a_caminho'?'<div class="ch-ack"><i class="led"></i>Alguém já marcou "a caminho"</div>':''}
+      <div class="ch-pe"><span>${c.id} · aberto às ${hhmm(c.abertoEm)} · ${MAQ[c.maquina]||''}</span>
+        <span class="abrir">Ver histórico ›</span></div>
+    </button>`;
+  };
+
+  $('#listaChamados').innerHTML=
+    (ab.length?ab.map(c=>cardHTML(c,false)).join('')
+      :'<div class="fila-vazia"><b>Nenhum chamado aberto</b>Quando um operador chamar, o card aparece aqui com a máquina, o nome e o problema.</div>')
+    +(at.length?'<div class="sec-t">Atendidos neste turno</div>'+at.map(c=>cardHTML(c,true)).join(''):'');
+
+  $$('#listaChamados .chamado').forEach(b=>b.onclick=()=>abreDetalhe(b.dataset.id));
+}
+
+setInterval(()=>{
+  if($('#t3').classList.contains('on')){
+    $$('#listaChamados .tmp').forEach(el=>{
+      const seg=Math.floor((Date.now()-(+el.dataset.t))/1000);
+      el.textContent=hms(seg);
+      const card=el.closest('.chamado');
+      card.classList.toggle('urg',seg>=300&&seg<900);
+      card.classList.toggle('crit',seg>=900);
+    });
+    const ab=CHAMADOS.filter(c=>c.status!=='atendido').sort((a,b)=>a.abertoEm-b.abertoEm);
+    $('#rfMaior').textContent=ab.length?hms(espera(ab[0])):'—';
+  }
+  if($('#t4').classList.contains('on')&&S.chamadoAberto){
+    const c=CHAMADOS.find(x=>x.id===S.chamadoAberto);
+    if(c&&c.status!=='atendido'){const el=$('#detTimer');if(el)el.textContent=hms(espera(c))}
+  }
+},1000);
+
+/* botão de demonstração: simula um operador chamando agora */
+$('#simular').onclick=()=>{
+  if(MODO==='online'){alert('Com o banco ligado, os chamados vêm do tablet do operador.');return}
+  const base=SIM[Math.floor(Math.random()*SIM.length)];
+  const c=Object.assign({},base,{
+    id:'CH'+(++SEQ),turno:nomeTurno(),abertoEm:Date.now(),status:'aberto',
+    eventos:[{t:Date.now(),tipo:'abriu',txt:'Chamado aberto pelo operador',sub:'Motivo: '+base.problema}]
+  });
+  CHAMADOS.unshift(c);pintaFila();
+};
+
+/* ================= DETALHE + HISTÓRICO ================= */
+const ICO_TL={abriu:'roxo',caminho:'amar',chegou:'verde',fechou:'verde',nota:'',cancel:'verm'};
+
+function abreDetalhe(id){
+  const c=CHAMADOS.find(x=>x.id===id);if(!c)return;
+  S.chamadoAberto=id;
+  if(MODO==='online'){
+    carregaHistorico(id).then(h=>{
+      if(h&&h.length&&S.chamadoAberto===id){c.eventos=h;desenhaDetalhe(c);}
+    });
+  }
+  desenhaDetalhe(c);
+  ir(4);
+}
+
+function desenhaDetalhe(c){
+  const id=c.id;
+  const st=c.status==='atendido'?'atendido':c.status==='a_caminho'?'a caminho':'aberto';
+  $('#detId').textContent=c.id+' · '+c.maquina;
+  $('#detStatus').textContent=st;
+  $('#detStatus').style.color=c.status==='atendido'?'var(--verde)':c.status==='a_caminho'?'var(--amarelo)':'var(--roxo)';
+  const antMaq=CHAMADOS.filter(x=>x.maquina===c.maquina&&x.id!==c.id).sort((a,b)=>b.abertoEm-a.abertoEm).slice(0,4);
+  const antOper=CHAMADOS.filter(x=>x.matricula===c.matricula&&x.id!==c.id).sort((a,b)=>b.abertoEm-a.abertoEm).slice(0,4);
+  $('#detConteudo').innerHTML=`
+    <div class="det-head">
+      <div class="det-tags">
+        <span class="tagi">${c.maquina}</span><span class="tagi">OP ${c.op}</span>
+        <span class="tagi">${c.lote}</span><span class="tagi">${c.turno}</span>
+        <span class="tagi">${c.cavidades} cav</span>
+      </div>
+      <div class="det-timer" id="detTimer">${hms(espera(c))}</div>
+      <div class="card-info">${c.status==='atendido'?'tempo total de espera':'parada há'} · aberto às ${hhmm(c.abertoEm)}</div>
+      <div class="ch-oper" style="margin-top:14px">${c.operador}
+        <small>matrícula ${c.matricula} · ${MAQ[c.maquina]||''}</small></div>
+      <div class="ch-prob"><div class="ch-prob-rot">Problema informado pelo operador</div>
+        <div class="ch-prob-txt">${c.problema}</div></div>
+    </div>
+
+    <div class="sec-t" style="margin-top:0">Histórico do chamado</div>
+    <div class="bloco" style="padding:18px">
+      <div class="tl">${c.eventos.slice().sort((a,b)=>a.t-b.t).map(e=>`
+        <div class="tl-i ${ICO_TL[e.tipo]||''}">
+          <div class="tl-h">${hhmm(e.t)}</div>
+          <div class="tl-t">${e.txt}</div>
+          ${e.sub?`<div class="tl-s">${e.sub}</div>`:''}
+        </div>`).join('')}</div>
+    </div>
+
+    <div class="sec-t">Produção no momento do chamado</div>
+    <div class="bloco">
+      <div class="linha"><span class="linha-rot">Peça</span><span class="linha-val">${c.peca}</span></div>
+      <div class="linha"><span class="linha-rot">Ordem</span><span class="linha-val mono">OP ${c.op}</span></div>
+      <div class="linha"><span class="linha-rot">Lote</span><span class="linha-val mono">${c.lote}</span></div>
+      <div class="linha"><span class="linha-rot">Cavidades ativas</span><span class="linha-val mono">${c.cavidades}</span></div>
+      <div class="linha"><span class="linha-rot">Caixas fechadas até aqui</span><span class="linha-val mono">${c.caixas}</span></div>
+    </div>
+
+    <div class="sec-t">Chamados anteriores da ${c.maquina}</div>
+    ${antMaq.length?antMaq.map(x=>`<div class="hist-i"><div class="hist-n">${x.maquina.slice(-2)}</div>
+      <div class="hist-txt">${x.problema}<div class="hist-sub">${x.operador} · ${hhmm(x.abertoEm)}</div></div>
+      <div class="hist-val">${hm(espera(x))}</div></div>`).join('')
+      :'<div class="vazio">Nenhum outro chamado desta máquina no período.</div>'}
+
+    <div class="sec-t">Chamados de ${c.operador.split(' ')[0]}</div>
+    ${antOper.length?antOper.map(x=>`<div class="hist-i"><div class="hist-n">${x.maquina.slice(-2)}</div>
+      <div class="hist-txt">${x.problema}<div class="hist-sub">${x.maquina} · ${hhmm(x.abertoEm)}</div></div>
+      <div class="hist-val">${hm(espera(x))}</div></div>`).join('')
+      :'<div class="vazio">Nenhum outro chamado deste operador no período.</div>'}
+    <div style="height:8px"></div>`;
+
+  $('#detAcoes').innerHTML=c.status==='atendido'
+    ? `<button class="btn b2" id="dVoltar" style="flex:1">Voltar para a fila</button>
+       <button class="btn b1" id="dNota">Adicionar observação</button>`
+    : `<button class="btn b2" id="dVoltar">Voltar</button>
+       ${c.status==='aberto'?'<button class="btn b1" id="dCaminho">Estou a caminho</button>':''}
+       <button class="btn b1 bverde" id="dChegou">Cheguei na máquina</button>`;
+
+  $('#dVoltar').onclick=()=>{pintaFila();ir(3)};
+  if($('#dCaminho'))$('#dCaminho').onclick=()=>{
+    c.status='a_caminho';
+    c.eventos.push({t:Date.now(),tipo:'caminho',txt:respInfo().nome+' marcou "a caminho"',sub:''});
+    gravaChamado(id,{status:'a_caminho',a_caminho_em:new Date().toISOString(),a_caminho_por:respInfo().nome});
+    abreDetalhe(id);
+  };
+  if($('#dChegou'))$('#dChegou').onclick=()=>pedeNota(c,'Cheguei na máquina',
+    'O que foi feito? Fica no histórico do chamado.',txt=>{
+      c.status='atendido';c.atendidoEm=Date.now();
+      c.eventos.push({t:Date.now(),tipo:'chegou',txt:respInfo().nome+' chegou na máquina',sub:txt});
+      gravaChamado(id,{status:'atendido',atendido_em:new Date().toISOString(),atendido_por:respInfo().nome},
+        txt?{tipo:'nota',texto:'Atendimento',detalhe:txt,autor:respInfo().nome}:null);
+      fechaModal();abreDetalhe(id);
+    });
+  if($('#dNota'))$('#dNota').onclick=()=>pedeNota(c,'Observação','Registro extra sobre este chamado.',txt=>{
+      c.eventos.push({t:Date.now(),tipo:'nota',txt:'Observação de '+respInfo().nome,sub:txt});
+      if(MODO==='online')gravaChamado(id,{},{tipo:'nota',texto:'Observação de '+respInfo().nome,detalhe:txt,autor:respInfo().nome});
+      fechaModal();abreDetalhe(id);
+    });
+}
+$('#detVoltar').onclick=()=>{pintaFila();ir(3)};
+
+function pedeNota(c,titulo,sub,onOk){
+  abreModal(`<h3>${titulo}</h3><p class="h3sub">${sub}</p>
+    <input class="entrada" id="notaTxt" placeholder="Escreva aqui (opcional)" maxlength="120" autocomplete="off">
+    <div class="aviso azul">${c.maquina} · ${c.operador} · esperando há ${hm(espera(c))}</div>
+    <div class="acoes-modal"><button class="btn b2" id="mCancel">Cancelar</button>
+      <button class="btn b1" id="mOk">Confirmar</button></div>`);
+  $('#mCancel').onclick=fechaModal;
+  $('#mOk').onclick=()=>onOk($('#notaTxt').value.trim());
+  $('#notaTxt').onkeydown=e=>{if(e.key==='Enter')onOk($('#notaTxt').value.trim())};
+}
+
+/* ================= INÍCIO ================= */
+pintaTurnos();pintaResp();ir(0);
+iniciaBanco();carregaTudo();escutaChamados();
+setInterval(()=>{if(MODO==='online'&&$('#t3').classList.contains('on'))carregaTudo()},60000);
+</script>
+</body>
+</html>
