@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Chamados · Responsável · Vitalbor</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#0A0E0D; --surf:#131A18; --surf2:#1B2422; --surf3:#243130; --line:#2B3937;
@@ -210,7 +211,7 @@
       <div class="splash-data" id="dataSplash"></div>
       <div class="splash-chip"><i class="pulso"></i><span id="chipTurno">—</span></div>
       <button class="btn-start" id="btnStart">INICIAR</button>
-      <div class="rodape-splash">PAINEL DO RESPONSÁVEL · CHAMADOS DE PRODUÇÃO · v1.0</div>
+      <div class="rodape-splash">PAINEL DO RESPONSÁVEL · CHAMADOS DE PRODUÇÃO · v2.0<br><span id="conexao" style="color:var(--txt3)">verificando conexão…</span></div>
     </section>
 
     <!-- 1 TURNO -->
@@ -277,13 +278,13 @@
    - a lista       -> assinatura realtime, em vez de render local
    ============================================================================= */
 const TURNOS=[{id:'T1',nome:'Turno 1',ini:'06:00',fim:'14:20'},{id:'T2',nome:'Turno 2',ini:'14:20',fim:'22:40'},{id:'T3',nome:'Turno 3',ini:'22:40',fim:'06:00'}];
-const RESPONSAVEIS=[
+let RESPONSAVEIS=[
   {mat:'R012',nome:'Adriano Bueno',cargo:'Líder de produção'},
   {mat:'R027',nome:'Cláudia Marin',cargo:'Supervisora de turno'},
   {mat:'R033',nome:'Everton Sales',cargo:'Líder de injeção'},
   {mat:'R048',nome:'Silvana Costa',cargo:'Coordenadora de produção'}
 ];
-const MAQ={'IJ-01':'Injetora 1 Engel','IJ-02':'Injetora 2 Engel','IJ-03':'Injetora 3 Engel','IJ-04':'Injetora 4 Engel','IJ-05':'Injetora 5 Engel'};
+let MAQ={'IJ-01':'Injetora 1 Engel','IJ-02':'Injetora 2 Engel','IJ-03':'Injetora 3 Engel','IJ-04':'Injetora 4 Engel','IJ-05':'Injetora 5 Engel'};
 
 const min=m=>m*60000;
 const agora=Date.now();
@@ -330,6 +331,85 @@ const SIM=[
   {maquina:'IJ-01',operador:'Fernanda Alves',matricula:'0255',op:'4821',peca:'295 COL-100 NBR',lote:'N-2607',cavidades:24,caixas:5,problema:'Caixa de refugo cheia, preciso de alguém para trocar'},
   {maquina:'IJ-05',operador:'Gustavo Pereira',matricula:'0268',op:'4840',peca:'077 ANEL-45 VMQ',lote:'V-2605',cavidades:48,caixas:2,problema:'Banheiro'}
 ];
+
+/* =============================================================================
+   SUPABASE — mesma configuração do app do operador (mesmo projeto).
+   Em branco = modo demonstração com os chamados de exemplo acima.
+   ============================================================================= */
+const CFG={url:'',anon:''};
+let sb=null, MODO='demo';
+
+function pintaConexao(){
+  const el=document.getElementById('conexao'); if(!el) return;
+  const t={demo:['modo demonstração — sem banco','var(--txt3)'],
+           online:['conectado · atualizando em tempo real','var(--verde)'],
+           offline:['sem conexão com o banco','var(--amarelo)']}[MODO];
+  el.textContent=t[0]; el.style.color=t[1];
+}
+function iniciaBanco(){
+  if(!CFG.url||!CFG.anon||!window.supabase){MODO='demo';pintaConexao();return}
+  try{sb=window.supabase.createClient(CFG.url,CFG.anon,{auth:{persistSession:false}});MODO='online'}
+  catch(e){MODO='demo'}
+  pintaConexao();
+}
+
+const deLinha=r=>({
+  id:r.id, maquina:r.maquina, operador:r.operador_nome||'—', matricula:r.operador_matricula||'—',
+  turno:r.turno||'', op:r.ordem||'—', peca:r.peca||'—', lote:r.lote||'—',
+  cavidades:r.cavidades||0, caixas:r.caixas_fechadas||0, problema:r.problema,
+  abertoEm:new Date(r.aberto_em).getTime(),
+  atendidoEm:r.atendido_em?new Date(r.atendido_em).getTime():null,
+  status:r.status==='atendido'?'atendido':r.status==='a_caminho'?'a_caminho':'aberto',
+  fechadoPeloOperador:!!r.fechado_pelo_operador, eventos:[]
+});
+
+async function carregaTudo(){
+  if(MODO!=='online') return;
+  try{
+    const [resp,maq,ch]=await Promise.all([
+      sb.from('responsaveis').select('*').eq('ativo',true).order('nome'),
+      sb.from('maquinas').select('id,descricao'),
+      sb.from('chamados').select('*').eq('tipo','responsavel')
+        .gte('aberto_em',new Date(Date.now()-12*3600e3).toISOString())
+        .order('aberto_em',{ascending:false})
+    ]);
+    if(resp.data&&resp.data.length)RESPONSAVEIS=resp.data.map(r=>({mat:r.matricula,nome:r.nome,cargo:r.cargo||''}));
+    if(maq.data){MAQ={};maq.data.forEach(m=>MAQ[m.id]=m.descricao)}
+    if(ch.data)CHAMADOS=ch.data.map(deLinha);
+    pintaResp();pintaFila();
+  }catch(e){console.warn(e);MODO='offline';pintaConexao()}
+}
+
+/* realtime: o card entra na tela no instante em que o operador chama */
+function escutaChamados(){
+  if(MODO!=='online') return;
+  sb.channel('chamados-responsavel')
+    .on('postgres_changes',{event:'*',schema:'public',table:'chamados'},payload=>{
+      const r=payload.new; if(!r||r.tipo!=='responsavel') return;
+      const novo=deLinha(r), i=CHAMADOS.findIndex(c=>c.id===novo.id);
+      if(i<0)CHAMADOS.unshift(novo); else CHAMADOS[i]=Object.assign(CHAMADOS[i],novo);
+      if($('#t3').classList.contains('on'))pintaFila();
+      if($('#t4').classList.contains('on')&&S.chamadoAberto===novo.id)abreDetalhe(novo.id);
+    }).subscribe();
+}
+
+async function carregaHistorico(id){
+  if(MODO!=='online') return null;
+  try{
+    const {data,error}=await sb.from('chamado_atualizacoes').select('*')
+      .eq('chamado_id',id).order('criado_em');
+    if(error) throw error;
+    return data.map(a=>({t:new Date(a.criado_em).getTime(),tipo:a.tipo,txt:a.texto,sub:a.detalhe||''}));
+  }catch(e){return null}
+}
+
+async function gravaChamado(id,campos,atualizacao){
+  if(MODO!=='online') return;
+  try{
+    await sb.from('chamados').update(campos).eq('id',id);
+    if(atualizacao) await sb.from('chamado_atualizacoes').insert(Object.assign({chamado_id:id},atualizacao));
+  }catch(e){console.warn('gravar chamado:',e.message||e);MODO='offline';pintaConexao()}
+}
 
 /* ================= ESTADO ================= */
 const S={turno:null,resp:null,chamadoAberto:null};
@@ -481,6 +561,7 @@ setInterval(()=>{
 
 /* botão de demonstração: simula um operador chamando agora */
 $('#simular').onclick=()=>{
+  if(MODO==='online'){alert('Com o banco ligado, os chamados vêm do tablet do operador.');return}
   const base=SIM[Math.floor(Math.random()*SIM.length)];
   const c=Object.assign({},base,{
     id:'CH'+(++SEQ),turno:nomeTurno(),abertoEm:Date.now(),status:'aberto',
@@ -495,15 +576,23 @@ const ICO_TL={abriu:'roxo',caminho:'amar',chegou:'verde',fechou:'verde',nota:'',
 function abreDetalhe(id){
   const c=CHAMADOS.find(x=>x.id===id);if(!c)return;
   S.chamadoAberto=id;
-  $('#detId').textContent=c.id+' · '+c.maquina;
+  if(MODO==='online'){
+    carregaHistorico(id).then(h=>{
+      if(h&&h.length&&S.chamadoAberto===id){c.eventos=h;desenhaDetalhe(c);}
+    });
+  }
+  desenhaDetalhe(c);
+  ir(4);
+}
+
+function desenhaDetalhe(c){
+  const id=c.id;
   const st=c.status==='atendido'?'atendido':c.status==='a_caminho'?'a caminho':'aberto';
+  $('#detId').textContent=c.id+' · '+c.maquina;
   $('#detStatus').textContent=st;
   $('#detStatus').style.color=c.status==='atendido'?'var(--verde)':c.status==='a_caminho'?'var(--amarelo)':'var(--roxo)';
-
-  /* chamados anteriores da mesma máquina e do mesmo operador */
   const antMaq=CHAMADOS.filter(x=>x.maquina===c.maquina&&x.id!==c.id).sort((a,b)=>b.abertoEm-a.abertoEm).slice(0,4);
   const antOper=CHAMADOS.filter(x=>x.matricula===c.matricula&&x.id!==c.id).sort((a,b)=>b.abertoEm-a.abertoEm).slice(0,4);
-
   $('#detConteudo').innerHTML=`
     <div class="det-head">
       <div class="det-tags">
@@ -562,20 +651,22 @@ function abreDetalhe(id){
   if($('#dCaminho'))$('#dCaminho').onclick=()=>{
     c.status='a_caminho';
     c.eventos.push({t:Date.now(),tipo:'caminho',txt:respInfo().nome+' marcou "a caminho"',sub:''});
+    gravaChamado(id,{status:'a_caminho',a_caminho_em:new Date().toISOString(),a_caminho_por:respInfo().nome});
     abreDetalhe(id);
   };
   if($('#dChegou'))$('#dChegou').onclick=()=>pedeNota(c,'Cheguei na máquina',
     'O que foi feito? Fica no histórico do chamado.',txt=>{
       c.status='atendido';c.atendidoEm=Date.now();
       c.eventos.push({t:Date.now(),tipo:'chegou',txt:respInfo().nome+' chegou na máquina',sub:txt});
+      gravaChamado(id,{status:'atendido',atendido_em:new Date().toISOString(),atendido_por:respInfo().nome},
+        txt?{tipo:'nota',texto:'Atendimento',detalhe:txt,autor:respInfo().nome}:null);
       fechaModal();abreDetalhe(id);
     });
   if($('#dNota'))$('#dNota').onclick=()=>pedeNota(c,'Observação','Registro extra sobre este chamado.',txt=>{
       c.eventos.push({t:Date.now(),tipo:'nota',txt:'Observação de '+respInfo().nome,sub:txt});
+      if(MODO==='online')gravaChamado(id,{},{tipo:'nota',texto:'Observação de '+respInfo().nome,detalhe:txt,autor:respInfo().nome});
       fechaModal();abreDetalhe(id);
     });
-
-  ir(4);
 }
 $('#detVoltar').onclick=()=>{pintaFila();ir(3)};
 
@@ -592,6 +683,8 @@ function pedeNota(c,titulo,sub,onOk){
 
 /* ================= INÍCIO ================= */
 pintaTurnos();pintaResp();ir(0);
+iniciaBanco();carregaTudo();escutaChamados();
+setInterval(()=>{if(MODO==='online'&&$('#t3').classList.contains('on'))carregaTudo()},60000);
 </script>
 </body>
 </html>
