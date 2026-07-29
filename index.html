@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Apontamento de Produção · Vitalbor</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#0A0E0D; --surf:#131A18; --surf2:#1B2422; --surf3:#243130; --line:#2B3937;
@@ -426,7 +427,7 @@
       <div class="splash-data" id="dataSplash"></div>
       <div class="splash-turno"><i class="pulso"></i><span id="turnoSplash">—</span></div>
       <button class="btn-start" id="btnStart">INICIAR</button>
-      <div class="rodape-splash">APONTAMENTO DE PRODUÇÃO · TABLET 04 · v5.0</div>
+      <div class="rodape-splash">APONTAMENTO DE PRODUÇÃO · <span id="cfgDisp">TABLET 04</span> · v10.0<br><span id="conexao" style="color:var(--txt3)">verificando conexão…</span></div>
     </section>
 
     <section class="tela" id="t1">
@@ -838,7 +839,141 @@ var QR = (function(){
 
 <script>
 /* ================= BASE DE CADASTRO (em memória — trocar por Supabase/Sheets) ================= */
-const SENHA_ADMIN='juntas2025';
+const SENHA_ADMIN='juntas2025';   /* só abre a tela; quem valida de verdade é o banco */
+let SENHA_DIGITADA='';
+
+/* =============================================================================
+   SUPABASE — preencha URL e chave anon do projeto da Vitalbor.
+   Deixando em branco, o app roda em modo demonstração com os dados de exemplo.
+   ============================================================================= */
+const CFG={
+  url:'',                 // ex.: 'https://xxxxxxxx.supabase.co'
+  anon:'',                // chave anon (public) do projeto
+  dispositivo:'TABLET-04'
+};
+
+let sb=null, MODO='demo';           // demo | online | offline
+const PENDENTES=[];                  // gravações que falharam, para reenviar
+
+function pintaConexao(){
+  const el=document.getElementById('conexao'); if(!el) return;
+  const t={demo:['modo demonstração — sem banco','var(--txt3)'],
+           online:['conectado ao banco','var(--verde)'],
+           offline:['sem conexão · '+PENDENTES.length+' registro(s) na fila','var(--amarelo)']}[MODO];
+  el.textContent=t[0]; el.style.color=t[1];
+  const d=document.getElementById('cfgDisp'); if(d)d.textContent=CFG.dispositivo;
+}
+
+function iniciaBanco(){
+  if(!CFG.url||!CFG.anon||!window.supabase){MODO='demo';pintaConexao();return}
+  try{
+    sb=window.supabase.createClient(CFG.url,CFG.anon,{auth:{persistSession:false}});
+    MODO='online';
+  }catch(e){MODO='demo'}
+  pintaConexao();
+}
+
+/* toda escrita passa por aqui: nunca trava a tela, nunca perde o registro
+   enquanto a página estiver aberta */
+async function escreve(desc,fn){
+  if(MODO==='demo') return null;
+  try{
+    const r=await fn(sb);
+    if(r&&r.error) throw r.error;
+    if(MODO==='offline'&&!PENDENTES.length){MODO='online';pintaConexao()}
+    return r?r.data:null;
+  }catch(e){
+    console.warn('falha ao gravar ('+desc+'):',e.message||e);
+    PENDENTES.push({desc,fn});
+    MODO='offline';pintaConexao();
+    return null;
+  }
+}
+setInterval(async()=>{
+  if(MODO==='demo'||!PENDENTES.length) return;
+  const lote=PENDENTES.splice(0,PENDENTES.length);
+  for(const p of lote){
+    try{const r=await p.fn(sb); if(r&&r.error) throw r.error}
+    catch(e){PENDENTES.push(p)}
+  }
+  MODO=PENDENTES.length?'offline':'online';
+  pintaConexao();
+},20000);
+
+/* ---------- leitura dos cadastros ---------- */
+async function carregaCadastros(){
+  if(MODO!=='online') return;
+  try{
+    const [maq,ope,mat,pec,ord,lot]=await Promise.all([
+      sb.from('maquinas').select('*').eq('ativo',true).order('id'),
+      sb.from('operadores').select('*').eq('ativo',true).order('nome'),
+      sb.from('materias_primas').select('*').eq('ativo',true).order('codigo'),
+      sb.from('pecas').select('*').eq('ativo',true).order('nome'),
+      sb.from('ordens').select('*').in('status',['aberta','em_producao']),
+      sb.from('lotes_materia').select('*').eq('ativo',true).order('recebido_em',{ascending:false}).limit(12)
+    ]);
+    if(maq.data&&maq.data.length) MAQUINAS=maq.data.map(m=>({id:m.id,desc:m.descricao,status:m.status,nota:m.observacao||'—'}));
+    if(ope.data&&ope.data.length) OPERADORES=ope.data.map(o=>({mat:o.matricula,nome:o.nome}));
+    if(mat.data&&mat.data.length) MATERIAS=mat.data.map(m=>({cod:m.codigo,nome:m.nome,pref:m.prefixo_lote}));
+    if(pec.data) PECAS=pec.data.map(p=>({cod:p.codigo,nome:p.nome,materia:p.materia,cavidades:p.cavidades,injHora:p.inj_hora,ciclo:p.ciclo_seg}));
+    if(ord.data){OPS={};ord.data.forEach(o=>{OPS[o.numero]={peca:o.peca,qtd:o.quantidade}})}
+    if(lot.data&&lot.data.length) LOTES_RECENTES=lot.data.map(l=>String(l.lote).split('-').pop());
+    limpar();
+  }catch(e){ console.warn('cadastros:',e.message||e); MODO='offline'; pintaConexao(); }
+}
+
+/* ---------- escritas da operação ---------- */
+function abrirTurnoNoBanco(){
+  const p=pecaDaOP(),o=opInfo();
+  E.turnoId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'t'+Date.now();
+  escreve('abrir turno',s=>s.from('turnos_producao').insert({
+    id:E.turnoId, maquina:E.maquina, operador:E.operador, turno:E.turno,
+    ordem:o?E.op:null, ordem_texto:o?null:E.op, peca:p?p.cod:null,
+    materia:E.materia, lote:loteCheio(), cavidades:E.cav, dispositivo:CFG.dispositivo
+  }));
+}
+function salvarCaixaNoBanco(c,n,qr,ultima){
+  escreve('salvar caixa '+n,s=>s.from('caixas').insert({
+    turno_id:E.turnoId, numero:n, injetadas:c.inj, cavidades:E.cav,
+    refugo:c.ref, boas:c.boas, lote:loteCheio(), qr, ultima:!!ultima
+  }));
+}
+function salvarEventoNoBanco(ev){
+  ev.dbId='e'+Date.now()+Math.floor(Math.random()*999);
+  escreve('abrir evento',s=>s.from('eventos_turno').insert({
+    turno_id:E.turnoId,
+    tipo:ev.tipo==='mecanico'?'parada':ev.tipo==='responsavel'?'ausencia':'cavidade',
+    motivo:ev.motivo, cav_de:ev.de||null, cav_para:ev.para||null,
+    iniciado_em:new Date(ev.ts).toISOString()
+  }).select('id').single()).then(d=>{if(d&&d.id)ev.dbRow=d.id});
+}
+function fecharEventoNoBanco(ev,dur){
+  if(!ev.dbRow) return;
+  escreve('fechar evento',s=>s.from('eventos_turno')
+    .update({encerrado_em:new Date().toISOString(),duracao_seg:dur}).eq('id',ev.dbRow));
+}
+function encerrarTurnoNoBanco(tot){
+  escreve('encerrar turno',s=>s.from('turnos_producao').update({
+    encerrado_em:new Date().toISOString(),
+    seg_produzindo:tot.tProd, seg_parado:E.segParado, seg_ausente:E.segEsperando,
+    pecas_boas:tot.boas, refugo:tot.ref, injetadas:tot.inj, caixas:E.caixas.length,
+    previsto:Math.round(tot.previsto), desempenho:tot.desemp
+  }).eq('id',E.turnoId));
+}
+function abrirChamadoNoBanco(ch,ev){
+  const p=pecaDaOP();
+  escreve('abrir chamado',s=>s.from('chamados').insert({
+    id:ch.id, turno_id:E.turnoId, tipo:ev.tipo==='mecanico'?'mecanico':'responsavel',
+    maquina:E.maquina, operador_matricula:E.operador, operador_nome:nomeOper(),
+    turno:E.turno, ordem:E.op, peca:p?p.nome:null, lote:loteCheio(),
+    cavidades:E.cav, caixas_fechadas:E.caixas.length, problema:ev.motivo
+  }));
+}
+function fecharChamadoNoBanco(ch){
+  escreve('fechar chamado',s=>s.from('chamados').update({
+    status:'atendido', atendido_em:new Date().toISOString(), fechado_pelo_operador:true
+  }).eq('id',ch.id).eq('status','aberto'));
+}
 
 let PECAS=[
   {cod:'295-COL-100', nome:'295 COL-100 NBR',  materia:'NBR',  cavidades:24, injHora:20},
@@ -846,23 +981,23 @@ let PECAS=[
   {cod:'077-ANEL-45', nome:'077 ANEL-45 VMQ',  materia:'VMQ',  cavidades:48, injHora:24}
 ];
 
-const OPS={
+let OPS={
   '4821':{peca:'295-COL-100', qtd:32700},
   '4835':{peca:'118-RET-220', qtd:12400},
   '4840':{peca:'077-ANEL-45', qtd:8900}
 };
 
 const TURNOS=[{id:'T1',nome:'Turno 1',ini:'06:00',fim:'14:20'},{id:'T2',nome:'Turno 2',ini:'14:20',fim:'22:40'},{id:'T3',nome:'Turno 3',ini:'22:40',fim:'06:00'}];
-const MAQUINAS=[
+let MAQUINAS=[
   {id:'IJ-01',desc:'Injetora 1 Engel',status:'livre',nota:'Última OP encerrada às 05:48'},
   {id:'IJ-02',desc:'Injetora 2 Engel',status:'livre',nota:'Molde 295 COL-100 montado'},
   {id:'IJ-03',desc:'Injetora 3 Engel',status:'uso',nota:'Turno anterior não encerrou'},
   {id:'IJ-04',desc:'Injetora 4 Engel',status:'livre',nota:'Setup concluído'},
   {id:'IJ-05',desc:'Injetora 5 Engel',status:'livre',nota:'—'},
   {id:'IJ-H',desc:'Injetora Horizontal',status:'parada',nota:'Equipamento inativo'}];
-const OPERADORES=[{mat:'0142',nome:'Ana Paula Ribeiro'},{mat:'0187',nome:'Carlos Eduardo Lima'},{mat:'0203',nome:'Débora Nunes'},{mat:'0231',nome:'Eduardo Farias'},{mat:'0255',nome:'Fernanda Alves'},{mat:'0268',nome:'Gustavo Pereira'},{mat:'0290',nome:'Jhenifer Luana A.'},{mat:'0312',nome:'Marcos Vinícius Souza'},{mat:'0344',nome:'Patrícia Moraes'},{mat:'0361',nome:'Rodrigo Tavares'}];
-const MATERIAS=[{cod:'NBR',nome:'Nitrílica'},{cod:'EPDM',nome:'Etileno-propileno'},{cod:'VMQ',nome:'Silicone'},{cod:'FKM',nome:'Viton'},{cod:'SBR',nome:'Estireno-butadieno'},{cod:'CR',nome:'Neoprene'}];
-const LOTES_RECENTES=['2607','2606','2605'];
+let OPERADORES=[{mat:'0142',nome:'Ana Paula Ribeiro'},{mat:'0187',nome:'Carlos Eduardo Lima'},{mat:'0203',nome:'Débora Nunes'},{mat:'0231',nome:'Eduardo Farias'},{mat:'0255',nome:'Fernanda Alves'},{mat:'0268',nome:'Gustavo Pereira'},{mat:'0290',nome:'Jhenifer Luana A.'},{mat:'0312',nome:'Marcos Vinícius Souza'},{mat:'0344',nome:'Patrícia Moraes'},{mat:'0361',nome:'Rodrigo Tavares'}];
+let MATERIAS=[{cod:'NBR',nome:'Nitrílica'},{cod:'EPDM',nome:'Etileno-propileno'},{cod:'VMQ',nome:'Silicone'},{cod:'FKM',nome:'Viton'},{cod:'SBR',nome:'Estireno-butadieno'},{cod:'CR',nome:'Neoprene'}];
+let LOTES_RECENTES=['2607','2606','2605'];
 const CAV_PADRAO=24, INJ_HORA_PADRAO=18;
 const MOT_CAV=['Cavidade danificada','Cavidade obstruída','Molde parcial','Ajuste de processo','Correção de digitação','Outro'];
 
@@ -982,7 +1117,7 @@ $('#btnAdmin').onclick=()=>{
     <div class="acoes-modal"><button class="btn b2" id="mCancel">Cancelar</button><button class="btn b1" id="mEntrar">Entrar</button></div>`);
   $('#mCancel').onclick=fechaModal;
   const tenta=()=>{
-    if($('#admSenha').value===SENHA_ADMIN){fechaModal();pintaPecas();ir(7)}
+    if($('#admSenha').value===SENHA_ADMIN||MODO==='online'){SENHA_DIGITADA=$('#admSenha').value;fechaModal();pintaPecas();ir(7)}
     else{$('#admErro').innerHTML='<div class="aviso verm">Senha incorreta.</div>';$('#admSenha').value=''}
   };
   $('#mEntrar').onclick=tenta;
@@ -1034,12 +1169,21 @@ function editaPeca(idx){
     $('#ePInj').onclick=()=>abreTeclado({titulo:'Injetadas por hora',sub:'Meta de ciclos por hora para esta peça.',
       valor:String(p.injHora),max:3,onOk:v=>{p.injHora=Math.max(1,+v||1);render()}});
     $('#mCancel').onclick=fechaModal;
-    if($('#pExcluir'))$('#pExcluir').onclick=()=>{PECAS.splice(idx,1);fechaModal();pintaPecas()};
+    if($('#pExcluir'))$('#pExcluir').onclick=()=>{
+      const cod=PECAS[idx].cod;PECAS.splice(idx,1);
+      if(MODO!=='demo')escreve('desativar peça',s2=>s2.rpc('admin_desativar_peca',{p_senha:SENHA_DIGITADA,p_codigo:cod}));
+      fechaModal();pintaPecas()};
     $('#pSalvar').onclick=()=>{
       p.cod=$('#pCod').value.trim().toUpperCase();p.nome=$('#pNome').value.trim();
       if(!p.cod||!p.nome){$('#pErro').innerHTML='<div class="aviso verm">Preencha código e descrição.</div>';return}
       if(PECAS.some((x,i)=>x.cod===p.cod&&i!==idx)){$('#pErro').innerHTML='<div class="aviso verm">Já existe peça com esse código.</div>';return}
       if(nova)PECAS.push(p);else PECAS[idx]=p;
+      if(MODO!=='demo'){
+        escreve('salvar peça',s2=>s2.rpc('admin_salvar_peca',{
+          p_senha:SENHA_DIGITADA,p_codigo:p.cod,p_nome:p.nome,p_materia:p.materia,
+          p_cavidades:p.cavidades,p_inj_hora:p.injHora,p_ciclo_seg:null,p_autor:CFG.dispositivo
+        })).then(r=>{if(r===null&&MODO==='online')alert('O banco recusou a gravação (senha do admin incorreta no Supabase).')});
+      }
       fechaModal();pintaPecas();
     };
   }
@@ -1165,6 +1309,7 @@ function iniciaProducao(){
   $('#tagTurno').textContent=nomeTurno();
   $('#tagOper').textContent=nomeOper();
   $('#runPeca').textContent=p?p.nome:('OP '+E.op);
+  abrirTurnoNoBanco();
   clearInterval(cron);cron=setInterval(atualizaRun,1000);
   atualizaRun();pintaKpis();pintaHist();atualizaBotoes();ir(5);
 }
@@ -1296,7 +1441,8 @@ $('#kCavBtn').onclick=()=>{
     $('#mCancel').onclick=fechaModal;
     $('#mOk').onclick=()=>{
       fechaSegCav();
-      E.eventos.push({tipo:'cavidade',de:E.cav,para:novo,motivo,hora:hora(),ts:Date.now()});
+      const evCav={tipo:'cavidade',de:E.cav,para:novo,motivo,hora:hora(),ts:Date.now()};
+      E.eventos.push(evCav);salvarEventoNoBanco(evCav);
       E.cav=novo;
       fechaModal();pintaKpis();pintaHist();
     };
@@ -1348,6 +1494,7 @@ function iniciaChamado(tipo,motivo){
   E.evtAtual={tipo,motivo,t0:Date.now(),hora:hora(),acum:tipo==='mecanico'?E.segParado:E.segEsperando,ts:Date.now()};
   E.estado=tipo==='mecanico'?'parado':'aguardando';
   E.eventos.push(E.evtAtual);
+  salvarEventoNoBanco(E.evtAtual);
   abreChamadoNaFila(E.evtAtual);
   fechaModal();atualizaRun();pintaHist();atualizaBotoes();
 }
@@ -1367,12 +1514,13 @@ function abreChamadoNaFila(ev){
     aCaminhoEm:null, atendidoEm:null, evt:ev
   };
   ev.chamadoId=ch.id;
+  abrirChamadoNoBanco(ch,ev);
   FILA.unshift(ch);
   pintaFila();
 }
 function encerraChamadoNaFila(ev){
   const ch=FILA.find(c=>c.id===ev.chamadoId);
-  if(ch&&!ch.atendidoEm){ch.atendidoEm=Date.now();ch.fechadoPeloOperador=true}
+  if(ch&&!ch.atendidoEm){ch.atendidoEm=Date.now();ch.fechadoPeloOperador=true;fecharChamadoNoBanco(ch)}
   pintaFila();
 }
 const abertos=()=>FILA.filter(c=>!c.atendidoEm);
@@ -1446,6 +1594,7 @@ function encerraChamado(){
   $('#mCancel').onclick=fechaModal;
   $('#mRetoma').onclick=()=>{
     ev.dur=dur;
+    fecharEventoNoBanco(ev,dur);
     encerraChamadoNaFila(ev);
     if(ev.tipo==='mecanico')E.segParado=ev.acum+dur;else E.segEsperando=ev.acum+dur;
     E.evtAtual=null;E.estado='produzindo';
@@ -1546,6 +1695,7 @@ function confirmaCaixa(){
     const gasto=E.caixas.reduce((a,k)=>a+(k.segDecorrido||0),0);
     E.caixas.push({n,injetadas:c.inj,refugo:c.ref,boas:c.boas,cav:E.cav,lote:loteCheio(),qr:qrTxt,
       hora:hora(),ts:Date.now(),segDecorrido:Math.max(0,segProduzindo()-gasto)});
+    salvarCaixaNoBanco(c,n,qrTxt,cx.ultima);
     const ult=cx.ultima;cx={inj:'',ref:'',ultima:false};
     fechaModal();pintaKpis();pintaHist();
     if(ult)encerraTurno();
@@ -1594,6 +1744,7 @@ function encerraTurno(){
   const semBase=previsto<1;
   const desemp=semBase?0:Math.round(boas/previsto*100);
   const ph=tProd>0?boas/(tProd/3600):0;
+  encerrarTurnoNoBanco({tProd,boas,ref,inj,previsto,desemp:semBase?null:desemp});
   const cor=desemp>=95?'var(--verde)':desemp>=80?'var(--amarelo)':'var(--vermelho)';
   $('#anel').style.background=`conic-gradient(${semBase?'var(--surf2)':cor} ${Math.min(desemp,100)}%, var(--surf2) 0)`;
   $('#anel').innerHTML=`<div class="anel-in"><b style="color:${semBase?'var(--txt3)':cor}">${semBase?'—':desemp+'%'}</b><span>Desempenho</span></div>`;
@@ -1629,6 +1780,7 @@ function limpar(){
   pintaTurnos();pintaMaquinas();pintaOperador();pintaOrdem();atualizaBotoes();
 }
 limpar();ir(0);
+iniciaBanco();carregaCadastros();
 </script>
 </body>
 </html>
