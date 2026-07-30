@@ -18,7 +18,7 @@
    Enquanto estiver em branco, os painéis avisam que o banco não está ligado.
    ═══════════════════════════════════════════════════════════════════════════ */
 window.SUPABASE_CFG = {
-  url:  'https://ssvsoldtwhqjeusqwrye.supabase.co',
+ url:  'https://ssvsoldtwhqjeusqwrye.supabase.co',
   anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzdnNvbGR0d2hxamV1c3F3cnllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDQxMzAsImV4cCI6MjEwMDkyMDEzMH0.Do1kB5wR2TxM7h0ASfvt-ppKwihKLgGYgE0HzMRIdLA',
   dispositivo: 'TABLET-04'    // muda em cada tablet: TABLET-01, TABLET-02...
 };
@@ -863,6 +863,15 @@ window.SUPABASE_CFG = {
       <div class="splash-hora" id="horaSplash">--:--</div>
       <div class="splash-data" id="dataSplash"></div>
       <div class="splash-turno"><i class="pulso"></i><span id="turnoSplash">—</span></div>
+
+      <div class="retoma" id="retoma" style="display:none">
+        <div class="retoma-tag"><i></i>Produção em andamento nesta máquina</div>
+        <div class="retoma-maq" id="retomaMaq">—</div>
+        <div class="retoma-info" id="retomaInfo">—</div>
+        <button class="retoma-btn" id="retomaBtn">Retomar produção</button>
+        <button class="retoma-desc" id="retomaDesc">descartar e começar do zero</button>
+      </div>
+
       <button class="btn-start" id="btnStart">INICIAR</button>
       <div class="rodape-splash">APONTAMENTO DE PRODUÇÃO · <span id="cfgDisp">TABLET 04</span> · v10.0<br><span id="conexao" style="color:var(--txt3)">verificando conexão…</span></div>
     </section>
@@ -1679,6 +1688,31 @@ const hora=()=>new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-d
 const prefixo=()=>E.materia?E.materia[0]:'';
 const loteCheio=()=>E.materia&&E.lote?prefixo()+'-'+E.lote:'';
 
+/* =============================================================================
+   PERSISTÊNCIA LOCAL — sobrevive a fechar o app, recarregar a página, o
+   tablet reiniciar. Cada tablet guarda o turno dele; não é sincronizado
+   entre dispositivos (isso é o Supabase que faz). Salva o suficiente pra
+   reconstruir a tela de produção exatamente como estava.
+   ============================================================================= */
+const CHAVE_LOCAL='vtb_turno_'+(CFG.dispositivo||'padrao');
+function salvaLocal(){
+  try{
+    if(!E.inicio) return;               /* nada em produção, nada a salvar */
+    localStorage.setItem(CHAVE_LOCAL,JSON.stringify({E,salvoEm:Date.now(),v:1}));
+  }catch(e){/* localStorage indisponível (aba privada, cota cheia) — segue sem persistir */}
+}
+function limpaLocal(){
+  try{localStorage.removeItem(CHAVE_LOCAL)}catch(e){}
+}
+function leLocal(){
+  try{
+    const raw=localStorage.getItem(CHAVE_LOCAL);
+    if(!raw) return null;
+    const obj=JSON.parse(raw);
+    return (obj&&obj.v===1&&obj.E&&obj.E.inicio)?obj:null;
+  }catch(e){return null}
+}
+
 const opInfo=()=>OPS[E.op]||null;
 const pecaDaOP=()=>{const o=opInfo();return o?PECAS.find(p=>p.cod===o.peca)||null:null};
 const totCav=()=>{const p=pecaDaOP();return p?p.cavidades:null};
@@ -1702,6 +1736,7 @@ const NOMES=['','Turno','Máquina','Operador','Ordem'];
 $('#trilha').innerHTML=[1,2,3,4].map(i=>`<div class="etapa" data-e="${i}"><div class="etapa-barra"></div><div class="etapa-txt">${NOMES[i]}</div></div>`).join('');
 function ir(i){
   passo=i;
+  if(i===0) verificaRetomada();
   ['t0','t1','t2','t3','t4','t5','t6','t7','t8'].forEach((t,k)=>$('#'+t).classList.toggle('on',k===i));
   const m=i>=1&&i<=4;$('#topo').classList.toggle('on',m);
   if(m){$('#topoPasso').textContent='Passo '+i+' de 4';$('#topoNome').textContent=NOMES[i];
@@ -1709,7 +1744,19 @@ function ir(i){
   window.scrollTo(0,0);
 }
 $('#voltar').addEventListener('click',()=>ir(Math.max(0,passo-1)));
-$('#btnStart').addEventListener('click',()=>{limpar();ir(1)});
+$('#btnStart').addEventListener('click',()=>{
+  const salvo=leLocal();
+  if(salvo){
+    abreModal(`<h3>Existe uma produção aberta</h3>
+      <p class="h3sub">Antes de iniciar outra, retome a que está salva neste tablet ou descarte-a — senão a ordem antiga fica aberta no sistema sem ninguém fechar.</p>
+      <div class="acoes-modal"><button class="btn b2" id="mCancel">Cancelar</button>
+        <button class="btn b1" id="mRetoma2">Retomar a produção salva</button></div>`);
+    $('#mCancel').onclick=fechaModal;
+    $('#mRetoma2').onclick=()=>{fechaModal();retomaProducao(salvo)};
+    return;
+  }
+  limpar();ir(1);
+});
 
 /* ================= GAVETAS (teclado e lista) ================= */
 let gav={valor:'',pref:'',max:8,onOk:null};
@@ -1962,10 +2009,7 @@ $('#okOrdem').onclick=()=>{
 };
 
 /* ================= PRODUÇÃO ================= */
-function iniciaProducao(){
-  fechaModal();
-  E.inicio=Date.now();E.caixas=[];E.eventos=[];E.estado='produzindo';E.evtAtual=null;
-  E.segParado=0;E.segEsperando=0;E.cavSegs=[];E.ultTrocaCav=0;
+function pintaCabecalhoRun(){
   const p=pecaDaOP();
   $('#tagMaq').textContent=E.maquina;
   $('#tagOP').textContent='OP '+E.op;
@@ -1973,9 +2017,57 @@ function iniciaProducao(){
   $('#tagTurno').textContent=nomeTurno();
   $('#tagOper').textContent=nomeOper();
   $('#runPeca').textContent=p?p.nome:('OP '+E.op);
+}
+function iniciaProducao(){
+  fechaModal();
+  E.inicio=Date.now();E.caixas=[];E.eventos=[];E.estado='produzindo';E.evtAtual=null;
+  E.segParado=0;E.segEsperando=0;E.cavSegs=[];E.ultTrocaCav=0;
+  pintaCabecalhoRun();
   abrirTurnoNoBanco();
-  clearInterval(cron);cron=setInterval(atualizaRun,1000);
+  salvaLocal();
+  clearInterval(cron);cron=setInterval(()=>{atualizaRun();salvaLocal()},1000);
   atualizaRun();pintaKpis();pintaHist();atualizaBotoes();ir(5);
+}
+
+/* retoma um turno salvo neste tablet (fechou o app/aba, o navegador travou,
+   o tablet reiniciou — as timestamps guardadas fazem os cronômetros
+   continuarem certos, sem precisar saber quanto tempo passou desligado) */
+function retomaProducao(salvo){
+  Object.assign(E,salvo.E);
+  pintaCabecalhoRun();
+  clearInterval(cron);cron=setInterval(()=>{atualizaRun();salvaLocal()},1000);
+  atualizaRun();pintaKpis();pintaHist();atualizaBotoes();ir(5);
+  if(MODO==='online'&&E.evtAtual&&E.evtAtual.chamadoId){
+    escreve('conferir chamado',s2=>s2.from('chamados').select('*').eq('id',E.evtAtual.chamadoId).single())
+      .then(r=>{
+        if(!r) return;
+        if(r.status==='a_caminho') E.evtAtual.aCaminho=r.a_caminho_em?new Date(r.a_caminho_em).getTime():Date.now();
+        if(r.status==='na_maquina'){E.evtAtual.naMaquina=r.atendido_em?new Date(r.atendido_em).getTime():Date.now();E.evtAtual.quemVeio=r.atendido_por}
+        atualizaRun();atualizaBotoes();salvaLocal();
+      });
+  }
+}
+function verificaRetomada(){
+  const salvo=leLocal();
+  const banner=$('#retoma');
+  if(!salvo){banner.style.display='none';return}
+  const m=MAQUINAS.find(x=>x.id===salvo.E.maquina);
+  $('#retomaMaq').textContent=salvo.E.maquina+(m?' · '+m.desc:'');
+  const min=Math.floor((Date.now()-salvo.E.inicio)/60000);
+  const horas=Math.floor(min/60),mins=min%60;
+  $('#retomaInfo').textContent='Aberta há '+(horas?horas+'h '+mins+'min':mins+'min')+' · '+
+    (salvo.E.caixas?salvo.E.caixas.length:0)+' caixa(s) fechada(s) · fechada em '+
+    new Date(salvo.salvoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  banner.style.display='block';
+  $('#retomaBtn').onclick=()=>retomaProducao(salvo);
+  $('#retomaDesc').onclick=()=>{
+    abreModal(`<h3>Descartar produção salva</h3>
+      <p class="h3sub">A ordem continua aberta no sistema — isso só descarta o que está salvo neste tablet. Se precisar encerrar de verdade, abra o turno e use "Fechar produção".</p>
+      <div class="acoes-modal"><button class="btn b2" id="mCancel">Voltar</button>
+        <button class="btn b1" id="mDesc" style="background:var(--vermelho);color:#2B0000">Descartar mesmo assim</button></div>`);
+    $('#mCancel').onclick=fechaModal;
+    $('#mDesc').onclick=()=>{limpaLocal();fechaModal();verificaRetomada()};
+  };
 }
 function segTotal(){return Math.floor((Date.now()-E.inicio)/1000)}
 function segProduzindo(){return Math.max(0,segTotal()-E.segParado-E.segEsperando)}
@@ -2114,7 +2206,7 @@ $('#kCavBtn').onclick=()=>{
       const evCav={tipo:'cavidade',de:E.cav,para:novo,motivo,hora:hora(),ts:Date.now()};
       E.eventos.push(evCav);salvarEventoNoBanco(evCav);
       E.cav=novo;
-      fechaModal();pintaKpis();pintaHist();
+      fechaModal();pintaKpis();pintaHist();salvaLocal();
     };
   }
   render();
@@ -2166,7 +2258,7 @@ function iniciaChamado(tipo,motivo){
   E.eventos.push(E.evtAtual);
   salvarEventoNoBanco(E.evtAtual);
   abreChamadoNaFila(E.evtAtual);
-  fechaModal();atualizaRun();pintaHist();atualizaBotoes();
+  fechaModal();atualizaRun();pintaHist();atualizaBotoes();salvaLocal();
 }
 
 /* =========================================================================
@@ -2218,6 +2310,7 @@ window.BUS.escuta((acao,ch)=>{
   atualizaRun();atualizaBotoes();
   const f=FILA.find(c=>c.id===ch.id);
   if(f){f.aCaminhoEm=ch.aCaminhoEm||f.aCaminhoEm; if(ch.status==='atendido')f.atendidoEm=f.atendidoEm||ch.atendidoEm}
+  salvaLocal();
 });
 const abertos=()=>FILA.filter(c=>!c.atendidoEm);
 
@@ -2294,7 +2387,7 @@ function encerraChamado(){
     encerraChamadoNaFila(ev);
     if(ev.tipo==='mecanico')E.segParado=ev.acum+dur;else E.segEsperando=ev.acum+dur;
     E.evtAtual=null;E.estado='produzindo';
-    fechaModal();atualizaRun();pintaHist();atualizaBotoes();
+    fechaModal();atualizaRun();pintaHist();atualizaBotoes();salvaLocal();
   };
 }
 function atualizaBotoes(){
@@ -2368,7 +2461,7 @@ function finalizaChamadoResp(){
        sub:(desc||'sem descrição')+' · '+(destino==='produzir'?'voltou a produzir':'parada para manutenção')});
     E.segEsperando=ev.acum+dur;
     E.evtAtual=null;E.estado='produzindo';
-    fechaModal();atualizaRun();pintaHist();atualizaBotoes();pintaFila();
+    fechaModal();atualizaRun();pintaHist();atualizaBotoes();pintaFila();salvaLocal();
     if(destino==='manutencao'){
       const mot=desc?('Após chamado do responsável: '+desc):'Máquina parada após atendimento do responsável';
       iniciaChamado('mecanico',mot.slice(0,80));
@@ -2457,6 +2550,7 @@ function confirmaCaixa(){
     E.caixas.push({n,injetadas:c.inj,refugo:c.ref,boas:c.boas,cav:E.cav,lote:loteCheio(),qr:qrTxt,
       hora:hora(),ts:Date.now(),segDecorrido:Math.max(0,segProduzindo()-gasto)});
     salvarCaixaNoBanco(c,n,qrTxt,cx.ultima);
+    salvaLocal();
     const ult=cx.ultima;cx={inj:'',ref:'',ultima:false};
     fechaModal();pintaKpis();pintaHist();
     if(ult)encerraTurno();
@@ -2497,6 +2591,7 @@ $('#bFim').onclick=()=>{
 
 function encerraTurno(){
   clearInterval(cron);
+  limpaLocal();
   fechaSegCav();  /* fecha o último período de cavidades */
   const boas=totalBoas(),ref=totalRef(),inj=totalInj();
   const tProd=segProduzindo(),tTot=segTotal();
@@ -2542,6 +2637,7 @@ function limpar(){
 }
 limpar();ir(0);
 iniciaBanco();carregaCadastros();
+verificaRetomada();
 
 window.BOOT_OPERADOR=()=>{};
 })();
