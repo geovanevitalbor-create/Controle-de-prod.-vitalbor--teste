@@ -18,8 +18,8 @@
    Enquanto estiver em branco, os painéis avisam que o banco não está ligado.
    ═══════════════════════════════════════════════════════════════════════════ */
 window.SUPABASE_CFG = {
-  url:  'https://ssvsoldtwhqjeusqwrye.supabase.co',
-  anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzdnNvbGR0d2hxamV1c3F3cnllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDQxMzAsImV4cCI6MjEwMDkyMDEzMH0.Do1kB5wR2TxM7h0ASfvt-ppKwihKLgGYgE0HzMRIdLA',
+  url:  '',
+  anon: '',
   dispositivo: 'TABLET-04'    // muda em cada tablet: TABLET-01, TABLET-02...
 };
 </script>
@@ -646,6 +646,41 @@ window.SUPABASE_CFG = {
     #appResp .det-timer {font-size:42px}
   }
 
+
+  /* ============ ALERTA VERMELHO DE CHAMADO (responsável) ============ */
+  #appResp .alerta{position:fixed;inset:0;z-index:90;display:none;
+    align-items:center;justify-content:center;padding:26px 20px;text-align:center;
+    background:radial-gradient(120% 80% at 50% 0%,#8E1414,#3A0505 70%);
+    animation:alertaPulso 1.1s ease-in-out infinite alternate}
+  #appResp .alerta.on{display:flex}
+  @keyframes alertaPulso{from{box-shadow:inset 0 0 0 0 rgba(255,90,90,0)}
+                         to{box-shadow:inset 0 0 140px 0 rgba(255,120,120,.45)}}
+  #appResp .al-in{max-width:520px;width:100%}
+  #appResp .al-sino{font-size:56px;line-height:1;margin-bottom:14px;animation:sino .8s ease-in-out infinite alternate}
+  @keyframes sino{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}
+  #appResp .al-rot{font-size:13px;letter-spacing:4px;text-transform:uppercase;font-weight:800;color:#FFD9D9;opacity:.9}
+  #appResp .al-maq{font-family:var(--mono);font-size:64px;font-weight:700;letter-spacing:-2px;color:#fff;margin:10px 0 4px;line-height:1}
+  #appResp .al-oper{font-size:20px;font-weight:750;color:#fff}
+  #appResp .al-prob{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.22);border-radius:16px;
+    padding:16px 18px;margin:20px 0;color:#fff;font-size:18px;font-weight:650;line-height:1.35}
+  #appResp .al-hora{font-family:var(--mono);font-size:13px;color:#FFD9D9;opacity:.85}
+  #appResp .al-btn{width:100%;margin-top:24px;background:#fff;color:#8E1414;border:0;border-radius:20px;
+    padding:26px 20px;font-size:22px;font-weight:850;letter-spacing:2px;cursor:pointer;font-family:inherit;
+    box-shadow:0 14px 40px rgba(0,0,0,.35)}
+  #appResp .al-btn:active{transform:translateY(2px)}
+  #appResp .al-fila{margin-top:16px;font-size:13px;color:#FFD9D9;opacity:.85}
+
+  /* ============ ENCERRAMENTO NA TELA DO OPERADOR ============ */
+  #appOper .quem{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  #appOper .quem .card{align-items:center;text-align:center;padding:20px 14px;min-height:96px;justify-content:center}
+  #appOper .destino{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+  #appOper .dst{min-height:84px;border:0;border-radius:16px;font-family:inherit;font-size:16px;font-weight:800;
+    cursor:pointer;padding:14px 12px;line-height:1.25}
+  #appOper .dst small{display:block;font-size:11.5px;font-weight:600;opacity:.72;margin-top:5px}
+  #appOper .dst-prod{background:var(--verde);color:#00230F}
+  #appOper .dst-mnt{background:var(--vermelho);color:#2B0000}
+  #appOper .dst:disabled{opacity:.35;cursor:not-allowed}
+
   /* ============ PAINEL DO MECÂNICO (kanban) ============ */
   #appMec .tela{display:none;flex-direction:column;padding:20px 16px 0}
   #appMec .tela.on{display:flex}
@@ -1100,6 +1135,21 @@ window.SUPABASE_CFG = {
     </section>
   </main>
 
+
+  <div class="alerta" id="r_alerta">
+    <div class="al-in">
+      <div class="al-sino">🔔</div>
+      <div class="al-rot">Chamado do operador</div>
+      <div class="al-maq" id="r_alMaq">—</div>
+      <div class="al-oper" id="r_alOper">—</div>
+      <div class="al-prob" id="r_alProb">—</div>
+      <div class="al-hora" id="r_alHora">—</div>
+      <button class="al-btn" id="r_alVer">VISUALIZAR</button>
+      <div class="al-fila" id="r_alFila"></div>
+    </div>
+  </div>
+
+
   <div class="fundo" id="r_fundo"><div class="folha" id="r_folha"></div></div>
   <div class="fundo" id="r_gaveta" style="z-index:60"><div class="folha" id="r_gavetaIn"></div></div>
 </div>
@@ -1428,6 +1478,14 @@ var QR = (function(){
    Com o Supabase ligado, cada painel também escuta a tabela `chamados` por
    realtime, e aí funciona entre dispositivos diferentes.
    ============================================================================= */
+window.motivoSemBanco=function(){
+  if(!window.SUPABASE_CFG||!window.SUPABASE_CFG.url||!window.SUPABASE_CFG.anon)
+    return '⚠ BANCO NÃO CONFIGURADO — preencha url e anon no topo do arquivo';
+  if(!window.supabase)
+    return '⚠ BIBLIOTECA DO SUPABASE NÃO CARREGOU — sem internet ou CDN bloqueado';
+  return '⚠ NÃO FOI POSSÍVEL CONECTAR — confira se a url e a chave estão corretas';
+};
+
 window.BUS=(function(){
   const itens=[], subs=[];
   function avisa(acao,ch){ subs.forEach(f=>{ try{f(acao,ch)}catch(e){console.warn(e)} }) }
@@ -1462,7 +1520,7 @@ const PENDENTES=[];                  // gravações que falharam, para reenviar
 
 function pintaConexao(){
   const el=RAIZ.querySelector('#conexao'); if(!el) return;
-  const t={semcfg:['⚠ BANCO NÃO CONFIGURADO — preencha url e anon no topo do arquivo','var(--vermelho)'],
+  const t={semcfg:[window.motivoSemBanco(),'var(--vermelho)'],
            online:['conectado ao banco','var(--verde)'],
            offline:['sem conexão · '+PENDENTES.length+' registro(s) na fila','var(--amarelo)']}[MODO];
   el.textContent=t[0]; el.style.color=t[1];
@@ -1940,10 +1998,16 @@ function atualizaRun(){
     if(E.caixas.length)pintaKpis();
   }else{
     const d=Math.floor((Date.now()-E.evtAtual.t0)/1000);
-    est.innerHTML='<i class="led"></i>'+(E.estado==='parado'?'Máquina parada':'Aguardando responsável');
+    const rot=E.estado==='parado'?'Máquina parada'
+      :E.evtAtual.naMaquina?'Responsável na máquina'
+      :E.evtAtual.aCaminho?'Responsável a caminho':'Aguardando responsável';
+    est.innerHTML='<i class="led"></i>'+rot;
     tm.textContent=hms(d);
     const base=(E.estado==='parado'?'Parada de manutenção: ':'Ausência: ')+E.evtAtual.motivo+' · desde '+E.evtAtual.hora;
-    $('#runSub').textContent=base+(E.evtAtual.aCaminho?' · responsável a caminho':'');
+    const extra=E.evtAtual.naMaquina
+      ? ' · '+(E.evtAtual.quemVeio||'responsável')+' chegou às '+new Date(E.evtAtual.naMaquina).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' — encerre aqui'
+      : E.evtAtual.aCaminho ? ' · responsável a caminho' : '';
+    $('#runSub').textContent=base+extra;
   }
 }
 
@@ -2012,7 +2076,7 @@ function pintaHist(){
     const cls=r.tipo==='mecanico'?'par':'esp';
     const nome=r.tipo==='mecanico'?'Mecânico chamado':'Responsável chamado';
     return `<div class="hist-i"><div class="hist-n ${cls}">${r.tipo==='mecanico'?'✱':'◆'}</div>
-      <div class="hist-txt">${nome}<div class="hist-sub">${r.hora} · ${r.motivo}${r.dur!=null?' · '+hm(r.dur):' · em aberto'}</div></div></div>`;
+      <div class="hist-txt">${nome}<div class="hist-sub">${r.hora} · ${r.motivo}${r.dur!=null?' · '+hm(r.dur):' · em aberto'}${r.encerradoPor?' · encerrado por '+r.encerradoPor:''}${r.descricao?' · '+r.descricao:''}</div></div></div>`;
   }).join('');
 }
 
@@ -2149,7 +2213,9 @@ window.BUS.escuta((acao,ch)=>{
   const ev=E.eventos.find(x=>x.chamadoId===ch.id);
   if(!ev) return;
   if(ch.aCaminhoEm) ev.aCaminho=ch.aCaminhoEm;
+  if(ch.status==='na_maquina'||ch.naMaquinaEm){ev.naMaquina=ch.naMaquinaEm||Date.now();ev.quemVeio=ch.atendidoPor||ev.quemVeio}
   if(ch.status==='atendido'&&!ch.fechadoPeloOperador) ev.atendido=ch.atendidoEm;
+  atualizaRun();atualizaBotoes();
   const f=FILA.find(c=>c.id===ch.id);
   if(f){f.aCaminhoEm=ch.aCaminhoEm||f.aCaminhoEm; if(ch.status==='atendido')f.atendidoEm=f.atendidoEm||ch.atendidoEm}
 });
@@ -2235,8 +2301,10 @@ function atualizaBotoes(){
   const bm=$('#bMec'),br=$('#bResp');
   bm.querySelector('.bq-txt').textContent=E.estado==='parado'?'Encerrar parada':'Chamar mecânico';
   bm.querySelector('.bq-sub').textContent=E.estado==='parado'?'mecânico atendeu · voltar a produzir':'abre parada de manutenção';
-  br.querySelector('.bq-txt').textContent=E.estado==='aguardando'?'Voltei à máquina':'Chamar responsável';
-  br.querySelector('.bq-sub').textContent=E.estado==='aguardando'?'encerrar ausência':'banheiro ou saída rápida';
+  br.querySelector('.bq-txt').textContent=E.estado==='aguardando'?'Encerrar chamado':'Chamar responsável';
+  br.querySelector('.bq-sub').textContent=E.estado==='aguardando'
+    ?(E.evtAtual&&E.evtAtual.naMaquina?'responsável na máquina · encerrar aqui':'quem encerra, descrição e destino')
+    :'banheiro ou saída rápida';
   const bloq=E.estado!=='produzindo';
   $('#bCaixa').disabled=bloq;$('#bFim').disabled=bloq;
   $('#kCavBtn').disabled=bloq;
@@ -2244,7 +2312,70 @@ function atualizaBotoes(){
   $('#bResp').disabled=E.estado==='parado';
 }
 $('#bMec').onclick=()=>{E.estado==='parado'?encerraChamado():abreChamado('mecanico')};
-$('#bResp').onclick=()=>{E.estado==='aguardando'?encerraChamado():abreChamado('responsavel')};
+$('#bResp').onclick=()=>{E.estado==='aguardando'?finalizaChamadoResp():abreChamado('responsavel')};
+
+/* ---------- ENCERRAMENTO DO CHAMADO NA TELA DO OPERADOR ----------
+   Quem encerra (operador ou responsável), o que aconteceu, e para onde vai:
+   volta a produzir ou para a máquina e abre chamado de manutenção.        */
+function finalizaChamadoResp(){
+  const ev=E.evtAtual;
+  let quem=null, texto='';
+  function render(){
+    const dur=Math.floor((Date.now()-ev.t0)/1000);
+    abreModal(`<h3>Encerrar chamado</h3>
+      <p class="h3sub">${ev.motivo} · ${hm(dur)} parado${ev.naMaquina?' · '+(ev.quemVeio||'Responsável')+' está na máquina':ev.aCaminho?' · responsável a caminho':''}</p>
+      <div class="campo-rot"><span>Quem está encerrando</span></div>
+      <div class="quem" id="fQuem">
+        <button class="card ${quem==='operador'?'sel':''}" data-q="operador">
+          <span class="card-nome">Operador</span><span class="card-info">${nomeOper()}</span></button>
+        <button class="card ${quem==='responsavel'?'sel':''}" data-q="responsavel">
+          <span class="card-nome">Responsável</span><span class="card-info">${ev.quemVeio||'quem veio até a máquina'}</span></button>
+      </div>
+      <div class="campo-rot"><span>O que aconteceu</span></div>
+      <input class="entrada" id="fTxt" placeholder="Descreva o atendimento" maxlength="120" value="${texto.replace(/"/g,'&quot;')}">
+      <div class="campo-rot"><span>Depois de encerrar</span></div>
+      <div class="destino">
+        <button class="dst dst-prod" id="fProd" ${quem?'':'disabled'}>Voltar a produzir
+          <small>a máquina volta a contar tempo de produção</small></button>
+        <button class="dst dst-mnt" id="fMnt" ${quem?'':'disabled'}>Parar para manutenção
+          <small>abre chamado de mecânico com esta descrição</small></button>
+      </div>
+      <div class="acoes-modal"><button class="btn b2" id="mCancel" style="flex:1">Cancelar</button></div>`);
+    $$('#fQuem .card').forEach(b=>b.onclick=()=>{texto=$('#fTxt').value;quem=b.dataset.q;render()});
+    $('#mCancel').onclick=fechaModal;
+    $('#fProd').onclick=()=>aplica('produzir');
+    $('#fMnt').onclick=()=>aplica('manutencao');
+  }
+  function aplica(destino){
+    const desc=$('#fTxt').value.trim();
+    const dur=Math.floor((Date.now()-ev.t0)/1000);
+    const nome=quem==='operador'?nomeOper():(ev.quemVeio||'Responsável');
+    ev.dur=dur; ev.encerradoPor=nome; ev.descricao=desc;
+    fecharEventoNoBanco(ev,dur);
+    escreve('encerrar chamado',s2=>s2.from('chamados').update({
+      status:'atendido', atendido_em:new Date().toISOString(), atendido_por:nome
+    }).eq('id',ev.chamadoId));
+    escreve('registrar encerramento',s2=>s2.from('chamado_atualizacoes').insert({
+      chamado_id:ev.chamadoId, tipo:'fechou',
+      texto:'Encerrado por '+nome+' ('+(quem==='operador'?'operador':'responsável')+')',
+      detalhe:(desc||'sem descrição')+' · destino: '+(destino==='produzir'?'voltou a produzir':'parada para manutenção'),
+      autor:nome
+    }));
+    const ch=FILA.find(c=>c.id===ev.chamadoId);
+    if(ch&&!ch.atendidoEm)ch.atendidoEm=Date.now();
+    window.BUS.atualiza(ev.chamadoId,{status:'atendido',atendidoEm:Date.now(),atendidoPor:nome},
+      {t:Date.now(),tipo:'fechou',txt:'Encerrado por '+nome,
+       sub:(desc||'sem descrição')+' · '+(destino==='produzir'?'voltou a produzir':'parada para manutenção')});
+    E.segEsperando=ev.acum+dur;
+    E.evtAtual=null;E.estado='produzindo';
+    fechaModal();atualizaRun();pintaHist();atualizaBotoes();pintaFila();
+    if(destino==='manutencao'){
+      const mot=desc?('Após chamado do responsável: '+desc):'Máquina parada após atendimento do responsável';
+      iniciaChamado('mecanico',mot.slice(0,80));
+    }
+  }
+  render();
+}
 
 /* ---------- FECHAR CAIXA ---------- */
 let cx={inj:'',ref:'',ultima:false};
@@ -2461,7 +2592,7 @@ let sb=null, MODO='semcfg';
 
 function pintaConexao(){
   const el=RAIZ.querySelector('#r_conexao'); if(!el) return;
-  const t={semcfg:['⚠ BANCO NÃO CONFIGURADO — preencha url e anon no topo do arquivo','var(--vermelho)'],
+  const t={semcfg:[window.motivoSemBanco(),'var(--vermelho)'],
            online:['conectado · atualizando em tempo real','var(--verde)'],
            offline:['sem conexão com o banco','var(--amarelo)']}[MODO];
   el.textContent=t[0]; el.style.color=t[1];
@@ -2479,7 +2610,7 @@ const deLinha=r=>({
   cavidades:r.cavidades||0, caixas:r.caixas_fechadas||0, problema:r.problema,
   abertoEm:new Date(r.aberto_em).getTime(),
   atendidoEm:r.atendido_em?new Date(r.atendido_em).getTime():null,
-  status:r.status==='atendido'?'atendido':r.status==='a_caminho'?'a_caminho':'aberto',
+  status:['atendido','a_caminho','na_maquina'].includes(r.status)?r.status:'aberto',
   fechadoPeloOperador:!!r.fechado_pelo_operador, eventos:[]
 });
 
@@ -2507,9 +2638,11 @@ function escutaChamados(){
     .on('postgres_changes',{event:'*',schema:'public',table:'chamados'},payload=>{
       const r=payload.new; if(!r||r.tipo!=='responsavel') return;
       const novo=deLinha(r), i=CHAMADOS.findIndex(c=>c.id===novo.id);
+      const eNovo=i<0;
       if(i<0)CHAMADOS.unshift(novo); else CHAMADOS[i]=Object.assign(CHAMADOS[i],novo);
       if($('#r_t3').classList.contains('on'))pintaFila();
       if($('#r_t4').classList.contains('on')&&S.chamadoAberto===novo.id)abreDetalhe(novo.id);
+      if(eNovo&&novo.status==='aberto')mostraAlerta(novo);
     }).subscribe();
 }
 
@@ -2648,7 +2781,8 @@ function pintaFila(){
       </div>
       <div class="ch-prob"><div class="ch-prob-rot">Problema informado</div>
         <div class="ch-prob-txt">${c.problema}</div></div>
-      ${c.status==='a_caminho'?'<div class="ch-ack"><i class="led"></i>Alguém já marcou "a caminho"</div>':''}
+      ${c.status==='a_caminho'?'<div class="ch-ack"><i class="led"></i>Responsável indo à máquina</div>':''}
+      ${c.status==='na_maquina'?'<div class="ch-ack" style="color:var(--azul)"><i class="led"></i>Responsável na máquina · aguardando encerramento no tablet</div>':''}
       <div class="ch-pe"><span>${c.id} · aberto às ${hhmm(c.abertoEm)} · ${MAQ[c.maquina]||''}</span>
         <span class="abrir">Ver histórico ›</span></div>
     </button>`;
@@ -2683,6 +2817,27 @@ setInterval(()=>{
 /* botão de demonstração: simula um operador chamando agora */
 
 
+/* ---- ALERTA VERMELHO: chamado novo toma a tela inteira ---- */
+let ALERTA_FILA=[];
+function mostraAlerta(c){
+  if(!c||c.status!=='aberto') return;
+  if(!ALERTA_FILA.includes(c.id)) ALERTA_FILA.push(c.id);
+  const alvo=CHAMADOS.find(x=>x.id===ALERTA_FILA[0]); if(!alvo) return;
+  $('#r_alMaq').textContent=alvo.maquina;
+  $('#r_alOper').textContent=alvo.operador;
+  $('#r_alProb').textContent=alvo.problema;
+  $('#r_alHora').textContent='aberto às '+hhmm(alvo.abertoEm)+' · '+(MAQ[alvo.maquina]||'');
+  $('#r_alFila').textContent=ALERTA_FILA.length>1?('mais '+(ALERTA_FILA.length-1)+' chamado(s) esperando'):'';
+  $('#r_alerta').classList.add('on');
+  try{if(navigator.vibrate)navigator.vibrate([300,120,300])}catch(e){}
+}
+$('#r_alVer').onclick=()=>{
+  const id=ALERTA_FILA.shift();
+  $('#r_alerta').classList.remove('on');
+  if(id) abreDetalhe(id);
+  if(ALERTA_FILA.length){const p=CHAMADOS.find(x=>x.id===ALERTA_FILA[0]); if(p)setTimeout(()=>mostraAlerta(p),400)}
+};
+
 /* ---- recebe os chamados abertos no tablet do operador (mesma aba) ---- */
 window.BUS.escuta((acao,ch)=>{
   if(ch.tipo!=='responsavel') return;
@@ -2698,6 +2853,7 @@ window.BUS.escuta((acao,ch)=>{
   if(MAQ[ch.maquina]===undefined&&ch.maquinaDesc) MAQ[ch.maquina]=ch.maquinaDesc;
   if($('#r_t3').classList.contains('on')) pintaFila();
   if($('#r_t4').classList.contains('on')&&S.chamadoAberto===ch.id) abreDetalhe(ch.id);
+  if(acao==='novo'&&(ch.status||'aberto')==='aberto') mostraAlerta(CHAMADOS.find(x=>x.id===ch.id));
 });
 
 /* ================= DETALHE + HISTÓRICO ================= */
@@ -2717,10 +2873,12 @@ function abreDetalhe(id){
 
 function desenhaDetalhe(c){
   const id=c.id;
-  const st=c.status==='atendido'?'atendido':c.status==='a_caminho'?'a caminho':'aberto';
+  const st=c.status==='atendido'?'atendido':c.status==='na_maquina'?'na máquina'
+          :c.status==='a_caminho'?'a caminho':'aberto';
   $('#r_detId').textContent=c.id+' · '+c.maquina;
   $('#r_detStatus').textContent=st;
-  $('#r_detStatus').style.color=c.status==='atendido'?'var(--verde)':c.status==='a_caminho'?'var(--amarelo)':'var(--roxo)';
+  $('#r_detStatus').style.color=c.status==='atendido'?'var(--verde)'
+     :c.status==='na_maquina'?'var(--azul)':c.status==='a_caminho'?'var(--amarelo)':'var(--roxo)';
   const antMaq=CHAMADOS.filter(x=>x.maquina===c.maquina&&x.id!==c.id).sort((a,b)=>b.abertoEm-a.abertoEm).slice(0,4);
   const antOper=CHAMADOS.filter(x=>x.matricula===c.matricula&&x.id!==c.id).sort((a,b)=>b.abertoEm-a.abertoEm).slice(0,4);
   $('#r_detConteudo').innerHTML=`
@@ -2773,27 +2931,37 @@ function desenhaDetalhe(c){
   $('#r_detAcoes').innerHTML=c.status==='atendido'
     ? `<button class="btn b2" id="r_dVoltar" style="flex:1">Voltar para a fila</button>
        <button class="btn b1" id="r_dNota">Adicionar observação</button>`
+    : c.status==='na_maquina'
+    ? `<button class="btn b2" id="r_dVoltar" style="flex:1">Voltar para a fila</button>
+       <button class="btn b1" id="r_dNota">Adicionar observação</button>`
     : `<button class="btn b2" id="r_dVoltar">Voltar</button>
-       ${c.status==='aberto'?'<button class="btn b1" id="r_dCaminho">Estou a caminho</button>':''}
+       ${c.status==='aberto'?'<button class="btn b1" id="r_dCaminho">Estou indo à máquina</button>':''}
        <button class="btn b1 bverde" id="r_dChegou">Cheguei na máquina</button>`;
+
+  if(c.status==='na_maquina'){
+    $('#r_detConteudo').insertAdjacentHTML('afterbegin',
+      `<div class="aviso azul" style="margin:0 0 16px">Você está na máquina. O encerramento é feito no
+       tablet do operador — lá se registra quem finalizou, a descrição e se a máquina volta a produzir
+       ou para para manutenção.</div>`);
+  }
 
   $('#r_dVoltar').onclick=()=>{pintaFila();ir(3)};
   if($('#r_dCaminho'))$('#r_dCaminho').onclick=()=>{
     c.status='a_caminho';
-    c.eventos.push({t:Date.now(),tipo:'caminho',txt:respInfo().nome+' marcou "a caminho"',sub:''});
+    c.eventos.push({t:Date.now(),tipo:'caminho',txt:respInfo().nome+' está indo à máquina',sub:''});
     gravaChamado(id,{status:'a_caminho',a_caminho_em:new Date().toISOString(),a_caminho_por:respInfo().nome});
     window.BUS.atualiza(id,{status:'a_caminho',aCaminhoEm:Date.now(),aCaminhoPor:respInfo().nome});
     abreDetalhe(id);
   };
-  if($('#r_dChegou'))$('#r_dChegou').onclick=()=>pedeNota(c,'Cheguei na máquina',
-    'O que foi feito? Fica no histórico do chamado.',txt=>{
-      c.status='atendido';c.atendidoEm=Date.now();
-      c.eventos.push({t:Date.now(),tipo:'chegou',txt:respInfo().nome+' chegou na máquina',sub:txt});
-      window.BUS.atualiza(id,{status:'atendido',atendidoEm:Date.now(),atendidoPor:respInfo().nome});
-      gravaChamado(id,{status:'atendido',atendido_em:new Date().toISOString(),atendido_por:respInfo().nome},
-        txt?{tipo:'nota',texto:'Atendimento',detalhe:txt,autor:respInfo().nome}:null);
-      fechaModal();abreDetalhe(id);
-    });
+  if($('#r_dChegou'))$('#r_dChegou').onclick=()=>{
+    c.status='na_maquina';
+    c.eventos.push({t:Date.now(),tipo:'chegou',txt:respInfo().nome+' chegou na máquina',
+      sub:'Máquina em aguardo — encerramento pelo tablet do operador'});
+    window.BUS.atualiza(id,{status:'na_maquina',naMaquinaEm:Date.now(),atendidoPor:respInfo().nome});
+    gravaChamado(id,{status:'na_maquina',atendido_por:respInfo().nome},
+      {tipo:'chegou',texto:respInfo().nome+' chegou na máquina',autor:respInfo().nome});
+    abreDetalhe(id);
+  };
   if($('#r_dNota'))$('#r_dNota').onclick=()=>pedeNota(c,'Observação','Registro extra sobre este chamado.',txt=>{
       c.eventos.push({t:Date.now(),tipo:'nota',txt:'Observação de '+respInfo().nome,sub:txt});
       if(MODO==='online')gravaChamado(id,{},{tipo:'nota',texto:'Observação de '+respInfo().nome,detalhe:txt,autor:respInfo().nome});
@@ -2860,7 +3028,7 @@ const CFG=window.SUPABASE_CFG;
 let sb=null, MODO='semcfg';
 function pintaConexao(){
   const el=$('#m_conexao'); if(!el) return;
-  const t={semcfg:['⚠ BANCO NÃO CONFIGURADO — preencha url e anon no topo do arquivo','var(--vermelho)'],
+  const t={semcfg:[window.motivoSemBanco(),'var(--vermelho)'],
            online:['conectado · tempo real','var(--verde)'],
            offline:['sem conexão com o banco','var(--amarelo)']}[MODO];
   el.textContent=t[0]; el.style.color=t[1];
