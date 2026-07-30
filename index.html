@@ -6,6 +6,24 @@
 <meta name="theme-color" content="#0A0E0D">
 <title>Vitalbor · Produção</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   ►►►  CONFIGURAÇÃO DO BANCO — PREENCHA AQUI, UMA VEZ SÓ  ◄◄◄
+
+   Copie do Supabase: Settings → API
+     url  = Project URL          (ex.: https://abcdefgh.supabase.co)
+     anon = anon public key      (a chave longa, começa com eyJ...)
+
+   Os três painéis deste arquivo usam esta mesma configuração.
+   Enquanto estiver em branco, os painéis avisam que o banco não está ligado.
+   ═══════════════════════════════════════════════════════════════════════════ */
+window.SUPABASE_CFG = {
+  url:  '',
+  anon: '',
+  dispositivo: 'TABLET-04'    // muda em cada tablet: TABLET-01, TABLET-02...
+};
+</script>
+
 <style>
 
   :root{
@@ -1437,18 +1455,14 @@ let SENHA_DIGITADA='';
    SUPABASE — preencha URL e chave anon do projeto da Vitalbor.
    Deixando em branco, o app roda em modo demonstração com os dados de exemplo.
    ============================================================================= */
-const CFG={
-  url:'',                 // ex.: 'https://xxxxxxxx.supabase.co'
-  anon:'',                // chave anon (public) do projeto
-  dispositivo:'TABLET-04'
-};
+const CFG=window.SUPABASE_CFG;
 
-let sb=null, MODO='demo';           // demo | online | offline
+let sb=null, MODO='semcfg';         // semcfg | online | offline
 const PENDENTES=[];                  // gravações que falharam, para reenviar
 
 function pintaConexao(){
   const el=RAIZ.querySelector('#conexao'); if(!el) return;
-  const t={demo:['modo demonstração — sem banco','var(--txt3)'],
+  const t={semcfg:['⚠ BANCO NÃO CONFIGURADO — preencha url e anon no topo do arquivo','var(--vermelho)'],
            online:['conectado ao banco','var(--verde)'],
            offline:['sem conexão · '+PENDENTES.length+' registro(s) na fila','var(--amarelo)']}[MODO];
   el.textContent=t[0]; el.style.color=t[1];
@@ -1456,18 +1470,18 @@ function pintaConexao(){
 }
 
 function iniciaBanco(){
-  if(!CFG.url||!CFG.anon||!window.supabase){MODO='demo';pintaConexao();return}
+  if(!CFG.url||!CFG.anon||!window.supabase){MODO='semcfg';pintaConexao();return}
   try{
     sb=window.supabase.createClient(CFG.url,CFG.anon,{auth:{persistSession:false}});
     MODO='online';
-  }catch(e){MODO='demo'}
+  }catch(e){MODO='semcfg'}
   pintaConexao();
 }
 
 /* toda escrita passa por aqui: nunca trava a tela, nunca perde o registro
    enquanto a página estiver aberta */
 async function escreve(desc,fn){
-  if(MODO==='demo') return null;
+  if(MODO==='semcfg') return null;
   try{
     const r=await fn(sb);
     if(r&&r.error) throw r.error;
@@ -1481,7 +1495,7 @@ async function escreve(desc,fn){
   }
 }
 setInterval(async()=>{
-  if(MODO==='demo'||!PENDENTES.length) return;
+  if(MODO==='semcfg'||!PENDENTES.length) return;
   const lote=PENDENTES.splice(0,PENDENTES.length);
   for(const p of lote){
     try{const r=await p.fn(sb); if(r&&r.error) throw r.error}
@@ -1763,14 +1777,14 @@ function editaPeca(idx){
     $('#mCancel').onclick=fechaModal;
     if($('#pExcluir'))$('#pExcluir').onclick=()=>{
       const cod=PECAS[idx].cod;PECAS.splice(idx,1);
-      if(MODO!=='demo')escreve('desativar peça',s2=>s2.rpc('admin_desativar_peca',{p_senha:SENHA_DIGITADA,p_codigo:cod}));
+      if(MODO!=='semcfg')escreve('desativar peça',s2=>s2.rpc('admin_desativar_peca',{p_senha:SENHA_DIGITADA,p_codigo:cod}));
       fechaModal();pintaPecas()};
     $('#pSalvar').onclick=()=>{
       p.cod=$('#pCod').value.trim().toUpperCase();p.nome=$('#pNome').value.trim();
       if(!p.cod||!p.nome){$('#pErro').innerHTML='<div class="aviso verm">Preencha código e descrição.</div>';return}
       if(PECAS.some((x,i)=>x.cod===p.cod&&i!==idx)){$('#pErro').innerHTML='<div class="aviso verm">Já existe peça com esse código.</div>';return}
       if(nova)PECAS.push(p);else PECAS[idx]=p;
-      if(MODO!=='demo'){
+      if(MODO!=='semcfg'){
         escreve('salvar peça',s2=>s2.rpc('admin_salvar_peca',{
           p_senha:SENHA_DIGITADA,p_codigo:p.cod,p_nome:p.nome,p_materia:p.materia,
           p_cavidades:p.cavidades,p_inj_hora:p.injHora,p_ciclo_seg:null,p_autor:CFG.dispositivo
@@ -2442,20 +2456,20 @@ const SIM=[
    SUPABASE — mesma configuração do app do operador (mesmo projeto).
    Em branco = modo demonstração com os chamados de exemplo acima.
    ============================================================================= */
-const CFG={url:'',anon:''};
-let sb=null, MODO='demo';
+const CFG=window.SUPABASE_CFG;
+let sb=null, MODO='semcfg';
 
 function pintaConexao(){
   const el=RAIZ.querySelector('#r_conexao'); if(!el) return;
-  const t={demo:['modo demonstração — sem banco','var(--txt3)'],
+  const t={semcfg:['⚠ BANCO NÃO CONFIGURADO — preencha url e anon no topo do arquivo','var(--vermelho)'],
            online:['conectado · atualizando em tempo real','var(--verde)'],
            offline:['sem conexão com o banco','var(--amarelo)']}[MODO];
   el.textContent=t[0]; el.style.color=t[1];
 }
 function iniciaBanco(){
-  if(!CFG.url||!CFG.anon||!window.supabase){MODO='demo';pintaConexao();return}
+  if(!CFG.url||!CFG.anon||!window.supabase){MODO='semcfg';pintaConexao();return}
   try{sb=window.supabase.createClient(CFG.url,CFG.anon,{auth:{persistSession:false}});MODO='online'}
-  catch(e){MODO='demo'}
+  catch(e){MODO='semcfg'}
   pintaConexao();
 }
 
@@ -2842,19 +2856,19 @@ const S={turno:null,mec:null,aberto:null};
 let passo=0;
 
 /* ---------- Supabase (mesma configuração dos outros apps) ---------- */
-const CFG={url:'',anon:''};
-let sb=null, MODO='demo';
+const CFG=window.SUPABASE_CFG;
+let sb=null, MODO='semcfg';
 function pintaConexao(){
   const el=$('#m_conexao'); if(!el) return;
-  const t={demo:['modo local — chamados desta aba','var(--txt3)'],
+  const t={semcfg:['⚠ BANCO NÃO CONFIGURADO — preencha url e anon no topo do arquivo','var(--vermelho)'],
            online:['conectado · tempo real','var(--verde)'],
            offline:['sem conexão com o banco','var(--amarelo)']}[MODO];
   el.textContent=t[0]; el.style.color=t[1];
 }
 function iniciaBanco(){
-  if(!CFG.url||!CFG.anon||!window.supabase){MODO='demo';pintaConexao();return}
+  if(!CFG.url||!CFG.anon||!window.supabase){MODO='semcfg';pintaConexao();return}
   try{sb=window.supabase.createClient(CFG.url,CFG.anon,{auth:{persistSession:false}});MODO='online'}
-  catch(e){MODO='demo'}
+  catch(e){MODO='semcfg'}
   pintaConexao();
 }
 const deLinha=r=>({
@@ -2868,7 +2882,7 @@ async function carregaTudo(){
   if(MODO!=='online') return;
   try{
     const [mec,ch]=await Promise.all([
-      sb.from('responsaveis').select('*').eq('ativo',true).order('nome'),
+      sb.from('mecanicos').select('*').eq('ativo',true).order('nome'),
       sb.from('chamados').select('*').eq('tipo','mecanico')
         .gte('aberto_em',new Date(Date.now()-12*3600e3).toISOString())
         .order('aberto_em',{ascending:false})
