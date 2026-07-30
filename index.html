@@ -18,7 +18,7 @@
    Enquanto estiver em branco, os painéis avisam que o banco não está ligado.
    ═══════════════════════════════════════════════════════════════════════════ */
 window.SUPABASE_CFG = {
- url:  'https://ssvsoldtwhqjeusqwrye.supabase.co',
+  url:  'https://ssvsoldtwhqjeusqwrye.supabase.co',
   anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzdnNvbGR0d2hxamV1c3F3cnllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDQxMzAsImV4cCI6MjEwMDkyMDEzMH0.Do1kB5wR2TxM7h0ASfvt-ppKwihKLgGYgE0HzMRIdLA',
   dispositivo: 'TABLET-04'    // muda em cada tablet: TABLET-01, TABLET-02...
 };
@@ -270,6 +270,19 @@ window.SUPABASE_CFG = {
   .placar{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:16px}
   .bloco{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:16px}
   .bloco .kpi-num{font-size:30px}
+
+  .molde-l{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-bottom:10px}
+  .molde-cab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+  .molde-nome{font-size:16px;font-weight:700}
+  .molde-pct{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--txt2)}
+  .molde-barra{height:7px;border-radius:99px;background:var(--surf3);overflow:hidden;margin-bottom:10px}
+  .molde-barra i{display:block;height:100%;border-radius:99px}
+  .molde-acoes{display:flex;gap:9px}
+  .molde-acoes button{flex:1;min-height:44px;border-radius:11px;border:0;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer}
+  .molde-limite{background:var(--surf2);border:1px solid var(--line);color:var(--txt2)}
+  .molde-reset{background:var(--verde);color:#00230F}
+  .molde-alerta{background:rgba(255,90,90,.12);border:1px solid rgba(255,90,90,.3);color:var(--vermelho);
+    border-radius:10px;padding:8px 11px;font-size:12px;font-weight:700;margin-bottom:10px}
 
   /* ADMIN */
   .adm-cab{display:flex;align-items:center;gap:12px;margin-bottom:18px}
@@ -873,7 +886,7 @@ window.SUPABASE_CFG = {
       </div>
 
       <button class="btn-start" id="btnStart">INICIAR</button>
-      <div class="rodape-splash">APONTAMENTO DE PRODUÇÃO · <span id="cfgDisp">TABLET 04</span> · v10.0<br><span id="conexao" style="color:var(--txt3)">verificando conexão…</span></div>
+      <div class="rodape-splash">APONTAMENTO DE PRODUÇÃO · <span id="cfgDisp">TABLET 04</span> · v12 · vida útil do molde<br><span id="conexao" style="color:var(--txt3)">verificando conexão…</span></div>
     </section>
 
     <section class="tela" id="t1">
@@ -988,6 +1001,10 @@ window.SUPABASE_CFG = {
           <div class="kpi-num" id="kCav">0</div>
           <div class="kpi-pe" id="kCavPe">peças por injetada</div>
           <div class="cavdots" id="kCavDots"></div>
+          <div class="molde-vida" id="moldeVida" style="display:none">
+            <div class="mv-l"><span id="moldeNome">—</span><span id="moldeTxt">—</span></div>
+            <div class="mini"><i id="moldeBar" style="width:0%"></i></div>
+          </div>
         </button>
 
         <div class="kpi cx">
@@ -1045,6 +1062,11 @@ window.SUPABASE_CFG = {
       </div>
       <p class="sub">Cada peça define as cavidades do molde e a meta de injetadas por hora. É essa meta que calcula o desempenho do turno.</p>
       <div class="rol" id="lPecas"></div>
+
+      <div class="sec-t" style="margin:24px 0 12px">Vida útil dos moldes</div>
+      <p class="sub" style="margin-top:0">Soma as injetadas de cada caixa fechada. Ao cruzar o limite, abre sozinho uma ordem de serviço preventiva no kanban do mecânico — a máquina continua produzindo até alguém agir.</p>
+      <div class="rol" id="lMoldes"></div>
+
       <div class="rodape">
         <button class="btn b2" id="admSair">Sair</button>
         <button class="btn b1" id="admNova">Cadastrar peça</button>
@@ -1659,6 +1681,16 @@ let OPS={
   '4840':{peca:'077-ANEL-45', qtd:8900}
 };
 
+/* vida útil do molde por ciclos — inspirado no teepMoldLife: soma as injetadas de
+   cada caixa fechada e, ao cruzar o limite, abre sozinho um chamado de manutenção
+   preventiva no kanban do mecânico, sem parar a máquina (é preventivo, não emergência) */
+let MOLDES=[
+  {id:'MD-295',  nome:'Molde 295 COL-100', pecaCod:'295-COL-100', cicloAtual:0,     cicloLimite:20000, alertaAberto:false},
+  {id:'MD-118',  nome:'Molde 118 RET-220', pecaCod:'118-RET-220', cicloAtual:0,     cicloLimite:15000, alertaAberto:false},
+  {id:'MD-077',  nome:'Molde 077 ANEL-45', pecaCod:'077-ANEL-45', cicloAtual:18200, cicloLimite:20000, alertaAberto:false}
+];
+const moldeDaPeca=cod=>MOLDES.find(m=>m.pecaCod===cod)||null;
+
 const TURNOS=[{id:'T1',nome:'Turno 1',ini:'06:00',fim:'14:20'},{id:'T2',nome:'Turno 2',ini:'14:20',fim:'22:40'},{id:'T3',nome:'Turno 3',ini:'22:40',fim:'06:00'}];
 let MAQUINAS=[
   {id:'IJ-01',desc:'Injetora 1 Engel',status:'livre',nota:'Última OP encerrada às 05:48'},
@@ -1828,7 +1860,7 @@ $('#btnAdmin').onclick=()=>{
     <div class="acoes-modal"><button class="btn b2" id="mCancel">Cancelar</button><button class="btn b1" id="mEntrar">Entrar</button></div>`);
   $('#mCancel').onclick=fechaModal;
   const tenta=()=>{
-    if($('#admSenha').value===SENHA_ADMIN||MODO==='online'){SENHA_DIGITADA=$('#admSenha').value;fechaModal();pintaPecas();ir(7)}
+    if($('#admSenha').value===SENHA_ADMIN||MODO==='online'){SENHA_DIGITADA=$('#admSenha').value;fechaModal();pintaPecas();pintaMoldes();ir(7)}
     else{$('#admErro').innerHTML='<div class="aviso verm">Senha incorreta.</div>';$('#admSenha').value=''}
   };
   $('#mEntrar').onclick=tenta;
@@ -1849,6 +1881,45 @@ function pintaPecas(){
   $$('#lPecas .peca-l').forEach(b=>b.onclick=()=>editaPeca(+b.dataset.i));
 }
 $('#admNova').onclick=()=>editaPeca(-1);
+
+/* ---------- ADMIN: MOLDES ---------- */
+function pintaMoldes(){
+  $('#lMoldes').innerHTML=MOLDES.map(m=>{
+    const pct=Math.min(100,m.cicloAtual/m.cicloLimite*100);
+    const cor=pct>=100?'var(--vermelho)':pct>=85?'var(--amarelo)':'var(--azul)';
+    const p=PECAS.find(x=>x.cod===m.pecaCod);
+    return `<div class="molde-l" data-id="${m.id}">
+      ${m.alertaAberto?'<div class="molde-alerta">⚠ OS de manutenção preventiva já aberta no kanban do mecânico</div>':''}
+      <div class="molde-cab"><span class="molde-nome">${m.nome}</span>
+        <span class="molde-pct">${nf(m.cicloAtual)} / ${nf(m.cicloLimite)} ciclos</span></div>
+      <div class="molde-barra"><i style="width:${pct}%;background:${cor}"></i></div>
+      <div class="card-info" style="margin-bottom:10px">peça ${p?p.nome:m.pecaCod}</div>
+      <div class="molde-acoes">
+        <button class="molde-limite" data-a="limite">Ajustar limite</button>
+        <button class="molde-reset" data-a="reset">Registrar manutenção</button>
+      </div></div>`;
+  }).join('')||'<div class="vazio">Nenhum molde cadastrado.</div>';
+
+  $$('#lMoldes .molde-limite').forEach(b=>b.onclick=()=>{
+    const m=MOLDES.find(x=>x.id===b.closest('.molde-l').dataset.id);
+    abreTeclado({titulo:'Limite de ciclos',sub:'Quantos ciclos até a próxima manutenção preventiva de '+m.nome+'.',
+      valor:String(m.cicloLimite),max:6,onOk:v=>{m.cicloLimite=Math.max(1,+v||1);pintaMoldes()}});
+  });
+  $$('#lMoldes .molde-reset').forEach(b=>b.onclick=()=>{
+    const m=MOLDES.find(x=>x.id===b.closest('.molde-l').dataset.id);
+    abreModal(`<h3>Registrar manutenção</h3>
+      <p class="h3sub">Confirma que a manutenção preventiva de <b>${m.nome}</b> foi feita? O contador de ciclos volta a zero.</p>
+      <div class="acoes-modal"><button class="btn b2" id="mCancel">Cancelar</button>
+        <button class="btn b1" id="mOk">Confirmar manutenção</button></div>`);
+    $('#mCancel').onclick=fechaModal;
+    $('#mOk').onclick=()=>{
+      if(MODO!=='semcfg')escreve('registrar manutenção do molde',
+        s2=>s2.rpc('registra_manutencao_molde',{p_senha:SENHA_DIGITADA,p_molde:m.id}));
+      m.cicloAtual=0;m.alertaAberto=false;
+      fechaModal();pintaMoldes();
+    };
+  });
+}
 
 function editaPeca(idx){
   const nova=idx<0;
@@ -2138,6 +2209,20 @@ function pintaKpis(){
   $('#kCavPe').textContent=(t?'de '+t+' do molde · ':'')+'meta '+nf(meta)+' pç/h';
   const tt=t||E.cav,mostra=Math.min(tt,48);
   $('#kCavDots').innerHTML=Array.from({length:mostra},(_,i)=>`<i class="${i<Math.min(E.cav,mostra)?'':'off'}"></i>`).join('');
+
+  /* vida útil do molde desta peça */
+  const molde=moldeDaPeca(o?o.peca:null);
+  const mv=$('#moldeVida');
+  if(molde){
+    mv.style.display='block';
+    const pctM=Math.min(100,molde.cicloAtual/molde.cicloLimite*100);
+    $('#moldeNome').textContent=molde.nome;
+    $('#moldeTxt').textContent=nf(molde.cicloAtual)+' / '+nf(molde.cicloLimite)+' ciclos';
+    $('#moldeBar').style.width=pctM+'%';
+    $('#moldeBar').style.background=pctM>=100?'var(--vermelho)':pctM>=85?'var(--amarelo)':'var(--azul)';
+  }else{
+    mv.style.display='none';
+  }
 
   /* caixas */
   $('#kCx').textContent=E.caixas.length;
@@ -2550,11 +2635,54 @@ function confirmaCaixa(){
     E.caixas.push({n,injetadas:c.inj,refugo:c.ref,boas:c.boas,cav:E.cav,lote:loteCheio(),qr:qrTxt,
       hora:hora(),ts:Date.now(),segDecorrido:Math.max(0,segProduzindo()-gasto)});
     salvarCaixaNoBanco(c,n,qrTxt,cx.ultima);
+    registraCicloMolde(c.inj);
     salvaLocal();
     const ult=cx.ultima;cx={inj:'',ref:'',ultima:false};
     fechaModal();pintaKpis();pintaHist();
     if(ult)encerraTurno();
   };
+}
+
+/* ---------- VIDA ÚTIL DO MOLDE (teepMoldLife) ----------
+   Soma as injetadas desta caixa ao ciclo do molde da peça em produção. Ao
+   cruzar o limite, abre sozinho um chamado de manutenção preventiva —
+   sem tocar em E.estado, a máquina continua produzindo normalmente até o
+   mecânico decidir quando intervir. Um alerta por vez: só reabre depois
+   que a manutenção for registrada no admin (zera o contador).           */
+function registraCicloMolde(injetadas){
+  const p=pecaDaOP(); if(!p) return;
+  const m=moldeDaPeca(p.cod); if(!m) return;
+  m.cicloAtual+=injetadas;
+
+  if(MODO!=='semcfg') escreve('registrar ciclos do molde',
+    s2=>s2.rpc('registra_ciclos_molde',{p_molde:m.id,p_ciclos:injetadas,p_maquina:E.maquina,p_operador:nomeOper()}));
+
+  if(m.cicloAtual>=m.cicloLimite&&!m.alertaAberto){
+    m.alertaAberto=true;
+    abreOSPreventivaMolde(m);
+  }
+}
+function abreOSPreventivaMolde(m){
+  const ch={
+    id:'OS'+Date.now().toString(36).toUpperCase(),
+    tipo:'mecanico', maquina:E.maquina, maquinaDesc:(MAQUINAS.find(x=>x.id===E.maquina)||{}).desc||'',
+    operador:'Sistema', matricula:'—', turno:nomeTurno(), op:E.op,
+    problema:'Manutenção preventiva: '+m.nome+' atingiu '+nf(m.cicloAtual)+' de '+nf(m.cicloLimite)+' ciclos',
+    abertoEm:Date.now(), hora:hora(), moldeId:m.id, preventiva:true
+  };
+  if(MODO!=='semcfg') escreve('abrir OS preventiva',s2=>s2.from('chamados').insert({
+    id:ch.id, tipo:'mecanico', maquina:E.maquina, operador_matricula:null, operador_nome:'Sistema',
+    turno:E.turno, ordem:E.op, cavidades:E.cav, problema:ch.problema, molde_id:m.id
+  }));
+  window.BUS.publica({
+    id:ch.id, tipo:'mecanico', maquina:ch.maquina, maquinaDesc:ch.maquinaDesc,
+    operador:'Sistema — manutenção preventiva', matricula:'—', turno:ch.turno, op:ch.op,
+    peca:m.nome, lote:loteCheio(), cavidades:E.cav, caixas:E.caixas.length,
+    problema:ch.problema, abertoEm:ch.abertoEm, hora:ch.hora, status:'aberto',
+    eventos:[{t:ch.abertoEm,tipo:'abriu',txt:'Ordem de serviço aberta automaticamente pelo sistema',
+      sub:'Molde atingiu o limite de ciclos preventivo'}]
+  });
+  pintaHist();
 }
 $('#bCaixa').onclick=()=>abreCaixa(false);
 
