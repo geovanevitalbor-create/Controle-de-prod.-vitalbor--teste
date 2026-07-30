@@ -430,6 +430,8 @@
     font-family:inherit;color:var(--txt);transition:transform .12s}
   .es-app:active{transform:translateY(2px)}
   .es-app.resp{border-left-color:var(--roxo)}
+  .es-app.mec{border-left-color:var(--amarelo)}
+  .es-app.mec .es-ico{background:rgba(255,197,61,.14);color:var(--amarelo)}
   .es-ico{width:54px;height:54px;flex:0 0 auto;border-radius:16px;background:rgba(0,210,106,.14);
     color:var(--verde);display:flex;align-items:center;justify-content:center}
   .es-app.resp .es-ico{background:rgba(167,139,250,.14);color:var(--roxo)}
@@ -625,6 +627,125 @@
     #appResp .splash-hora {font-size:70px}
     #appResp .det-timer {font-size:42px}
   }
+
+  /* ============ PAINEL DO MECÂNICO (kanban) ============ */
+  #appMec .tela{display:none;flex-direction:column;padding:20px 16px 0}
+  #appMec .tela.on{display:flex}
+  #appMec h2.tit{font-size:29px;font-weight:750;margin:0 0 6px;letter-spacing:-.6px}
+  #appMec p.sub{font-size:15px;color:var(--txt2);margin:0 0 20px;line-height:1.4}
+  #appMec #m_t0{justify-content:center;align-items:center;text-align:center;padding:36px 24px;min-height:100vh}
+  #appMec .m-brand{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:auto;padding-top:28px}
+  #appMec .m-ponto{width:11px;height:11px;border-radius:50%;background:var(--amarelo);box-shadow:0 0 16px var(--amarelo)}
+  #appMec .m-brand span{font-size:13px;letter-spacing:5px;text-transform:uppercase;font-weight:700;color:var(--txt2)}
+  #appMec .m-hora{font-family:var(--mono);font-size:88px;font-weight:600;letter-spacing:-4px;line-height:1}
+  #appMec .m-data{color:var(--txt2);font-size:15px;letter-spacing:1px;text-transform:uppercase;margin-top:12px}
+  #appMec .m-start{margin:44px 0 auto;width:100%;max-width:440px;background:linear-gradient(180deg,var(--amarelo),#E0A800);
+    color:#2E2200;border:0;border-radius:22px;padding:34px 20px;font-size:26px;font-weight:850;letter-spacing:3px;
+    cursor:pointer;box-shadow:0 16px 44px rgba(255,197,61,.25)}
+  #appMec .m-start:active{transform:translateY(3px)}
+  #appMec .m-rod{font-size:11.5px;color:var(--txt3);letter-spacing:1.6px;padding:26px 0 22px}
+
+  #appMec .m-cab{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  #appMec .voltar{width:52px;height:52px;flex:0 0 auto;border-radius:14px;background:var(--surf2);
+    border:1px solid var(--line);color:var(--txt);font-size:24px;cursor:pointer}
+  #appMec .m-tag{margin-left:auto;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;font-weight:800;
+    color:var(--amarelo);background:rgba(255,197,61,.14);padding:7px 12px;border-radius:9px;
+    display:flex;align-items:center;gap:8px;font-family:var(--mono)}
+  #appMec .topo-tit{font-size:13px;letter-spacing:2.4px;text-transform:uppercase;color:var(--txt2);font-weight:700}
+  #appMec .topo-nome{font-size:22px;font-weight:750;margin-top:2px}
+  #appMec .grade{display:grid;gap:12px}
+  #appMec .card{background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:18px;min-height:78px;
+    cursor:pointer;color:var(--txt);font-family:inherit;text-align:left;display:flex;flex-direction:column;gap:6px}
+  #appMec .card.sel{border-color:var(--amarelo);background:rgba(255,197,61,.1)}
+  #appMec .card-nome{font-size:19px;font-weight:700}
+  #appMec .card-info{font-size:13px;color:var(--txt2)}
+  #appMec .valor{width:100%;background:var(--surf);border:1px solid var(--line);border-radius:16px;min-height:74px;
+    display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:20px;font-weight:700;
+    color:var(--txt);cursor:pointer;font-family:inherit;text-align:left}
+  #appMec .valor.placeholder{color:var(--txt3);font-size:17px;font-weight:600}
+  #appMec .campo{margin-bottom:20px}
+  #appMec .campo-rot{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+  #appMec .campo-rot span:first-child{font-size:11.5px;letter-spacing:2px;text-transform:uppercase;color:var(--txt3);font-weight:800}
+  #appMec .campo-rot em{font-style:normal;font-size:12px;color:var(--txt3)}
+  #appMec .rodape{position:sticky;bottom:0;margin-top:auto;padding:16px;display:flex;gap:12px;
+    background:linear-gradient(to top,var(--bg) 68%,rgba(10,14,13,0))}
+  #appMec .btn{flex:1;min-height:74px;border:0;border-radius:16px;font-size:20px;font-weight:800;font-family:inherit;cursor:pointer}
+  #appMec .b1{background:var(--amarelo);color:#2E2200}
+  #appMec .b1:disabled{background:var(--surf3);color:var(--txt3);cursor:not-allowed}
+  #appMec .b2{flex:0 0 33%;background:var(--surf2);border:1px solid var(--line);color:var(--txt2)}
+
+  /* kanban */
+  #appMec .kb{display:flex;gap:12px;overflow-x:auto;padding:4px 0 20px;-webkit-overflow-scrolling:touch}
+  #appMec .col{flex:0 0 270px;background:rgba(255,255,255,.025);border:1px solid var(--line);
+    border-radius:18px;padding:14px 12px;display:flex;flex-direction:column;min-height:200px}
+  #appMec .col-cab{display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:0 4px}
+  #appMec .col-bola{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  #appMec .col-nome{font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;color:var(--txt2)}
+  #appMec .col-n{margin-left:auto;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--txt3);
+    background:var(--surf2);border-radius:8px;padding:3px 9px}
+  #appMec .kcard{background:linear-gradient(160deg,var(--surf) 60%,var(--surf2));border:1px solid var(--line);
+    border-left:4px solid var(--txt3);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;
+    width:100%;text-align:left;font-family:inherit;color:var(--txt);display:block}
+  #appMec .kcard:active{background:var(--surf2)}
+  #appMec .kcard.urg{border-left-color:var(--amarelo)}
+  #appMec .kcard.crit{border-left-color:var(--vermelho);box-shadow:0 0 0 1px rgba(255,90,90,.22)}
+  #appMec .kc-topo{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  #appMec .kc-maq{font-family:var(--mono);font-size:19px;font-weight:700}
+  #appMec .kc-tempo{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--amarelo)}
+  #appMec .kcard.crit .kc-tempo{color:var(--vermelho)}
+  #appMec .kc-prob{font-size:14px;font-weight:650;margin-top:8px;line-height:1.35}
+  #appMec .kc-pe{font-size:11.5px;color:var(--txt3);margin-top:8px;font-family:var(--mono)}
+  #appMec .kc-vazia{text-align:center;color:var(--txt3);font-size:13px;padding:22px 8px}
+  #appMec .mover{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  #appMec .mv{flex:1;min-width:120px;min-height:56px;border-radius:14px;border:0;font-family:inherit;
+    font-size:14px;font-weight:800;cursor:pointer;padding:8px 10px}
+  #appMec .mv-am{background:var(--amarelo);color:#2E2200}
+  #appMec .mv-az{background:var(--azul);color:#06183A}
+  #appMec .mv-vd{background:var(--verde);color:#00230F}
+  #appMec .mv-ci{background:var(--surf3);border:1px solid var(--line);color:var(--txt2)}
+  #appMec .det-head{background:linear-gradient(165deg,rgba(255,197,61,.16),rgba(255,197,61,.03));
+    border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:16px}
+  #appMec .det-timer{font-family:var(--mono);font-size:48px;font-weight:600;letter-spacing:-2px;margin:10px 0 4px}
+  #appMec .tagi{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--txt2);
+    background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:8px;padding:5px 9px;margin-right:6px}
+  #appMec .ch-prob{margin-top:12px;background:rgba(255,255,255,.04);border:1px solid var(--line);
+    border-radius:12px;padding:11px 13px}
+  #appMec .ch-prob-rot{font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--txt3);font-weight:800}
+  #appMec .ch-prob-txt{font-size:16px;font-weight:650;margin-top:5px;line-height:1.35}
+  #appMec .sec-t{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--txt3);font-weight:800;margin:20px 0 11px}
+  #appMec .bloco{background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:4px 18px;margin-bottom:16px}
+  #appMec .linha{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+  #appMec .linha:last-child{border-bottom:0}
+  #appMec .linha-rot{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--txt3);font-weight:800}
+  #appMec .linha-val{font-size:16px;font-weight:700;text-align:right}
+  #appMec .linha-val.mono{font-family:var(--mono);font-weight:600}
+  #appMec .tl{position:relative;padding-left:28px}
+  #appMec .tl::before{content:"";position:absolute;left:8px;top:6px;bottom:10px;width:2px;background:var(--line)}
+  #appMec .tl-i{position:relative;padding:0 0 18px}
+  #appMec .tl-i::before{content:"";position:absolute;left:-24px;top:4px;width:12px;height:12px;border-radius:50%;
+    background:var(--surf);border:2px solid var(--txt3)}
+  #appMec .tl-i.am::before{border-color:var(--amarelo)}
+  #appMec .tl-i.az::before{border-color:var(--azul)}
+  #appMec .tl-i.vd::before{border-color:var(--verde)}
+  #appMec .tl-h{font-family:var(--mono);font-size:12px;color:var(--txt3);font-weight:600}
+  #appMec .tl-t{font-size:15.5px;font-weight:700;margin-top:3px}
+  #appMec .tl-s{font-size:13px;color:var(--txt2);margin-top:3px;line-height:1.4}
+  #appMec .m-vazio{text-align:center;padding:50px 20px;color:var(--txt3)}
+  #appMec .m-vazio b{display:block;font-size:19px;color:var(--txt2);margin-bottom:6px;font-weight:700}
+  #appMec .entrada{width:100%;background:var(--surf2);border:1px solid var(--line);border-radius:14px;
+    padding:16px;font-size:18px;color:var(--txt);font-family:inherit;margin-bottom:14px}
+  #appMec .entrada:focus{outline:0;border-color:var(--amarelo)}
+  #appMec .fundo{position:fixed;inset:0;background:rgba(4,7,6,.78);backdrop-filter:blur(4px);
+    display:none;align-items:flex-end;justify-content:center;z-index:55}
+  #appMec .fundo.on{display:flex}
+  #appMec .folha{width:100%;max-width:900px;background:var(--surf);border-top:1px solid var(--line);
+    border-radius:26px 26px 0 0;padding:22px 18px 18px;max-height:94vh;overflow-y:auto}
+  #appMec .puxador{width:44px;height:5px;border-radius:99px;background:var(--surf3);margin:0 auto 18px}
+  #appMec .folha h3{font-size:23px;margin:0 0 4px;font-weight:750}
+  #appMec .folha .h3sub{font-size:14px;color:var(--txt2);margin:0 0 18px}
+  #appMec .acoes-modal{display:flex;gap:12px;margin-top:20px}
+  #appMec .rol{max-height:56vh;overflow-y:auto}
+
 </style>
 </head>
 <body>
@@ -650,6 +771,15 @@
       <span>Chamados abertos, tempo de espera e histórico</span></span>
     <span class="es-seta">›</span>
   </button>
+
+  <button class="es-app mec" data-modo="mec">
+    <span class="es-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M14.7 6.3a4 4 0 0 0 5 5l-8.4 8.4a2.8 2.8 0 0 1-4-4z"/><path d="M16.5 3.5 20.5 7.5"/></svg></span>
+    <span class="es-txt"><b>Painel da manutenção</b>
+      <span>Kanban de chamados — em manutenção, aguardando peça, concluído</span></span>
+    <span class="es-seta">›</span>
+  </button>
+
 
   <div class="es-dica">
     <b>Para fixar no tablet</b>
@@ -937,7 +1067,6 @@
       <div id="r_listaChamados"></div>
       <div class="rodape">
         <button class="btn b2" id="r_painelSair">Sair</button>
-        <button class="btn b1" id="r_simular" style="background:var(--surf2);border:1px solid var(--line);color:var(--txt2);box-shadow:none">Simular novo chamado</button>
       </div>
     </section>
 
@@ -957,6 +1086,59 @@
   <div class="fundo" id="r_gaveta" style="z-index:60"><div class="folha" id="r_gavetaIn"></div></div>
 </div>
 </div>
+
+<div id="appMec" class="modo">
+  <section class="tela on" id="m_t0">
+    <div class="m-brand"><i class="m-ponto"></i><span>Vitalbor</span></div>
+    <div class="m-hora" id="m_hora">--:--</div>
+    <div class="m-data" id="m_data"></div>
+    <button class="m-start" id="m_btnStart">INICIAR</button>
+    <div class="m-rod">PAINEL DA MANUTENÇÃO · CHAMADOS DE MÁQUINA · v1.0<br>
+      <span id="m_conexao" style="color:var(--txt3)">verificando conexão…</span></div>
+  </section>
+
+  <section class="tela" id="m_t1">
+    <h2 class="tit">Selecione o turno</h2>
+    <p class="sub">Você vai acompanhar as paradas deste turno.</p>
+    <div class="grade" id="m_lTurnos"></div>
+    <div class="rodape"><button class="btn b1" id="m_okTurno" disabled>Continuar</button></div>
+  </section>
+
+  <section class="tela" id="m_t2">
+    <h2 class="tit">Quem está atendendo</h2>
+    <p class="sub">Abra a lista e escolha o mecânico de plantão.</p>
+    <div class="campo">
+      <div class="campo-rot"><span>Mecânico</span><em id="m_dica">nenhum selecionado</em></div>
+      <button class="valor placeholder" id="m_campoMec">Toque para abrir a lista ▾</button>
+    </div>
+    <div class="rodape"><button class="btn b1" id="m_okMec" disabled>Abrir kanban</button></div>
+  </section>
+
+  <section class="tela" id="m_t3">
+    <div class="m-cab">
+      <button class="voltar" id="m_voltar">‹</button>
+      <div><div class="topo-tit" id="m_quem">—</div><div class="topo-nome">Manutenção</div></div>
+      <span class="m-tag"><span id="m_relogio">--:--:--</span></span>
+    </div>
+    <p class="sub" style="margin:14px 0 6px">Toque no card para ver os detalhes e mover de coluna.</p>
+    <div class="kb" id="m_kanban"></div>
+    <div class="rodape"><button class="btn b2" id="m_sair" style="flex:1">Sair do painel</button></div>
+  </section>
+
+  <section class="tela" id="m_t4">
+    <div class="m-cab" style="margin-bottom:16px">
+      <button class="voltar" id="m_detVoltar">‹</button>
+      <div><div class="topo-tit">Chamado</div><div class="topo-nome" id="m_detId">—</div></div>
+      <span class="m-tag" id="m_detStatus">—</span>
+    </div>
+    <div id="m_detConteudo"></div>
+    <div class="rodape" id="m_detAcoes"></div>
+  </section>
+
+  <div class="fundo" id="m_fundo"><div class="folha" id="m_folha"></div></div>
+  <div class="fundo" id="m_gaveta" style="z-index:62"><div class="folha" id="m_gavetaIn"></div></div>
+</div>
+
 
 <script>
 
@@ -1183,6 +1365,7 @@ var QR = (function(){
   const esc=document.getElementById('escolha');
   const oper=document.getElementById('appOper');
   const resp=document.getElementById('appResp');
+  const mec=document.getElementById('appMec');
   const troca=document.getElementById('btnTrocar');
 
   function hora(){
@@ -1197,8 +1380,9 @@ var QR = (function(){
     esc.classList.toggle('on',modo==='escolha');
     oper.classList.toggle('on',modo==='oper');
     resp.classList.toggle('on',modo==='resp');
+    mec.classList.toggle('on',modo==='mec');
     troca.style.display=modo==='escolha'?'none':'block';
-    if(gravaHash) location.hash = modo==='oper'?'operador':modo==='resp'?'responsavel':'';
+    if(gravaHash) location.hash = modo==='oper'?'operador':modo==='resp'?'responsavel':modo==='mec'?'mecanico':'';
     window.scrollTo(0,0);
   }
 
@@ -1210,7 +1394,7 @@ var QR = (function(){
 
   function aplicaHash(){
     const h=(location.hash||'').replace('#','').toLowerCase();
-    mostra(h==='operador'?'oper':h==='responsavel'?'resp':'escolha',false);
+    mostra(h==='operador'?'oper':h==='responsavel'?'resp':h==='mecanico'?'mec':'escolha',false);
   }
   aplicaHash();
 })();
@@ -1218,6 +1402,30 @@ var QR = (function(){
 </script>
 
 <script>
+
+/* =============================================================================
+   CANAL DE CHAMADOS — ponte entre os apps deste arquivo.
+   Sem banco configurado, é isto que faz o chamado do operador aparecer na hora
+   no painel do responsável e no do mecânico (mesma aba do navegador).
+   Com o Supabase ligado, cada painel também escuta a tabela `chamados` por
+   realtime, e aí funciona entre dispositivos diferentes.
+   ============================================================================= */
+window.BUS=(function(){
+  const itens=[], subs=[];
+  function avisa(acao,ch){ subs.forEach(f=>{ try{f(acao,ch)}catch(e){console.warn(e)} }) }
+  return {
+    itens,
+    publica(ch){ itens.unshift(ch); avisa('novo',ch); },
+    atualiza(id,campos,evento){
+      const c=itens.find(x=>x.id===id); if(!c) return null;
+      Object.assign(c,campos);
+      if(evento) (c.eventos=c.eventos||[]).push(evento);
+      avisa('mudou',c); return c;
+    },
+    escuta(f){ subs.push(f) }
+  };
+})();
+
 /* ================= OPERADOR ================= */
 (function(){
 
@@ -1900,13 +2108,37 @@ function abreChamadoNaFila(ev){
   ev.chamadoId=ch.id;
   abrirChamadoNoBanco(ch,ev);
   FILA.unshift(ch);
+  /* avisa os painéis deste arquivo (responsável / mecânico) */
+  const p=pecaDaOP();
+  window.BUS.publica({
+    id:ch.id, tipo:ch.tipo, maquina:ch.maquina, maquinaDesc:ch.maquinaDesc,
+    operador:ch.operador, matricula:ch.matricula, turno:ch.turno, op:ch.op,
+    peca:p?p.nome:('OP '+E.op), lote:loteCheio(), cavidades:E.cav, caixas:E.caixas.length,
+    problema:ch.problema, abertoEm:ch.abertoEm, hora:ch.hora, status:'aberto',
+    eventos:[{t:ch.abertoEm,tipo:'abriu',txt:'Chamado aberto pelo operador',sub:'Motivo: '+ch.problema}]
+  });
   pintaFila();
 }
 function encerraChamadoNaFila(ev){
   const ch=FILA.find(c=>c.id===ev.chamadoId);
-  if(ch&&!ch.atendidoEm){ch.atendidoEm=Date.now();ch.fechadoPeloOperador=true;fecharChamadoNoBanco(ch)}
+  if(ch&&!ch.atendidoEm){
+    ch.atendidoEm=Date.now();ch.fechadoPeloOperador=true;fecharChamadoNoBanco(ch);
+    window.BUS.atualiza(ch.id,{status:'atendido',atendidoEm:ch.atendidoEm,fechadoPeloOperador:true},
+      {t:Date.now(),tipo:'fechou',txt:'Operador retomou a produção',sub:'Encerrado no tablet'});
+  }
   pintaFila();
 }
+
+/* o tablet também escuta: quando o responsável marca "a caminho", aparece na tela */
+window.BUS.escuta((acao,ch)=>{
+  if(acao!=='mudou') return;
+  const ev=E.eventos.find(x=>x.chamadoId===ch.id);
+  if(!ev) return;
+  if(ch.aCaminhoEm) ev.aCaminho=ch.aCaminhoEm;
+  if(ch.status==='atendido'&&!ch.fechadoPeloOperador) ev.atendido=ch.atendidoEm;
+  const f=FILA.find(c=>c.id===ch.id);
+  if(f){f.aCaminhoEm=ch.aCaminhoEm||f.aCaminhoEm; if(ch.status==='atendido')f.atendidoEm=f.atendidoEm||ch.atendidoEm}
+});
 const abertos=()=>FILA.filter(c=>!c.atendidoEm);
 
 function pintaFila(){
@@ -2197,39 +2429,7 @@ const agora=Date.now();
 let SEQ=1043;
 
 /* chamados de exemplo — 2 abertos e 2 já atendidos no turno */
-let CHAMADOS=[
-  {id:'CH1041',maquina:'IJ-02',operador:'Jhenifer Luana A.',matricula:'0290',turno:'Turno 1',
-   op:'4821',peca:'295 COL-100 NBR',lote:'N-2607',cavidades:24,caixas:3,
-   problema:'Banheiro',abertoEm:agora-min(3.5),status:'aberto',
-   eventos:[{t:agora-min(3.5),tipo:'abriu',txt:'Chamado aberto pelo operador',sub:'Motivo: Banheiro'}]},
-
-  {id:'CH1042',maquina:'IJ-04',operador:'Marcos Vinícius Souza',matricula:'0312',turno:'Turno 1',
-   op:'4835',peca:'118 RET-220 EPDM',lote:'E-2606',cavidades:16,caixas:1,
-   problema:'Acabou a borracha do lote e não achei o próximo palete',abertoEm:agora-min(17),status:'a_caminho',
-   eventos:[
-     {t:agora-min(17),tipo:'abriu',txt:'Chamado aberto pelo operador',sub:'Motivo informado como "Outro"'},
-     {t:agora-min(11),tipo:'caminho',txt:'Adriano Bueno marcou "a caminho"',sub:''}
-   ]},
-
-  {id:'CH1039',maquina:'IJ-01',operador:'Ana Paula Ribeiro',matricula:'0142',turno:'Turno 1',
-   op:'4840',peca:'077 ANEL-45 VMQ',lote:'V-2605',cavidades:48,caixas:2,
-   problema:'Refeição',abertoEm:agora-min(96),status:'atendido',atendidoEm:agora-min(64),
-   eventos:[
-     {t:agora-min(96),tipo:'abriu',txt:'Chamado aberto pelo operador',sub:'Motivo: Refeição'},
-     {t:agora-min(93),tipo:'caminho',txt:'Cláudia Marin marcou "a caminho"',sub:''},
-     {t:agora-min(90),tipo:'chegou',txt:'Cláudia Marin chegou na máquina',sub:'Cobertura durante a refeição'},
-     {t:agora-min(64),tipo:'fechou',txt:'Operador retomou a produção',sub:'Ausência total de 32min'}
-   ]},
-
-  {id:'CH1040',maquina:'IJ-05',operador:'Patrícia Moraes',matricula:'0344',turno:'Turno 1',
-   op:'4821',peca:'295 COL-100 NBR',lote:'N-2607',cavidades:24,caixas:4,
-   problema:'Falar com líder',abertoEm:agora-min(52),status:'atendido',atendidoEm:agora-min(44),
-   eventos:[
-     {t:agora-min(52),tipo:'abriu',txt:'Chamado aberto pelo operador',sub:'Motivo: Falar com líder'},
-     {t:agora-min(44),tipo:'chegou',txt:'Everton Sales chegou na máquina',sub:'Ninguém marcou "a caminho" antes'},
-     {t:agora-min(44),tipo:'fechou',txt:'Chamado encerrado',sub:'Dúvida sobre troca de molde resolvida na máquina'}
-   ]}
-];
+let CHAMADOS=[];   /* preenchida pelos chamados reais (canal local ou Supabase) */
 
 /* fonte dos chamados simulados */
 const SIM=[
@@ -2467,15 +2667,24 @@ setInterval(()=>{
 },1000);
 
 /* botão de demonstração: simula um operador chamando agora */
-$('#r_simular').onclick=()=>{
-  if(MODO==='online'){alert('Com o banco ligado, os chamados vêm do tablet do operador.');return}
-  const base=SIM[Math.floor(Math.random()*SIM.length)];
-  const c=Object.assign({},base,{
-    id:'CH'+(++SEQ),turno:nomeTurno(),abertoEm:Date.now(),status:'aberto',
-    eventos:[{t:Date.now(),tipo:'abriu',txt:'Chamado aberto pelo operador',sub:'Motivo: '+base.problema}]
-  });
-  CHAMADOS.unshift(c);pintaFila();
-};
+
+
+/* ---- recebe os chamados abertos no tablet do operador (mesma aba) ---- */
+window.BUS.escuta((acao,ch)=>{
+  if(ch.tipo!=='responsavel') return;
+  const i=CHAMADOS.findIndex(c=>c.id===ch.id);
+  const item={
+    id:ch.id, maquina:ch.maquina, operador:ch.operador, matricula:ch.matricula,
+    turno:ch.turno, op:ch.op, peca:ch.peca, lote:ch.lote, cavidades:ch.cavidades,
+    caixas:ch.caixas, problema:ch.problema, abertoEm:ch.abertoEm,
+    atendidoEm:ch.atendidoEm||null, status:ch.status||'aberto',
+    fechadoPeloOperador:!!ch.fechadoPeloOperador, eventos:ch.eventos||[]
+  };
+  if(i<0) CHAMADOS.unshift(item); else CHAMADOS[i]=Object.assign(CHAMADOS[i],item);
+  if(MAQ[ch.maquina]===undefined&&ch.maquinaDesc) MAQ[ch.maquina]=ch.maquinaDesc;
+  if($('#r_t3').classList.contains('on')) pintaFila();
+  if($('#r_t4').classList.contains('on')&&S.chamadoAberto===ch.id) abreDetalhe(ch.id);
+});
 
 /* ================= DETALHE + HISTÓRICO ================= */
 const ICO_TL={abriu:'roxo',caminho:'amar',chegou:'verde',fechou:'verde',nota:'',cancel:'verm'};
@@ -2559,12 +2768,14 @@ function desenhaDetalhe(c){
     c.status='a_caminho';
     c.eventos.push({t:Date.now(),tipo:'caminho',txt:respInfo().nome+' marcou "a caminho"',sub:''});
     gravaChamado(id,{status:'a_caminho',a_caminho_em:new Date().toISOString(),a_caminho_por:respInfo().nome});
+    window.BUS.atualiza(id,{status:'a_caminho',aCaminhoEm:Date.now(),aCaminhoPor:respInfo().nome});
     abreDetalhe(id);
   };
   if($('#r_dChegou'))$('#r_dChegou').onclick=()=>pedeNota(c,'Cheguei na máquina',
     'O que foi feito? Fica no histórico do chamado.',txt=>{
       c.status='atendido';c.atendidoEm=Date.now();
       c.eventos.push({t:Date.now(),tipo:'chegou',txt:respInfo().nome+' chegou na máquina',sub:txt});
+      window.BUS.atualiza(id,{status:'atendido',atendidoEm:Date.now(),atendidoPor:respInfo().nome});
       gravaChamado(id,{status:'atendido',atendido_em:new Date().toISOString(),atendido_por:respInfo().nome},
         txt?{tipo:'nota',texto:'Atendimento',detalhe:txt,autor:respInfo().nome}:null);
       fechaModal();abreDetalhe(id);
@@ -2594,6 +2805,324 @@ iniciaBanco();carregaTudo();escutaChamados();
 setInterval(()=>{if(MODO==='online'&&$('#r_t3').classList.contains('on'))carregaTudo()},60000);
 
 window.BOOT_RESPONSAVEL=()=>{};
+})();
+
+</script>
+
+<script>
+/* ================= MECANICO ================= */
+(function(){
+const RAIZ=document.getElementById('appMec');
+const $=s=>RAIZ.querySelector(s),$$=s=>[...RAIZ.querySelectorAll(s)];
+const dd=n=>String(n).padStart(2,'0');
+const hms=s=>dd(Math.floor(s/3600))+':'+dd(Math.floor(s/60)%60)+':'+dd(s%60);
+const hm=s=>{const m=Math.floor(s/60);return m<60?m+'min':Math.floor(m/60)+'h '+dd(m%60)+'min'};
+const hhmm=t=>new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+const semAcento=t=>(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const iniciais=n=>n.split(' ').filter(p=>p.length>2).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+
+const TURNOS=[{id:'T1',nome:'Turno 1',ini:'06:00',fim:'14:20'},
+              {id:'T2',nome:'Turno 2',ini:'14:20',fim:'22:40'},
+              {id:'T3',nome:'Turno 3',ini:'22:40',fim:'06:00'}];
+let MECANICOS=[{mat:'M004',nome:'Anderson Prado',cargo:'Mecânico de injeção'},
+               {mat:'M011',nome:'Jair Bonfim',cargo:'Ferramenteiro'},
+               {mat:'M019',nome:'Wesley Tomaz',cargo:'Manutenção elétrica'}];
+
+/* colunas do kanban — mesma lógica do sistema da Juntas */
+const COLS=[
+  {id:'aberto',                nome:'Aberto',              cor:'var(--vermelho)'},
+  {id:'em_manutencao',         nome:'Em manutenção',       cor:'var(--amarelo)'},
+  {id:'aguardando_componente', nome:'Aguardando peça',     cor:'var(--azul)'},
+  {id:'atendido',              nome:'Concluído',           cor:'var(--verde)'}
+];
+const NOME_COL=id=>(COLS.find(c=>c.id===id)||{}).nome||id;
+
+let CHAMADOS=[];
+const S={turno:null,mec:null,aberto:null};
+let passo=0;
+
+/* ---------- Supabase (mesma configuração dos outros apps) ---------- */
+const CFG={url:'',anon:''};
+let sb=null, MODO='demo';
+function pintaConexao(){
+  const el=$('#m_conexao'); if(!el) return;
+  const t={demo:['modo local — chamados desta aba','var(--txt3)'],
+           online:['conectado · tempo real','var(--verde)'],
+           offline:['sem conexão com o banco','var(--amarelo)']}[MODO];
+  el.textContent=t[0]; el.style.color=t[1];
+}
+function iniciaBanco(){
+  if(!CFG.url||!CFG.anon||!window.supabase){MODO='demo';pintaConexao();return}
+  try{sb=window.supabase.createClient(CFG.url,CFG.anon,{auth:{persistSession:false}});MODO='online'}
+  catch(e){MODO='demo'}
+  pintaConexao();
+}
+const deLinha=r=>({
+  id:r.id, maquina:r.maquina, operador:r.operador_nome||'—', matricula:r.operador_matricula||'—',
+  turno:r.turno||'', op:r.ordem||'—', peca:r.peca||'—', lote:r.lote||'—',
+  problema:r.problema, abertoEm:new Date(r.aberto_em).getTime(),
+  atendidoEm:r.atendido_em?new Date(r.atendido_em).getTime():null,
+  status:r.status||'aberto', eventos:[]
+});
+async function carregaTudo(){
+  if(MODO!=='online') return;
+  try{
+    const [mec,ch]=await Promise.all([
+      sb.from('responsaveis').select('*').eq('ativo',true).order('nome'),
+      sb.from('chamados').select('*').eq('tipo','mecanico')
+        .gte('aberto_em',new Date(Date.now()-12*3600e3).toISOString())
+        .order('aberto_em',{ascending:false})
+    ]);
+    if(mec.data&&mec.data.length)MECANICOS=mec.data.map(r=>({mat:r.matricula,nome:r.nome,cargo:r.cargo||''}));
+    if(ch.data)CHAMADOS=ch.data.map(deLinha);
+    pintaMec();pintaKanban();
+  }catch(e){MODO='offline';pintaConexao()}
+}
+function escuta(){
+  if(MODO!=='online') return;
+  sb.channel('chamados-mecanico')
+    .on('postgres_changes',{event:'*',schema:'public',table:'chamados'},p=>{
+      const r=p.new; if(!r||r.tipo!=='mecanico') return;
+      const novo=deLinha(r), i=CHAMADOS.findIndex(c=>c.id===novo.id);
+      if(i<0)CHAMADOS.unshift(novo); else CHAMADOS[i]=Object.assign(CHAMADOS[i],novo);
+      if($('#m_t3').classList.contains('on'))pintaKanban();
+      if($('#m_t4').classList.contains('on')&&S.aberto===novo.id)abreDetalhe(novo.id);
+    }).subscribe();
+}
+async function gravaStatus(id,campos,atual){
+  if(MODO!=='online') return;
+  try{
+    await sb.from('chamados').update(campos).eq('id',id);
+    if(atual) await sb.from('chamado_atualizacoes').insert(Object.assign({chamado_id:id},atual));
+  }catch(e){MODO='offline';pintaConexao()}
+}
+
+/* ---------- recebe os chamados abertos no tablet (mesma aba) ---------- */
+window.BUS.escuta((acao,ch)=>{
+  if(ch.tipo!=='mecanico') return;
+  const i=CHAMADOS.findIndex(c=>c.id===ch.id);
+  const item={
+    id:ch.id, maquina:ch.maquina, maquinaDesc:ch.maquinaDesc, operador:ch.operador,
+    matricula:ch.matricula, turno:ch.turno, op:ch.op, peca:ch.peca, lote:ch.lote,
+    cavidades:ch.cavidades, problema:ch.problema, abertoEm:ch.abertoEm,
+    atendidoEm:ch.atendidoEm||null, status:ch.status||'aberto',
+    fechadoPeloOperador:!!ch.fechadoPeloOperador
+  };
+  if(i<0){ item.eventos=(ch.eventos||[]).slice(); CHAMADOS.unshift(item) }
+  else { const ev=CHAMADOS[i].eventos; CHAMADOS[i]=Object.assign(CHAMADOS[i],item); CHAMADOS[i].eventos=ev }
+  if($('#m_t3').classList.contains('on'))pintaKanban();
+  if($('#m_t4').classList.contains('on')&&S.aberto===ch.id)abreDetalhe(ch.id);
+});
+
+/* ---------- relógio ---------- */
+function turnoAgora(){const d=new Date(),m=d.getHours()*60+d.getMinutes();
+  return m>=360&&m<860?'T1':m>=860&&m<1360?'T2':'T3'}
+setInterval(()=>{
+  const d=new Date();
+  $('#m_hora').textContent=dd(d.getHours())+':'+dd(d.getMinutes());
+  $('#m_data').textContent=d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  $('#m_relogio').textContent=d.toLocaleTimeString('pt-BR');
+  if($('#m_t3').classList.contains('on')){
+    $$('#m_kanban .tmp').forEach(el=>{
+      const seg=Math.floor((Date.now()-(+el.dataset.t))/1000);
+      el.textContent=hm(seg);
+      const c=el.closest('.kcard');
+      c.classList.toggle('urg',seg>=600&&seg<1800);
+      c.classList.toggle('crit',seg>=1800);
+    });
+  }
+  if($('#m_t4').classList.contains('on')&&S.aberto){
+    const c=CHAMADOS.find(x=>x.id===S.aberto);
+    const el=$('#m_detTimer');
+    if(c&&el&&c.status!=='atendido')el.textContent=hms(Math.floor((Date.now()-c.abertoEm)/1000));
+  }
+},1000);
+
+/* ---------- navegação ---------- */
+function ir(i){
+  passo=i;
+  ['m_t0','m_t1','m_t2','m_t3','m_t4'].forEach((t,k)=>$('#'+t).classList.toggle('on',k===i));
+  window.scrollTo(0,0);
+}
+$('#m_btnStart').onclick=()=>{S.turno=null;S.mec=null;pintaTurnos();pintaMec();ir(1)};
+$('#m_voltar').onclick=()=>ir(2);
+$('#m_sair').onclick=()=>ir(0);
+$('#m_detVoltar').onclick=()=>{pintaKanban();ir(3)};
+
+/* ---------- gaveta / modal ---------- */
+function abreLista(o){
+  $('#m_gavetaIn').innerHTML=`<div class="puxador"></div>
+    <div class="topo-tit">${o.titulo}</div><p class="sub" style="margin:6px 0 14px">${o.sub||''}</p>
+    <input class="entrada" id="m_gavBusca" placeholder="Buscar" autocomplete="off">
+    <div class="rol"><div class="grade" id="m_gavLista"></div></div>
+    <div class="acoes-modal"><button class="btn b2" id="m_gavCancel" style="flex:1">Cancelar</button></div>`;
+  function pinta(){
+    const q=semAcento($('#m_gavBusca').value.trim());
+    const l=o.itens.filter(i=>!q||semAcento(i.titulo+' '+(i.sub||'')).includes(q));
+    $('#m_gavLista').innerHTML=l.length?l.map(i=>`<button class="card" data-v="${i.v}">
+      <span class="card-nome">${i.titulo}</span><span class="card-info">${i.sub||''}</span></button>`).join('')
+      :'<div class="m-vazio">Nada encontrado.</div>';
+    $$('#m_gavLista .card').forEach(b=>b.onclick=()=>{const v=b.dataset.v;$('#m_gaveta').classList.remove('on');o.onOk(v)});
+  }
+  $('#m_gavBusca').oninput=pinta;
+  $('#m_gavCancel').onclick=()=>$('#m_gaveta').classList.remove('on');
+  $('#m_gaveta').classList.add('on');pinta();
+}
+$('#m_gaveta').onclick=e=>{if(e.target===$('#m_gaveta'))$('#m_gaveta').classList.remove('on')};
+function abreModal(html){$('#m_folha').innerHTML='<div class="puxador"></div>'+html;$('#m_fundo').classList.add('on')}
+function fechaModal(){$('#m_fundo').classList.remove('on')}
+$('#m_fundo').onclick=e=>{if(e.target===$('#m_fundo'))fechaModal()};
+
+/* ---------- passo 1: turno ---------- */
+function pintaTurnos(){
+  const ag=turnoAgora();
+  $('#m_lTurnos').innerHTML=TURNOS.map(t=>`<button class="card ${S.turno===t.id?'sel':''}" data-t="${t.id}">
+    <span class="card-nome">${t.nome}</span><span class="card-info">${t.ini} às ${t.fim}${t.id===ag?' · agora':''}</span>
+    </button>`).join('');
+  $$('#m_lTurnos .card').forEach(b=>b.onclick=()=>{S.turno=b.dataset.t;pintaTurnos();$('#m_okTurno').disabled=false});
+}
+$('#m_okTurno').onclick=()=>ir(2);
+
+/* ---------- passo 2: mecânico ---------- */
+const mecInfo=()=>MECANICOS.find(m=>m.mat===S.mec)||null;
+$('#m_campoMec').onclick=()=>abreLista({
+  titulo:'Mecânico',sub:'Quem está de plantão neste turno.',
+  itens:MECANICOS.map(m=>({v:m.mat,titulo:m.nome,sub:m.cargo+' · '+m.mat})),
+  onOk:v=>{S.mec=v;pintaMec()}});
+function pintaMec(){
+  const m=mecInfo(),c=$('#m_campoMec');
+  if(m){c.className='valor';c.textContent=m.nome+' ▾';$('#m_dica').textContent=m.cargo}
+  else{c.className='valor placeholder';c.textContent='Toque para abrir a lista ▾';$('#m_dica').textContent='nenhum selecionado'}
+  $('#m_okMec').disabled=!m;
+}
+$('#m_okMec').onclick=()=>{
+  const t=TURNOS.find(x=>x.id===S.turno)||{};
+  $('#m_quem').textContent=mecInfo().nome+' · '+(t.nome||'');
+  pintaKanban();ir(3);
+};
+
+/* ---------- kanban ---------- */
+function pintaKanban(){
+  $('#m_kanban').innerHTML=COLS.map(col=>{
+    const lista=CHAMADOS.filter(c=>c.status===col.id)
+      .sort((a,b)=>col.id==='atendido'?(b.atendidoEm||0)-(a.atendidoEm||0):a.abertoEm-b.abertoEm);
+    return `<div class="col">
+      <div class="col-cab"><i class="col-bola" style="background:${col.cor}"></i>
+        <span class="col-nome">${col.nome}</span><span class="col-n">${lista.length}</span></div>
+      ${lista.length?lista.map(c=>{
+        const fim=c.status==='atendido'?(c.atendidoEm||Date.now()):Date.now();
+        const seg=Math.floor((fim-c.abertoEm)/1000);
+        const cls=c.status==='atendido'?'':seg>=1800?'crit':seg>=600?'urg':'';
+        return `<button class="kcard ${cls}" data-id="${c.id}">
+          <div class="kc-topo"><span class="kc-maq">${c.maquina}</span>
+            <span class="kc-tempo ${c.status==='atendido'?'':'tmp'}" data-t="${c.abertoEm}">${hm(seg)}</span></div>
+          <div class="kc-prob">${c.problema}</div>
+          <div class="kc-pe">${c.operador} · ${hhmm(c.abertoEm)}</div>
+        </button>`}).join('')
+       :'<div class="kc-vazia">nenhum chamado</div>'}
+    </div>`;
+  }).join('');
+  $$('#m_kanban .kcard').forEach(b=>b.onclick=()=>abreDetalhe(b.dataset.id));
+}
+
+/* ---------- detalhe + mover ---------- */
+function abreDetalhe(id){
+  const c=CHAMADOS.find(x=>x.id===id); if(!c) return;
+  S.aberto=id;
+  const fim=c.status==='atendido'?(c.atendidoEm||Date.now()):Date.now();
+  const seg=Math.floor((fim-c.abertoEm)/1000);
+  $('#m_detId').textContent=c.id+' · '+c.maquina;
+  $('#m_detStatus').textContent=NOME_COL(c.status);
+  const outros=CHAMADOS.filter(x=>x.maquina===c.maquina&&x.id!==c.id)
+    .sort((a,b)=>b.abertoEm-a.abertoEm).slice(0,4);
+  $('#m_detConteudo').innerHTML=`
+    <div class="det-head">
+      <div><span class="tagi">${c.maquina}</span><span class="tagi">OP ${c.op||'—'}</span>
+        <span class="tagi">${c.turno||''}</span></div>
+      <div class="det-timer" id="m_detTimer">${hms(seg)}</div>
+      <div class="card-info">${c.status==='atendido'?'parada total':'parada há'} · aberto às ${hhmm(c.abertoEm)}</div>
+      <div class="card-nome" style="margin-top:12px">${c.operador}
+        <span class="card-info" style="display:block;font-weight:600">${c.maquinaDesc||''} · peça ${c.peca||'—'}</span></div>
+      <div class="ch-prob"><div class="ch-prob-rot">Problema informado pelo operador</div>
+        <div class="ch-prob-txt">${c.problema}</div></div>
+    </div>
+    <div class="sec-t">Histórico do chamado</div>
+    <div class="bloco" style="padding:18px">
+      <div class="tl">${(c.eventos||[]).slice().sort((a,b)=>a.t-b.t).map(e=>`
+        <div class="tl-i ${e.tipo==='fechou'?'vd':e.tipo==='peca'?'az':'am'}">
+          <div class="tl-h">${hhmm(e.t)}</div><div class="tl-t">${e.txt}</div>
+          ${e.sub?`<div class="tl-s">${e.sub}</div>`:''}</div>`).join('')
+        ||'<div class="tl-i"><div class="tl-t">Sem registros ainda</div></div>'}</div>
+    </div>
+    <div class="sec-t">Produção parada</div>
+    <div class="bloco">
+      <div class="linha"><span class="linha-rot">Peça</span><span class="linha-val">${c.peca||'—'}</span></div>
+      <div class="linha"><span class="linha-rot">Ordem</span><span class="linha-val mono">OP ${c.op||'—'}</span></div>
+      <div class="linha"><span class="linha-rot">Lote</span><span class="linha-val mono">${c.lote||'—'}</span></div>
+      <div class="linha"><span class="linha-rot">Operador</span><span class="linha-val">${c.operador}</span></div>
+    </div>
+    <div class="sec-t">Chamados anteriores da ${c.maquina}</div>
+    ${outros.length?outros.map(x=>`<div class="bloco" style="padding:14px 16px;margin-bottom:9px">
+      <div class="linha" style="border:0;padding:0"><span>
+        <span class="linha-val" style="display:block;text-align:left">${x.problema}</span>
+        <span class="linha-rot" style="text-transform:none;letter-spacing:0">${hhmm(x.abertoEm)} · ${NOME_COL(x.status)}</span>
+      </span><span class="linha-val mono">${hm(Math.floor(((x.atendidoEm||Date.now())-x.abertoEm)/1000))}</span></div>
+    </div>`).join('')
+      :'<div class="m-vazio">Nenhum outro chamado desta máquina no período.</div>'}
+    <div style="height:8px"></div>`;
+
+  const btns=[];
+  if(c.status==='aberto') btns.push(`<button class="mv mv-am" data-s="em_manutencao">Assumir · em manutenção</button>`);
+  if(c.status==='em_manutencao'){
+    btns.push(`<button class="mv mv-az" data-s="aguardando_componente">Aguardando peça</button>`);
+    btns.push(`<button class="mv mv-vd" data-s="atendido">Concluir</button>`);
+  }
+  if(c.status==='aguardando_componente'){
+    btns.push(`<button class="mv mv-am" data-s="em_manutencao">Peça chegou · retomar</button>`);
+    btns.push(`<button class="mv mv-vd" data-s="atendido">Concluir</button>`);
+  }
+  if(c.status==='atendido') btns.push(`<button class="mv mv-ci" data-s="em_manutencao">Reabrir</button>`);
+  $('#m_detAcoes').innerHTML=`<button class="btn b2" id="m_voltaKb">Voltar</button>
+    <div style="flex:1"><div class="mover">${btns.join('')}</div></div>`;
+  $('#m_voltaKb').onclick=()=>{pintaKanban();ir(3)};
+  $$('#m_detAcoes .mv').forEach(b=>b.onclick=()=>mover(c,b.dataset.s));
+  ir(4);
+}
+
+function mover(c,novo){
+  const pede=novo==='aguardando_componente'||novo==='atendido';
+  const titulo=novo==='aguardando_componente'?'Aguardando peça':novo==='atendido'?'Concluir chamado':'Assumir chamado';
+  const sub=novo==='aguardando_componente'?'Qual componente está faltando? Fica no histórico.'
+        :novo==='atendido'?'O que foi feito na máquina?':'';
+  if(!pede){ aplica(c,novo,''); return }
+  abreModal(`<h3>${titulo}</h3><p class="h3sub">${sub}</p>
+    <input class="entrada" id="m_txt" placeholder="Descreva (opcional)" maxlength="120" autocomplete="off">
+    <div class="acoes-modal"><button class="btn b2" id="m_cancel">Cancelar</button>
+      <button class="btn b1" id="m_ok">Confirmar</button></div>`);
+  $('#m_cancel').onclick=fechaModal;
+  $('#m_ok').onclick=()=>{const t=$('#m_txt').value.trim();fechaModal();aplica(c,novo,t)};
+}
+
+function aplica(c,novo,texto){
+  const quem=(mecInfo()||{}).nome||'Mecânico';
+  const txt={em_manutencao:quem+' assumiu o chamado',
+             aguardando_componente:quem+' marcou aguardando peça',
+             atendido:quem+' concluiu o atendimento'}[novo]||('Movido para '+NOME_COL(novo));
+  c.status=novo;
+  if(novo==='atendido')c.atendidoEm=Date.now(); else c.atendidoEm=null;
+  (c.eventos=c.eventos||[]).push({t:Date.now(),
+    tipo:novo==='atendido'?'fechou':novo==='aguardando_componente'?'peca':'assumiu',txt,sub:texto||''});
+
+  const campos={status:novo};
+  if(novo==='atendido'){campos.atendido_em=new Date().toISOString();campos.atendido_por=quem}
+  gravaStatus(c.id,campos,{tipo:'nota',texto:txt,detalhe:texto||null,autor:quem});
+  window.BUS.atualiza(c.id,{status:novo,atendidoEm:c.atendidoEm});
+  abreDetalhe(c.id);
+}
+
+/* ---------- início ---------- */
+pintaTurnos();pintaMec();pintaKanban();ir(0);
+iniciaBanco();carregaTudo();escuta();
 })();
 
 </script>
