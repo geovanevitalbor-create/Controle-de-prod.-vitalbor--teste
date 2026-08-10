@@ -138,9 +138,19 @@ button { transition: transform 0.08s ease, background 0.15s ease, filter 0.15s e
 .barra-fundo { background: var(--surface-2); border-radius: 999px; height: 14px; overflow: hidden; border: 1px solid var(--linha); }
 .barra-preenchida { background: linear-gradient(90deg, var(--accent-forte), var(--accent)); height: 100%; border-radius: 999px; transition: width 0.4s ease; }
 
-.desempenho-bloco { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; margin: 14px 0 4px; }
-.desempenho-item { background: var(--surface-2); border: 1px solid var(--linha); border-radius: var(--radius-sm); padding: 12px 14px; }
-.desempenho-item .rotulo-info { margin-bottom: 5px; }
+.ficha-compacta { text-align: left; font-size: 14px; color: var(--ink-muted); line-height: 1.7; margin: 18px 0; padding-bottom: 16px; border-bottom: 1px solid var(--linha); }
+.ficha-compacta strong { color: var(--ink); font-weight: 800; font-size: 16px; }
+
+.desempenho-bloco { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; text-align: left; margin: 12px 0 4px; padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--linha); }
+.desempenho-ok { background: var(--accent-bg-fraca); border-color: var(--accent-forte); }
+.desempenho-atras { background: var(--aviso-bg-fraca); border-color: var(--aviso-forte); }
+.desempenho-selo { font-family: var(--fonte-display); font-weight: 800; font-size: 15px; }
+.desempenho-ok .desempenho-selo { color: var(--accent); }
+.desempenho-atras .desempenho-selo { color: var(--aviso); }
+.desempenho-numeros { font-size: 13px; color: var(--ink-muted); }
+
+.revisao-numero { font-family: var(--fonte-display); font-weight: 800; font-size: 58px; color: var(--accent); line-height: 1; margin: 12px 0; }
+.revisao-numero span { font-size: 16px; font-weight: 600; color: var(--ink-muted); margin-left: 6px; }
 
 .caixas-resumo { text-align: left; font-size: 13px; color: var(--ink-muted); margin: 12px 0; }
 
@@ -520,14 +530,57 @@ function turnoSugeridoAgora() {
   return '';
 }
 
-function avancarPasso() {
+async function avancarPasso() {
   const w = ctx.wizard;
-  if (w.passo === 'maquina' && !w.maquina_id) { ctx.erroForm = 'Selecione a máquina.'; render(); return; }
-  if (w.passo === 'turno' && !w.turno_id) { ctx.erroForm = 'Selecione o turno.'; render(); return; }
-  if (w.passo === 'operador' && !w.operador_id) { ctx.erroForm = 'Selecione o operador.'; render(); return; }
+
+  if (w.passo === 'maquina') {
+    if (!w.maquina_id) { ctx.erroForm = 'Selecione a máquina.'; render(); return; }
+    ctx.erroForm = null;
+    ctx.salvando = true;
+    render();
+    let aberto;
+    try {
+      aberto = await buscarApontamentoAberto(Number(w.maquina_id));
+    } catch (e) {
+      ctx.salvando = false;
+      ctx.erroForm = e.message;
+      render();
+      return;
+    }
+    ctx.salvando = false;
+    if (aberto) { await retomarApontamentoExistente(Number(w.maquina_id), aberto); return; }
+  } else if (w.passo === 'turno') {
+    if (!w.turno_id) { ctx.erroForm = 'Selecione o turno.'; render(); return; }
+  } else if (w.passo === 'operador') {
+    if (!w.operador_id) { ctx.erroForm = 'Selecione o operador.'; render(); return; }
+  }
+
   ctx.erroForm = null;
   const idx = PASSOS_INICIAR.indexOf(w.passo);
   if (idx < PASSOS_INICIAR.length - 1) { w.passo = PASSOS_INICIAR[idx + 1]; render(); }
+}
+
+async function retomarApontamentoExistente(maquinaId, apontamentoAberto) {
+  const maquina = porId(ctx.cadastros.maquinas, maquinaId);
+  ctx.maquina = maquina;
+  if (maquina) lembrarMaquina(maquina.id);
+  ctx.apontamento = apontamentoAberto;
+  try {
+    ctx.parada = await buscarParadaAberta(apontamentoAberto.id);
+    const progresso = await carregarProgressoApontamento(apontamentoAberto.id);
+    ctx.refugoTally = progresso.refugoTally;
+    ctx.caixas = progresso.caixas;
+    ctx.ultimoFechamentoCaixa = progresso.ultimoFechamentoCaixa;
+    ctx.frequenciaHistorica = await carregarFrequenciaRefugo();
+  } catch (e) {
+    ctx.erro = e.message;
+    render();
+    return;
+  }
+  ctx.wizard = null;
+  ctx.tela = 'andamento';
+  render();
+  mostrarToast('Essa máquina já tinha um apontamento em aberto — retomando.');
 }
 
 function voltarPasso() {
@@ -755,13 +808,13 @@ async function confirmarCavidade() {
 }
 
 function abrirModalCaixa() {
-  ctx.form = { numero_injecoes: '' };
+  ctx.form = { numero_injecoes: '', fase: 'entrada' };
   ctx.erroForm = null;
   ctx.modal = 'caixa';
   render();
 }
 
-async function confirmarCaixa() {
+async function calcularCaixa() {
   const injecoes = Number(ctx.form.numero_injecoes);
   if (!ctx.form.numero_injecoes || !Number.isInteger(injecoes) || injecoes <= 0) {
     ctx.erroForm = 'Informe quantas injetadas essa caixa levou (número inteiro maior que zero).';
@@ -782,13 +835,37 @@ async function confirmarCaixa() {
       render();
       return;
     }
+    ctx.form.numero_injecoes = injecoes;
+    ctx.form.cavidades_no_fechamento = cavAtual;
+    ctx.form.refugo_contabilizado = refugoDaCaixa;
+    ctx.form.quantidade_bruta = brutas;
+    ctx.form.quantidade_pecas = brutas - refugoDaCaixa;
+    ctx.form.fase = 'revisao';
+  } catch (e) {
+    ctx.erroForm = e.message;
+  }
+  ctx.salvando = false;
+  render();
+}
+
+function voltarCaixaEntrada() {
+  ctx.form.fase = 'entrada';
+  ctx.erroForm = null;
+  render();
+}
+
+async function confirmarCaixa() {
+  ctx.erroForm = null;
+  ctx.salvando = true;
+  render();
+  try {
     const caixa = await fecharCaixaDB({
       apontamento_id: ctx.apontamento.id,
-      numero_injecoes: injecoes,
-      cavidades_no_fechamento: cavAtual,
-      refugo_contabilizado: refugoDaCaixa,
-      quantidade_bruta: brutas,
-      quantidade_pecas: brutas - refugoDaCaixa,
+      numero_injecoes: ctx.form.numero_injecoes,
+      cavidades_no_fechamento: ctx.form.cavidades_no_fechamento,
+      refugo_contabilizado: ctx.form.refugo_contabilizado,
+      quantidade_bruta: ctx.form.quantidade_bruta,
+      quantidade_pecas: ctx.form.quantidade_pecas,
     });
     ctx.caixas = [caixa].concat(ctx.caixas);
     ctx.ultimoFechamentoCaixa = caixa.fechada_em;
@@ -816,9 +893,21 @@ function abrirConfirmarFinalizar() {
 }
 
 function abrirModalFinalizar() {
-  ctx.form = { peso_total_usado_kg: '', peso_sobra_kg: '' };
+  ctx.form = { peso_total_usado_kg: '', peso_sobra_kg: '', fase: 'entrada' };
   ctx.erroForm = null;
   ctx.modal = 'finalizar';
+  render();
+}
+
+function revisarFinalizar() {
+  ctx.form.fase = 'revisao';
+  ctx.erroForm = null;
+  render();
+}
+
+function voltarFinalizarEntrada() {
+  ctx.form.fase = 'entrada';
+  ctx.erroForm = null;
   render();
 }
 
@@ -939,7 +1028,7 @@ function viewPassoMaquina() {
     (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
     '<select data-wiz="maquina_id">' + opcoes(ctx.cadastros.maquinas, w.maquina_id, function (m) { return m.codigo + (m.nome ? ' — ' + m.nome : ''); }) + '</select>' +
     '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="voltar-passo">Cancelar</button>' +
-    '<button class="botao botao-primario" data-acao="avancar-passo">Próximo</button></div>';
+    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="avancar-passo">' + (ctx.salvando ? 'Verificando…' : 'Próximo') + '</button></div>';
 }
 
 function viewPassoTurno() {
@@ -1023,11 +1112,11 @@ function viewBarraProgresso() {
   if (!ctx.apontamento.ordem_producao_id) return '';
   const op = porId(ctx.cadastros.ordensProducao, ctx.apontamento.ordem_producao_id);
   if (!op) return '';
-  const produzido = somaBrutaCaixas();
+  const produzido = somaPecasCaixas();
   const meta = op.quantidade_planejada;
   const pct = meta > 0 ? Math.min(100, Math.round((produzido / meta) * 100)) : 0;
   return '<div class="progresso-bloco">' +
-    '<div class="progresso-legenda"><span>Saldo da OP ' + esc(op.numero) + ' (bruto, sem descontar refugo)</span><span>' + produzido + ' / ' + meta + '</span></div>' +
+    '<div class="progresso-legenda"><span>Saldo da OP ' + esc(op.numero) + '</span><span>' + produzido + ' / ' + meta + '</span></div>' +
     '<div class="barra-fundo"><div class="barra-preenchida" style="width:' + pct + '%"></div></div>' +
     '</div>';
 }
@@ -1035,23 +1124,29 @@ function viewBarraProgresso() {
 function viewDesempenho() {
   const a = ctx.apontamento;
   const horasDecorridas = (Date.now() - new Date(a.inicio).getTime()) / 3600000;
-  const injecoesTotal = ctx.caixas.reduce(function (acc, c) { return acc + c.numero_injecoes; }, 0);
-  const ritmoAtual = horasDecorridas > 0.02 ? (injecoesTotal / horasDecorridas) : null;
+  // Menos de ~6 min de produção dá conta instável (poucos dados,
+  // extrapola pra números absurdos) — melhor não mostrar do que
+  // mostrar algo enganoso.
+  if (horasDecorridas < 0.1) return '<p class="muted-pequeno">Ritmo: calculando (aguardando mais alguns minutos de produção)…</p>';
 
-  let necessario = null;
-  if (a.ordem_producao_id) {
-    const op = porId(ctx.cadastros.ordensProducao, a.ordem_producao_id);
-    const turno = porId(ctx.cadastros.turnos, a.turno_id);
-    if (op && turno) {
-      const restante = Math.max(0, op.quantidade_planejada - somaBrutaCaixas());
-      const horasRestantes = (calcularFimTurno(turno, new Date()).getTime() - Date.now()) / 3600000;
-      necessario = (horasRestantes > 0.02 && a.numero_cavidades_ativas > 0) ? (restante / horasRestantes) / a.numero_cavidades_ativas : 0;
-    }
+  const injecoesTotal = ctx.caixas.reduce(function (acc, c) { return acc + c.numero_injecoes; }, 0);
+  const ritmoAtual = injecoesTotal / horasDecorridas;
+
+  if (!a.ordem_producao_id) {
+    return '<p class="muted-pequeno">Seu ritmo: <strong>' + Math.round(ritmoAtual) + ' inj/h</strong></p>';
   }
-  if (ritmoAtual === null && necessario === null) return '';
-  return '<div class="desempenho-bloco">' +
-    (ritmoAtual !== null ? '<div class="desempenho-item"><span class="rotulo-info">Seu ritmo</span>' + ritmoAtual.toFixed(1) + ' inj/h</div>' : '') +
-    (necessario !== null ? '<div class="desempenho-item"><span class="rotulo-info">Necessário p/ bater a OP</span>' + necessario.toFixed(1) + ' inj/h</div>' : '') +
+  const op = porId(ctx.cadastros.ordensProducao, a.ordem_producao_id);
+  const turno = porId(ctx.cadastros.turnos, a.turno_id);
+  if (!op || !turno) return '';
+
+  const restante = Math.max(0, op.quantidade_planejada - somaPecasCaixas());
+  const horasRestantes = (calcularFimTurno(turno, new Date()).getTime() - Date.now()) / 3600000;
+  const necessario = (horasRestantes > 0.02 && a.numero_cavidades_ativas > 0) ? (restante / horasRestantes) / a.numero_cavidades_ativas : 0;
+  const noRitmo = ritmoAtual >= necessario;
+
+  return '<div class="desempenho-bloco ' + (noRitmo ? 'desempenho-ok' : 'desempenho-atras') + '">' +
+    '<span class="desempenho-selo">' + (noRitmo ? '✓ No ritmo' : '⚠ Abaixo do ritmo') + '</span>' +
+    '<span class="desempenho-numeros">' + Math.round(ritmoAtual) + ' inj/h · meta ' + Math.round(necessario) + ' inj/h</span>' +
     '</div>';
 }
 
@@ -1120,13 +1215,9 @@ function viewAndamento() {
     '<div id="cronometro" class="cronometro"></div>' +
     (parado ? '<p class="motivo-parada">Motivo: ' + esc(motivoAtual ? motivoAtual.nome : '—') + '</p>' : '') +
 
-    '<div class="grade-info">' +
-    '<div><span class="rotulo-info">Produto</span>' + esc(produto ? produto.codigo : '—') + '</div>' +
-    '<div><span class="rotulo-info">Molde</span>' + esc(molde ? molde.codigo : '—') + '</div>' +
-    '<div><span class="rotulo-info">Operador</span>' + esc(operador ? operador.nome : '—') + '</div>' +
-    '<div><span class="rotulo-info">Material</span>' + esc(material ? material.codigo : '—') + '</div>' +
-    '<div><span class="rotulo-info">Lote</span>' + esc(a.lote_material) + '</div>' +
-    '<div><span class="rotulo-info">Início</span>' + fmtHora(a.inicio) + '</div>' +
+    '<div class="ficha-compacta">' +
+    '<strong>' + esc(produto ? produto.codigo : '—') + '</strong> — ' + esc(molde ? molde.codigo : '—') + ' · Lote ' + esc(a.lote_material) + '<br>' +
+    esc(operador ? operador.nome : '—') + ' · ' + esc(material ? material.codigo : '—') + ' · Início ' + fmtHora(a.inicio) +
     '</div>' +
 
     '<div class="cavidade-atual"><span class="rotulo-info">Cavidades ativas</span>' + a.numero_cavidades_ativas +
@@ -1135,7 +1226,7 @@ function viewAndamento() {
     viewBarraProgresso() +
     viewDesempenho() +
 
-    '<div class="caixas-resumo"><span class="rotulo-info">Caixas fechadas</span>' + ctx.caixas.length + ' · ' + somaPecasCaixas() + ' peças boas no total</div>' +
+    '<div class="caixas-resumo">' + ctx.caixas.length + ' caixa(s) fechada(s) · ' + somaPecasCaixas() + ' peças boas</div>' +
 
     (parado ? '' : viewGradeRefugoRapido()) +
 
@@ -1177,6 +1268,18 @@ function viewModalCavidade() {
 function viewModalCaixa() {
   const f = ctx.form;
   const cav = ctx.apontamento.numero_cavidades_ativas;
+
+  if (f.fase === 'revisao') {
+    return '<div class="modal-fundo" data-acao="fechar-modal-fundo"><div class="modal-cartao" data-parar-propagacao="1">' +
+      '<h2>Confirmar Caixa</h2>' +
+      (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
+      '<div class="revisao-numero">' + f.quantidade_pecas + '<span> peças</span></div>' +
+      '<p class="muted-pequeno">' + f.numero_injecoes + ' injetadas × ' + f.cavidades_no_fechamento + ' cavidades = ' + f.quantidade_bruta + ' brutas, − ' + f.refugo_contabilizado + ' de refugo apontado.</p>' +
+      '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="voltar-caixa-entrada">Voltar</button>' +
+      '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-caixa">' + (ctx.salvando ? 'Salvando…' : 'Confirmar Fechamento') + '</button></div>' +
+      '</div></div>';
+  }
+
   return '<div class="modal-fundo" data-acao="fechar-modal-fundo"><div class="modal-cartao" data-parar-propagacao="1">' +
     '<h2>Fechar Caixa</h2>' +
     (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
@@ -1184,7 +1287,7 @@ function viewModalCaixa() {
     '<label>Quantas injetadas essa caixa levou</label>' +
     '<input type="number" inputmode="numeric" min="1" data-campo="numero_injecoes" value="' + esc(f.numero_injecoes) + '">' +
     '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
-    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-caixa">' + (ctx.salvando ? 'Calculando…' : 'Fechar e Calcular') + '</button></div>' +
+    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="calcular-caixa">' + (ctx.salvando ? 'Calculando…' : 'Calcular') + '</button></div>' +
     '</div></div>';
 }
 
@@ -1225,6 +1328,19 @@ function viewModalConfirmarFinalizar() {
 
 function viewModalFinalizar() {
   const f = ctx.form;
+
+  if (f.fase === 'revisao') {
+    return '<div class="modal-fundo" data-acao="fechar-modal-fundo"><div class="modal-cartao" data-parar-propagacao="1">' +
+      '<h2>Confirmar Finalização</h2>' +
+      (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
+      '<div class="revisao-numero">' + somaPecasCaixas() + '<span> peças boas</span></div>' +
+      '<p class="muted-pequeno">' + ctx.caixas.length + ' caixa(s) · Material usado: ' + (f.peso_total_usado_kg || '—') + ' kg · Sobra: ' + (f.peso_sobra_kg || '—') + ' kg</p>' +
+      '<p class="muted-pequeno">Isso encerra o apontamento — não dá pra reabrir depois.</p>' +
+      '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="voltar-finalizar-entrada">Voltar</button>' +
+      '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-finalizar">' + (ctx.salvando ? 'Salvando…' : 'Confirmar e Finalizar') + '</button></div>' +
+      '</div></div>';
+  }
+
   return '<div class="modal-fundo" data-acao="fechar-modal-fundo"><div class="modal-cartao" data-parar-propagacao="1">' +
     '<h2>Finalizar Produção</h2>' +
     (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
@@ -1233,7 +1349,7 @@ function viewModalFinalizar() {
     '<label>Sobra (kg, opcional)</label>' +
     '<input type="number" inputmode="decimal" step="0.001" min="0" data-campo="peso_sobra_kg" value="' + esc(f.peso_sobra_kg) + '">' +
     '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
-    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-finalizar">' + (ctx.salvando ? 'Salvando…' : 'Confirmar e Finalizar') + '</button></div>' +
+    '<button class="botao botao-primario" data-acao="revisar-finalizar">Revisar</button></div>' +
     '</div></div>';
 }
 
@@ -1281,11 +1397,15 @@ function ligarEventos() {
         'abrir-cavidade': abrirModalCavidade,
         'confirmar-cavidade': confirmarCavidade,
         'abrir-caixa': abrirModalCaixa,
+        'calcular-caixa': calcularCaixa,
+        'voltar-caixa-entrada': voltarCaixaEntrada,
         'confirmar-caixa': confirmarCaixa,
         'abrir-outro-motivo': abrirOutroMotivo,
         'confirmar-refugo-quantidade': confirmarRefugoQuantidade,
         'chamar-responsavel': chamarResponsavel,
         'abrir-confirmar-finalizar': abrirConfirmarFinalizar,
+        'revisar-finalizar': revisarFinalizar,
+        'voltar-finalizar-entrada': voltarFinalizarEntrada,
         'confirmar-finalizar': confirmarFinalizar,
         'fechar-modal': fecharModal,
         'fechar-modal-fundo': fecharModal,
