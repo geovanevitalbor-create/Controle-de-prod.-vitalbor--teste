@@ -276,7 +276,12 @@ let ctx = {
 
 async function carregarMaquina() {
   const { data, error } = await sb.from('maquinas').select('*').eq('codigo', MAQUINA_CODIGO).single();
-  if (error) throw new Error('Máquina "' + MAQUINA_CODIGO + '" não encontrada no cadastro (' + error.message + ')');
+  if (error) {
+    if (error.code === 'PGRST116') {
+      throw new Error('Máquina "' + MAQUINA_CODIGO + '" não encontrada no cadastro. Rodou o schema.sql nesse projeto? O código bate certinho, com as mesmas maiúsculas?');
+    }
+    throw new Error(erroSupabaseParaMensagem(error, 'Erro ao buscar a máquina "' + MAQUINA_CODIGO + '"'));
+  }
   return data;
 }
 
@@ -293,7 +298,7 @@ async function carregarCadastros() {
   ]);
   const resultados = { operadores, produtos, moldes, materiais, turnos, motivosParada, tiposRefugo, ordensProducao };
   for (const chave in resultados) {
-    if (resultados[chave].error) throw new Error('Erro ao carregar cadastros (' + chave + '): ' + resultados[chave].error.message);
+    if (resultados[chave].error) throw new Error(erroSupabaseParaMensagem(resultados[chave].error, 'Erro ao carregar cadastros (' + chave + ')'));
   }
   return {
     operadores: operadores.data, produtos: produtos.data, moldes: moldes.data,
@@ -304,42 +309,42 @@ async function carregarCadastros() {
 
 async function buscarApontamentoAberto(maquinaId) {
   const { data, error } = await sb.from('apontamentos').select('*').eq('maquina_id', maquinaId).is('fim', null).maybeSingle();
-  if (error) throw new Error('Erro ao verificar apontamento em aberto: ' + error.message);
+  if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao verificar apontamento em aberto'));
   return data;
 }
 
 async function buscarParadaAberta(apontamentoId) {
   const { data, error } = await sb.from('paradas').select('*').eq('apontamento_id', apontamentoId).is('fim', null).maybeSingle();
-  if (error) throw new Error('Erro ao verificar parada em aberto: ' + error.message);
+  if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao verificar parada em aberto'));
   return data;
 }
 
 async function iniciarApontamento(payload) {
   const { data, error } = await sb.from('apontamentos').insert(payload).select().single();
-  if (error) throw new Error('Erro ao iniciar apontamento: ' + error.message);
+  if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao iniciar apontamento'));
   return data;
 }
 
 async function iniciarParada(payload) {
   const { data, error } = await sb.from('paradas').insert(payload).select().single();
-  if (error) throw new Error('Erro ao registrar parada: ' + error.message);
+  if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao registrar parada'));
   return data;
 }
 
 async function finalizarParadaDB(paradaId) {
   const { data, error } = await sb.from('paradas').update({ fim: new Date().toISOString() }).eq('id', paradaId).select().single();
-  if (error) throw new Error('Erro ao finalizar parada: ' + error.message);
+  if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao finalizar parada'));
   return data;
 }
 
 async function finalizarApontamentoDB(apontamentoId, payload, refugos) {
   const { error: errApont } = await sb.from('apontamentos').update(payload).eq('id', apontamentoId);
-  if (errApont) throw new Error('Erro ao finalizar apontamento: ' + errApont.message);
+  if (errApont) throw new Error(erroSupabaseParaMensagem(errApont, 'Erro ao finalizar apontamento'));
   const linhas = refugos.filter(function (r) { return r.quantidade > 0; })
     .map(function (r) { return { apontamento_id: apontamentoId, tipo_id: r.tipo_id, quantidade: r.quantidade }; });
   if (linhas.length > 0) {
     const { error: errRefugo } = await sb.from('refugos').insert(linhas);
-    if (errRefugo) throw new Error('Apontamento fechado, mas erro ao salvar refugo: ' + errRefugo.message);
+    if (errRefugo) throw new Error(erroSupabaseParaMensagem(errRefugo, 'Apontamento fechado, mas erro ao salvar refugo'));
   }
 }
 
@@ -367,6 +372,20 @@ function esc(s) {
 
 function porId(lista, id) {
   return (lista || []).find(function (x) { return x.id === id; }) || null;
+}
+
+// "Failed to fetch" é a requisição nem saindo do navegador (URL errada,
+// sem internet, CORS) — bem diferente de um erro que o Supabase respondeu
+// de fato. Separar os dois evita mensagem enganosa tipo "não encontrada"
+// quando na real é problema de conexão/config.
+function erroSupabaseParaMensagem(error, contexto) {
+  if (error && error.message && error.message.indexOf('Failed to fetch') !== -1) {
+    return 'Não deu pra conectar no Supabase (' + contexto + '). Confira: SUPABASE_URL precisa ser a "Project URL" (formato https://xxxxxxxx.supabase.co) — não a connection string do Postgres nem a Reference ID sozinha — e se o aparelho tem internet.';
+  }
+  if (error && error.code === 'PGRST116') {
+    return contexto + ': registro não encontrado.';
+  }
+  return contexto + ': ' + (error && error.message ? error.message : 'erro desconhecido');
 }
 
 // ============================================================
