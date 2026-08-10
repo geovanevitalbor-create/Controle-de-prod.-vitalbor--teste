@@ -2,683 +2,838 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MES Vitalbor — Cadastros</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Apontamento — Vitalbor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root{
-  --verde-900:#0B3D22; --verde-700:#0F6B36; --verde-500:#16A34A;
-  --ambar:#D97706; --vermelho:#B91C1C; --neutro-600:#64748B;
-  --bg:#F5F7F5; --surface:#FFFFFF; --border:#E2E7E3;
-  --texto:#1C2521; --texto-2:#5B6862;
-  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
-  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+:root {
+  --bg: #F3F5F4;
+  --surface: #FFFFFF;
+  --ink: #16232A;
+  --ink-muted: #5C6B6E;
+  --linha: #DCE3E1;
+  --accent: #1F6F5C;
+  --accent-forte: #17564A;
+  --accent-ink: #FFFFFF;
+  --accent-bg-fraca: #E7F3EF;
+  --alerta: #B3261E;
+  --alerta-forte: #8F1E18;
+  --alerta-bg-fraca: #FBEAE9;
+  --neutro-bg-fraca: #EDEFEE;
+  --radius-lg: 22px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --sombra: 0 10px 30px rgba(22, 35, 42, 0.08);
+  --fonte-display: 'Barlow Semi Condensed', system-ui, sans-serif;
+  --fonte-corpo: 'Inter', system-ui, -apple-system, sans-serif;
 }
-*{box-sizing:border-box;}
-body{margin:0; font-family:var(--sans); background:var(--bg); color:var(--texto);}
-button, input, select, textarea{font-family:inherit;}
-button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{
-  outline:2px solid var(--ambar); outline-offset:2px;
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--fonte-corpo);
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* LOGIN */
-.tela-login{min-height:100vh; display:flex; align-items:center; justify-content:center;
-  background: radial-gradient(circle at 20% 20%, var(--verde-700) 0%, var(--verde-900) 55%, #072A18 100%);}
-.card-login{background:var(--surface); padding:40px 36px; border-radius:16px; width:340px; max-width:90vw;
-  box-shadow:0 20px 50px rgba(0,0,0,.35);}
-.card-login .eyebrow{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--texto-2); margin:0 0 4px;}
-.card-login h2{font-size:24px; margin:0 0 24px;}
-.card-login label{display:block; font-size:12px; font-weight:600; color:var(--texto-2); margin-bottom:6px;}
-.card-login input{width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:9px; font-size:15px; margin-bottom:6px;}
-.erro-login{color:var(--vermelho); font-size:13px; margin:4px 0 14px;}
-.card-login .btn-primario{width:100%; margin-top:14px;}
-.card-login .btn-secundario{width:100%; margin-top:10px;}
+#app { min-height: 100vh; display: flex; flex-direction: column; }
 
-/* TELA INICIAL */
-.tela-inicio{min-height:100vh; display:flex; align-items:center; justify-content:center;
-  background: radial-gradient(circle at 20% 20%, var(--verde-700) 0%, var(--verde-900) 55%, #072A18 100%);}
-.card-inicio{background:var(--surface); padding:40px 36px; border-radius:16px; width:340px; max-width:90vw;
-  box-shadow:0 20px 50px rgba(0,0,0,.35); text-align:center;}
-.card-inicio .eyebrow{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--texto-2); margin:0 0 4px;}
-.maquina-label{font-size:13px; color:var(--texto-2); margin:0 0 22px; min-height:16px;}
-.btn-grande{display:block; width:100%; min-height:76px; font-size:19px; font-weight:700; border-radius:12px;
-  border:none; cursor:pointer; margin-bottom:12px; background:var(--verde-700); color:#fff;}
-.btn-grande:hover{background:var(--verde-500);}
-.btn-grande.secundario{background:var(--verde-900);}
-.btn-grande.secundario:hover{background:var(--verde-700);}
-.link-config{background:none; border:none; color:var(--texto-2); font-size:12px; text-decoration:underline;
-  text-underline-offset:2px; cursor:pointer; margin-top:6px; padding:6px;}
+.cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--linha);
+}
 
-/* SHELL */
-.shell{display:flex; min-height:100vh;}
-.sidebar{width:220px; flex-shrink:0; background:var(--verde-900); color:#fff; padding:22px 0; display:flex; flex-direction:column;}
-.sidebar .logo{padding:0 20px 18px; font-weight:700; font-size:13px; letter-spacing:.08em; border-bottom:1px solid rgba(255,255,255,.12); margin-bottom:8px;}
-.nav-lista{flex:1; display:flex; flex-direction:column;}
-.nav-item{display:block; width:100%; text-align:left; background:none; border:none; border-left:3px solid transparent;
-  color:rgba(255,255,255,.75); padding:13px 20px; font-size:14px; cursor:pointer;}
-.nav-item:hover{background:rgba(255,255,255,.07); color:#fff;}
-.nav-item.ativo{background:rgba(255,255,255,.1); color:#fff; border-left-color:var(--ambar); font-weight:600;}
-.nav-item.sair{color:rgba(255,255,255,.55); border-top:1px solid rgba(255,255,255,.12); margin-top:8px;}
+.marca { font-family: var(--fonte-display); font-weight: 700; font-size: 22px; letter-spacing: 0.01em; }
+.marca-sub { font-weight: 500; color: var(--ink-muted); font-size: 15px; margin-left: 6px; }
 
-.main{flex:1; padding:30px 34px; min-width:0;}
-.topo-secao{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;}
-.topo-secao h2{margin:0; font-size:21px;}
+.maquina-chip {
+  font-family: var(--fonte-display);
+  font-weight: 600;
+  font-size: 16px;
+  background: var(--neutro-bg-fraca);
+  padding: 6px 16px;
+  border-radius: 999px;
+}
 
-/* TABLE */
-table{width:100%; border-collapse:collapse; background:var(--surface); border-radius:12px; overflow:hidden;
-  box-shadow:0 1px 3px rgba(0,0,0,.06);}
-th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--texto-2);
-  padding:12px 16px; background:#EEF2EE; border-bottom:1px solid var(--border);}
-td{padding:12px 16px; border-bottom:1px solid var(--border); font-size:14px; vertical-align:middle;}
-tr:last-child td{border-bottom:none;}
-.col-acoes{width:1%; white-space:nowrap; text-align:right;}
-.mono{font-family:var(--mono); font-variant-numeric:tabular-nums;}
-.vazio, .carregando, .erro-lista{padding:32px; text-align:center; color:var(--texto-2); background:var(--surface); border-radius:12px;}
-.erro-lista{color:var(--vermelho);}
+.relogio { font-variant-numeric: tabular-nums; color: var(--ink-muted); font-size: 14px; }
 
-.badge{display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; color:#fff;}
-.badge.aberta{background:var(--neutro-600);}
-.badge.em_producao{background:var(--ambar);}
-.badge.concluida{background:var(--verde-500);}
-.badge.cancelada{background:var(--vermelho);}
+.conteudo { flex: 1; padding: 24px; display: flex; }
+.tela-central { flex: 1; display: flex; align-items: center; justify-content: center; }
 
-/* BUTTONS */
-.btn-primario{background:var(--verde-700); color:#fff; border:none; padding:11px 20px; border-radius:9px;
-  font-size:14px; font-weight:600; cursor:pointer;}
-.btn-primario:hover{background:var(--verde-500);}
-.btn-primario:disabled{opacity:.6; cursor:not-allowed;}
-.btn-secundario{background:none; border:1px solid var(--border); color:var(--texto); padding:11px 20px;
-  border-radius:9px; font-size:14px; cursor:pointer;}
-.btn-ghost{background:none; border:none; color:var(--verde-700); font-size:13px; cursor:pointer; padding:4px 6px;
-  text-decoration:underline; text-underline-offset:2px;}
-.btn-ghost.perigo{color:var(--vermelho);}
+.cartao {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--sombra);
+  padding: 32px;
+  width: 100%;
+  max-width: 480px;
+}
 
-/* MODAL */
-.overlay{position:fixed; inset:0; background:rgba(11,61,34,.45); display:none; align-items:center; justify-content:center;
-  z-index:100; padding:20px;}
-.overlay.aberto{display:flex;}
-.modal{background:#fff; border-radius:14px; width:440px; max-width:100%; max-height:88vh; overflow:auto; padding:28px;}
-.modal h3{margin:0 0 4px;}
-.campo{margin-bottom:2px;}
-.campo label{display:block; font-size:12px; font-weight:600; color:var(--texto-2); margin:14px 0 5px;}
-.campo:first-child label{margin-top:14px;}
-input, select, textarea{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
-  font-size:14px; background:#fff; color:var(--texto);}
-input:focus, select:focus, textarea:focus{border-color:var(--verde-500);}
-.linha-checkbox{display:flex; align-items:center; gap:8px; font-size:14px; color:var(--texto); margin-top:16px;}
-.linha-checkbox input{width:auto;}
-.modal-acoes{display:flex; justify-content:flex-end; gap:10px; margin-top:24px;}
+.cartao-ocioso { text-align: center; }
+.cartao-ocioso h1 { font-family: var(--fonte-display); font-size: 40px; margin: 12px 0 4px; }
 
-/* TOAST */
-.toast-container{position:fixed; bottom:20px; right:20px; display:flex; flex-direction:column; gap:8px; z-index:200;}
-.toast{background:var(--texto); color:#fff; padding:12px 18px; border-radius:10px; font-size:14px;
-  box-shadow:0 8px 20px rgba(0,0,0,.25); animation:subir .2s ease;}
-.toast.erro{background:var(--vermelho);}
-.toast.sucesso{background:var(--verde-700);}
-@keyframes subir{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+.status-pill {
+  display: inline-block;
+  font-family: var(--fonte-display);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+.status-ocioso { background: var(--neutro-bg-fraca); color: var(--ink-muted); }
+.status-rodando { background: var(--accent-bg-fraca); color: var(--accent-forte); }
+.status-parado { background: var(--alerta-bg-fraca); color: var(--alerta-forte); }
 
-@media (max-width: 720px){
-  .shell{flex-direction:column;}
-  .sidebar{width:100%; flex-direction:row; align-items:center; overflow-x:auto; padding:10px 12px;}
-  .sidebar .logo{display:none;}
-  .nav-lista{flex-direction:row;}
-  .nav-item{border-left:none; border-bottom:3px solid transparent; white-space:nowrap; padding:10px 14px;}
-  .nav-item.ativo{border-left-color:transparent; border-bottom-color:var(--ambar);}
-  .nav-item.sair{border-top:none; border-left:1px solid rgba(255,255,255,.12); margin-top:0; margin-left:auto;}
-  .main{padding:20px 16px;}
-  table, thead, tbody, tr{display:block; width:100%;}
-  thead{display:none;}
-  tr{background:var(--surface); border-radius:10px; margin-bottom:10px; padding:6px 4px; box-shadow:0 1px 3px rgba(0,0,0,.06);}
-  td{border-bottom:none; display:flex; justify-content:space-between; gap:12px;}
-  td::before{content: attr(data-rotulo); color:var(--texto-2); font-size:12px; font-weight:600;}
-  .col-acoes{justify-content:flex-end;}
+h2 { font-family: var(--fonte-display); font-size: 24px; margin: 0 0 20px; }
+
+.muted { color: var(--ink-muted); }
+.muted-pequeno { color: var(--ink-muted); font-size: 13px; margin: 6px 0 16px; }
+
+label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-muted); margin: 16px 0 6px; }
+label:first-of-type { margin-top: 0; }
+
+select, input[type="text"], input[type="number"], textarea {
+  width: 100%;
+  font-family: var(--fonte-corpo);
+  font-size: 17px;
+  padding: 13px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--linha);
+  background: var(--surface);
+  color: var(--ink);
+}
+select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+select:disabled { background: var(--neutro-bg-fraca); color: var(--ink-muted); }
+textarea { resize: vertical; }
+
+.botao {
+  font-family: var(--fonte-display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: 0.01em;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 15px 20px;
+  cursor: pointer;
+  min-height: 56px;
+}
+.botao:disabled { opacity: 0.6; cursor: not-allowed; }
+.botao-primario { background: var(--accent); color: var(--accent-ink); }
+.botao-primario:active:not(:disabled) { background: var(--accent-forte); }
+.botao-secundario { background: var(--neutro-bg-fraca); color: var(--ink); }
+.botao-alerta { background: var(--alerta); color: #fff; }
+.botao-alerta:active:not(:disabled) { background: var(--alerta-forte); }
+.botao-grande { width: 100%; font-size: 19px; padding: 18px 20px; }
+
+.linha-botoes { display: flex; gap: 12px; margin-top: 24px; }
+.linha-botoes .botao { flex: 1; }
+
+.alerta-banner {
+  background: var(--alerta-bg-fraca);
+  color: var(--alerta-forte);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.cartao-andamento { text-align: center; border-top: 6px solid var(--accent); }
+.cartao-andamento.cartao-parado { border-top-color: var(--alerta); }
+
+.cronometro {
+  font-family: var(--fonte-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 64px;
+  letter-spacing: 0.02em;
+  margin: 12px 0;
+}
+.cartao-rodando .cronometro { color: var(--accent); }
+.cartao-parado .cronometro { color: var(--alerta); }
+
+.motivo-parada { color: var(--alerta-forte); font-weight: 600; margin: -4px 0 12px; }
+
+.grade-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  text-align: left;
+  margin: 24px 0 4px;
+  padding-top: 20px;
+  border-top: 1px solid var(--linha);
+}
+.rotulo-info { display: block; font-size: 12px; color: var(--ink-muted); margin-bottom: 2px; }
+
+.modal-fundo {
+  position: fixed; inset: 0;
+  background: rgba(22, 35, 42, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+.modal-cartao {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.grade-refugo { display: flex; flex-direction: column; gap: 10px; }
+.linha-refugo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.linha-refugo span { flex: 1; font-size: 15px; }
+.linha-refugo input { width: 100px; }
+
+.spinner {
+  width: 40px; height: 40px;
+  border: 4px solid var(--linha);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  animation: girar 0.8s linear infinite;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+
+.erro-cartao { text-align: center; border-top: 6px solid var(--alerta); }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}
+
+@media (max-width: 480px) {
+  .cabecalho { flex-wrap: wrap; padding: 14px 16px; }
+  .conteudo { padding: 14px; }
+  .cartao, .modal-cartao { padding: 22px; }
+  .cronometro { font-size: 48px; }
+  .grade-info { grid-template-columns: 1fr; }
+  .linha-botoes { flex-direction: column; }
 }
 </style>
 </head>
 <body>
-
-<div class="tela-inicio" id="tela-inicio">
-  <div class="card-inicio">
-    <p class="eyebrow">MES VITALBOR</p>
-    <p class="maquina-label" id="maquina-atual-label"></p>
-    <button class="btn-grande" onclick="irOperador()">OPERADOR</button>
-    <button class="btn-grande secundario" onclick="irGestor()">GESTOR</button>
-    <button class="link-config" onclick="abrirConfigMaquina()">Configurar máquina deste tablet</button>
-  </div>
-</div>
-
-<div class="tela-login" id="tela-login" style="display:none;">
-  <div class="card-login">
-    <p class="eyebrow">MES VITALBOR</p>
-    <h2>Cadastros</h2>
-    <label for="campo-senha-login">Senha do gestor</label>
-    <input type="password" id="campo-senha-login" autocomplete="current-password"
-      onkeydown="if(event.key==='Enter') validarLogin()">
-    <p class="erro-login" id="erro-login" style="display:none;"></p>
-    <button class="btn-primario" id="btn-entrar" onclick="validarLogin()">ENTRAR</button>
-    <button class="btn-secundario" onclick="mostrarTela('tela-inicio')">Voltar</button>
-  </div>
-</div>
-
-<div class="shell" id="tela-dashboard" style="display:none;">
-  <aside class="sidebar">
-    <div class="logo">MES VITALBOR</div>
-    <nav class="nav-lista">
-      <button class="nav-item ativo" data-entidade="ops" onclick="trocarSecao('ops')">Ordens de Produção</button>
-      <button class="nav-item" data-entidade="produtos" onclick="trocarSecao('produtos')">Peças</button>
-      <button class="nav-item" data-entidade="operadores" onclick="trocarSecao('operadores')">Operadores</button>
-      <button class="nav-item" data-entidade="materiais" onclick="trocarSecao('materiais')">Matéria-Prima</button>
-      <button class="nav-item" data-entidade="maquinas" onclick="trocarSecao('maquinas')">Máquinas</button>
-    </nav>
-    <button class="nav-item sair" onclick="logout()">Sair</button>
-  </aside>
-  <main class="main">
-    <div class="topo-secao">
-      <h2 id="titulo-secao">Ordens de Produção</h2>
-      <button class="btn-primario" id="btn-novo" onclick="abrirModal()">+ Nova OP</button>
-    </div>
-    <div id="area-tabela"><p class="carregando">Carregando…</p></div>
-  </main>
-</div>
-
-<div class="overlay" id="overlay-modal">
-  <div class="modal">
-    <h3 id="modal-titulo">Novo</h3>
-    <div id="modal-corpo"></div>
-    <div class="modal-acoes">
-      <button class="btn-secundario" onclick="fecharModal()">Cancelar</button>
-      <button class="btn-primario" id="btn-salvar-modal" onclick="salvarAtual()">Salvar</button>
-    </div>
-  </div>
-</div>
-
-<div class="overlay" id="overlay-config-maquina">
-  <div class="modal" style="width:360px;">
-    <h3>Configurar máquina deste tablet</h3>
-    <div class="campo">
-      <label for="config-maquina-select">Este tablet é a máquina:</label>
-      <select id="config-maquina-select"></select>
-    </div>
-    <div class="campo">
-      <label for="config-senha">Senha do gestor</label>
-      <input type="password" id="config-senha">
-    </div>
-    <p class="erro-login" id="config-erro" style="display:none;"></p>
-    <div class="modal-acoes">
-      <button class="btn-secundario" onclick="fecharConfigMaquina()">Cancelar</button>
-      <button class="btn-primario" id="config-btn-confirmar" onclick="confirmarConfigMaquina()">Salvar</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast-container" id="toast-container"></div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<div id="app"></div>
 <script>
-/* =====================================================================
-   CONFIG — ATENÇÃO: esse projeto (kktdrybzjtfparqxrouc) é DIFERENTE do
-   projeto ssvsoldtwhqjeusqwrye que o app de apontamento usa — decodifiquei
-   o JWT da anon key colada e o "ref" bate com esse, não com aquele outro.
-   Se for um projeto novo só de teste, ok, mas se a ideia era usar o mesmo
-   banco do apontamento, essa é a key errada.
-   ===================================================================== */
-window.SUPABASE_CFG = {
-  url: 'https://kktdrybzjtfparqxrouc.supabase.co',
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdGRyeWJ6anRmcGFycXhyb3VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzE3NzcsImV4cCI6MjEwMTk0Nzc3N30.n4NAiiO2B6Ubekg4RT26iToBRJPjEKDRXu0NxwnVhOI'
-};
-const supabase = window.supabase.createClient(window.SUPABASE_CFG.url, window.SUPABASE_CFG.anonKey);
+// ============================================================
+// OEE Vitalbor — Apontamento do Operador
+// Camada de dados separada da UI: toda função que fala com o
+// Supabase fica aqui em cima; a UI só chama e renderiza o
+// resultado. Facilita ajustar consulta sem mexer em tela.
+// ============================================================
 
-// URL onde o app de apontamento (turno → operador → OP → produção) está publicado.
-// Não tenho esse endereço — cola aqui o link do GitHub Pages dele.
-window.APONTAMENTO_URL = '';
+// ---------- Configuração (preencher antes de usar) ----------
+const SUPABASE_URL = 'https://supabase.com/dashboard/project/wjukjrzkqerqdtceawyt';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqdWtqcnprcWVycWR0Y2Vhd3l0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzM0MDIsImV4cCI6MjEwMTk0OTQwMn0.dtelewESHMy27Hz31kQlyWWn9OgWKKoZV78f1VzvbEw';
+const MAQUINA_CODIGO = 'INJ-01'; // qual máquina este tablet representa
 
-/* =====================================================================
-   ESTADO
-   ===================================================================== */
-const sessao = { senha: null };
-const cache = { produtos: [], materiais: [] };
-const linhasCache = {};
-let entidadeAtual = 'ops';
-let editandoId = null;
-
-/* =====================================================================
-   CONFIGURAÇÃO DAS ENTIDADES (dirige tabela, formulário e colunas)
-   ===================================================================== */
-const ENTIDADES = {
-  ops: {
-    titulo:'Ordens de Produção', tituloSingular:'ordem de produção', novoRotulo:'+ Nova OP',
-    tabela:'ordens_producao', select:'*, produtos(codigo,descricao)',
-    ordenarPor:{coluna:'criado_em', asc:false},
-    rpcSalvar:'salvar_op', rpcExcluir:'excluir_op',
-    colunas:[
-      {rotulo:'Nº OP', render:r=>`<span class="mono">${escapeHtml(r.numero_op)}</span>`},
-      {rotulo:'Peça', render:r=> r.produtos ? escapeHtml(r.produtos.codigo+' — '+r.produtos.descricao) : '—'},
-      {rotulo:'Qtd.', render:r=> r.quantidade_planejada},
-      {rotulo:'Status', render:r=> `<span class="badge ${r.status}">${rotuloStatus(r.status)}</span>`},
-      {rotulo:'Prazo', render:r=> r.prazo ? formatarData(r.prazo) : '—'},
-    ],
-    campos:[
-      {chave:'numero_op', rotulo:'Número da OP', tipo:'text', obrigatorio:true, mono:true},
-      {chave:'produto_id', rotulo:'Peça', tipo:'select-fk', fonte:'produtos', obrigatorio:true,
-        rotuloOpcao:p=>p.codigo+' — '+p.descricao},
-      {chave:'quantidade_planejada', rotulo:'Quantidade planejada', tipo:'number', obrigatorio:true},
-      {chave:'data_abertura', rotulo:'Data de abertura', tipo:'date', padrao:()=>new Date().toISOString().slice(0,10)},
-      {chave:'prazo', rotulo:'Prazo', tipo:'date'},
-      {chave:'status', rotulo:'Status', tipo:'select', padrao:'aberta', opcoes:[
-        {valor:'aberta',rotulo:'Aberta'},{valor:'em_producao',rotulo:'Em produção'},
-        {valor:'concluida',rotulo:'Concluída'},{valor:'cancelada',rotulo:'Cancelada'}]},
-      {chave:'observacoes', rotulo:'Observações', tipo:'textarea'},
-    ]
-  },
-  produtos: {
-    titulo:'Peças', tituloSingular:'peça', novoRotulo:'+ Nova Peça',
-    tabela:'produtos', select:'*',
-    ordenarPor:{coluna:'codigo', asc:true},
-    rpcSalvar:'salvar_produto', rpcExcluir:'excluir_produto',
-    colunas:[
-      {rotulo:'Código', render:r=>`<span class="mono">${escapeHtml(r.codigo)}</span>`},
-      {rotulo:'Descrição', render:r=>escapeHtml(r.descricao)},
-      {rotulo:'Cavidades', render:r=>r.cavidades_molde},
-      {rotulo:'Meta inj./h', render:r=> r.meta_injetadas_hora ?? '—'},
-      {rotulo:'Ativo', render:r=> r.ativo ? 'Sim' : 'Não'},
-    ],
-    campos:[
-      {chave:'codigo', rotulo:'Código', tipo:'text', obrigatorio:true, mono:true},
-      {chave:'descricao', rotulo:'Descrição', tipo:'text', obrigatorio:true},
-      {chave:'cavidades_molde', rotulo:'Cavidades do molde', tipo:'number', obrigatorio:true, padrao:1},
-      {chave:'meta_injetadas_hora', rotulo:'Meta de injetadas por hora', tipo:'number'},
-      {chave:'material_padrao_id', rotulo:'Material padrão', tipo:'select-fk', fonte:'materiais',
-        rotuloOpcao:m=>m.nome+' ('+m.prefixo_lote+')'},
-      {chave:'ativo', rotulo:'Ativo', tipo:'checkbox', padrao:true},
-    ]
-  },
-  operadores: {
-    titulo:'Operadores', tituloSingular:'operador', novoRotulo:'+ Novo Operador',
-    tabela:'operadores', select:'*',
-    ordenarPor:{coluna:'nome', asc:true},
-    rpcSalvar:'salvar_operador', rpcExcluir:'excluir_operador',
-    colunas:[
-      {rotulo:'Matrícula', render:r=>`<span class="mono">${escapeHtml(r.matricula)}</span>`},
-      {rotulo:'Nome', render:r=>escapeHtml(r.nome)},
-      {rotulo:'Turno padrão', render:r=> r.turno_padrao || '—'},
-      {rotulo:'Ativo', render:r=> r.ativo ? 'Sim' : 'Não'},
-    ],
-    campos:[
-      {chave:'matricula', rotulo:'Matrícula', tipo:'text', obrigatorio:true, mono:true},
-      {chave:'nome', rotulo:'Nome', tipo:'text', obrigatorio:true},
-      {chave:'turno_padrao', rotulo:'Turno padrão', tipo:'select', opcoes:[
-        {valor:'',rotulo:'—'},{valor:'DIA',rotulo:'Dia'},{valor:'TARDE',rotulo:'Tarde'},{valor:'NOITE',rotulo:'Noite'}]},
-      {chave:'ativo', rotulo:'Ativo', tipo:'checkbox', padrao:true},
-    ]
-  },
-  materiais: {
-    titulo:'Matéria-Prima', tituloSingular:'material', novoRotulo:'+ Novo Material',
-    tabela:'materiais', select:'*',
-    ordenarPor:{coluna:'nome', asc:true},
-    rpcSalvar:'salvar_material', rpcExcluir:'excluir_material',
-    colunas:[
-      {rotulo:'Nome', render:r=>escapeHtml(r.nome)},
-      {rotulo:'Prefixo de lote', render:r=>`<span class="mono">${escapeHtml(r.prefixo_lote)}</span>`},
-      {rotulo:'Ativo', render:r=> r.ativo ? 'Sim' : 'Não'},
-    ],
-    campos:[
-      {chave:'nome', rotulo:'Nome', tipo:'text', obrigatorio:true},
-      {chave:'prefixo_lote', rotulo:'Prefixo de lote (1 letra)', tipo:'text', obrigatorio:true, maxlength:1, mono:true},
-      {chave:'ativo', rotulo:'Ativo', tipo:'checkbox', padrao:true},
-    ]
-  },
-  maquinas: {
-    titulo:'Máquinas', tituloSingular:'máquina', novoRotulo:'+ Nova Máquina',
-    tabela:'maquinas', select:'*',
-    ordenarPor:{coluna:'codigo', asc:true},
-    rpcSalvar:'salvar_maquina', rpcExcluir:'excluir_maquina',
-    colunas:[
-      {rotulo:'Código', render:r=>`<span class="mono">${escapeHtml(r.codigo)}</span>`},
-      {rotulo:'Nome', render:r=> r.nome ? escapeHtml(r.nome) : '—'},
-      {rotulo:'Ativo', render:r=> r.ativo ? 'Sim' : 'Não'},
-    ],
-    campos:[
-      {chave:'codigo', rotulo:'Código (ex: IJ-01)', tipo:'text', obrigatorio:true, mono:true},
-      {chave:'nome', rotulo:'Nome / descrição', tipo:'text'},
-      {chave:'ativo', rotulo:'Ativo', tipo:'checkbox', padrao:true},
-    ]
+let sb = null;
+let erroConfig = null;
+try {
+  if (SUPABASE_URL.indexOf('COLOQUE_') === 0 || SUPABASE_ANON_KEY.indexOf('COLOQUE_') === 0) {
+    throw new Error('Preencha SUPABASE_URL e SUPABASE_ANON_KEY no topo do arquivo antes de usar.');
   }
+  const { createClient } = supabase;
+  sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch (e) {
+  erroConfig = e.message;
+}
+
+// ---------- Estado em memória ----------
+let ctx = {
+  carregando: true,
+  erro: null,
+  maquina: null,
+  cadastros: null,
+  apontamento: null,   // apontamento aberto (fim = null) ou null
+  parada: null,        // parada aberta (fim = null) ou null
+  tela: 'ocioso',       // 'ocioso' | 'iniciando' | 'andamento'
+  modal: null,          // null | 'parada' | 'finalizar'
+  form: {},             // valores temporários de formulário/modal
+  salvando: false,
+  timerId: null,
 };
 
-/* =====================================================================
-   TELA INICIAL / MÁQUINA DO DISPOSITIVO
-   ===================================================================== */
-document.addEventListener('DOMContentLoaded', iniciar);
+// ============================================================
+// Acesso a dados (Supabase)
+// ============================================================
 
-async function iniciar(){
-  atualizarLabelMaquina();
-  const senhaSalva = sessionStorage.getItem('gestor_senha');
-  if(senhaSalva){
-    const { data, error } = await supabase.rpc('verificar_senha_gestor', { p_senha: senhaSalva });
-    if(!error && data === true){ sessao.senha = senhaSalva; abrirApp(); return; }
-    sessionStorage.removeItem('gestor_senha');
-  }
-  mostrarTela('tela-inicio');
+async function carregarMaquina() {
+  const { data, error } = await sb.from('maquinas').select('*').eq('codigo', MAQUINA_CODIGO).single();
+  if (error) throw new Error('Máquina "' + MAQUINA_CODIGO + '" não encontrada no cadastro (' + error.message + ')');
+  return data;
 }
 
-function mostrarTela(id){
-  ['tela-inicio','tela-login','tela-dashboard'].forEach(t=>{ document.getElementById(t).style.display = 'none'; });
-  document.getElementById(id).style.display = 'flex';
-}
-
-function irGestor(){
-  mostrarTela('tela-login');
-  document.getElementById('campo-senha-login').focus();
-}
-
-function irOperador(){
-  const maq = localStorage.getItem('maquina_dispositivo_codigo');
-  if(!maq){ toast('Configure a máquina deste tablet primeiro (link embaixo dos botões)', 'erro'); return; }
-  if(!window.APONTAMENTO_URL){
-    toast('Falta definir a URL do app de apontamento (APONTAMENTO_URL) no código', 'erro');
-    return;
-  }
-  const separador = window.APONTAMENTO_URL.includes('?') ? '&' : '?';
-  window.location.href = window.APONTAMENTO_URL + separador + 'maquina=' + encodeURIComponent(maq);
-}
-
-function atualizarLabelMaquina(){
-  const codigo = localStorage.getItem('maquina_dispositivo_codigo');
-  const nome = localStorage.getItem('maquina_dispositivo_nome');
-  const label = document.getElementById('maquina-atual-label');
-  label.textContent = codigo ? ('Este tablet: '+codigo+(nome?' — '+nome:'')) : 'Máquina deste tablet ainda não configurada';
-}
-
-async function abrirConfigMaquina(){
-  const sel = document.getElementById('config-maquina-select');
-  sel.innerHTML = '<option value="">Carregando…</option>';
-  document.getElementById('config-senha').value = '';
-  document.getElementById('config-erro').style.display = 'none';
-  document.getElementById('overlay-config-maquina').classList.add('aberto');
-  const { data, error } = await supabase.from('maquinas').select('*').eq('ativo', true).order('codigo');
-  if(error || !data || !data.length){
-    sel.innerHTML = '<option value="">Nenhuma máquina cadastrada ainda</option>';
-    return;
-  }
-  sel.innerHTML = data.map(m=>
-    `<option value="${escapeAttr(m.codigo)}" data-nome="${escapeAttr(m.nome||'')}">${escapeHtml(m.codigo+(m.nome?' — '+m.nome:''))}</option>`
-  ).join('');
-}
-
-function fecharConfigMaquina(){
-  document.getElementById('overlay-config-maquina').classList.remove('aberto');
-}
-
-async function confirmarConfigMaquina(){
-  const sel = document.getElementById('config-maquina-select');
-  const codigo = sel.value;
-  const nome = sel.selectedOptions[0] ? sel.selectedOptions[0].dataset.nome : '';
-  const senha = document.getElementById('config-senha').value;
-  if(!codigo){ mostrarErroConfig('Cadastre uma máquina primeiro (Gestor → Máquinas)'); return; }
-  if(!senha){ mostrarErroConfig('Digite a senha do gestor'); return; }
-  const btn = document.getElementById('config-btn-confirmar');
-  btn.disabled = true; btn.textContent = 'Salvando…';
-  const { data, error } = await supabase.rpc('verificar_senha_gestor', { p_senha: senha });
-  btn.disabled = false; btn.textContent = 'Salvar';
-  if(error || data !== true){ mostrarErroConfig('Senha incorreta'); return; }
-  localStorage.setItem('maquina_dispositivo_codigo', codigo);
-  localStorage.setItem('maquina_dispositivo_nome', nome || '');
-  atualizarLabelMaquina();
-  fecharConfigMaquina();
-  toast('Máquina deste tablet: '+codigo, 'sucesso');
-}
-
-function mostrarErroConfig(msg){
-  const el = document.getElementById('config-erro');
-  el.textContent = msg; el.style.display = 'block';
-}
-
-/* =====================================================================
-   LOGIN / SESSÃO DO GESTOR
-   ===================================================================== */
-
-async function validarLogin(){
-  const campo = document.getElementById('campo-senha-login');
-  const senha = campo.value;
-  if(!senha){ mostrarErroLogin('Digite a senha'); return; }
-  const btn = document.getElementById('btn-entrar');
-  btn.disabled = true; btn.textContent = 'ENTRANDO…';
-  const { data, error } = await supabase.rpc('verificar_senha_gestor', { p_senha: senha });
-  btn.disabled = false; btn.textContent = 'ENTRAR';
-  if(error){ mostrarErroLogin('Erro ao conectar: '+error.message); return; }
-  if(data === true){
-    sessao.senha = senha;
-    sessionStorage.setItem('gestor_senha', senha);
-    document.getElementById('erro-login').style.display = 'none';
-    abrirApp();
-  } else {
-    mostrarErroLogin('Senha incorreta');
-  }
-}
-
-function mostrarErroLogin(msg){
-  const el = document.getElementById('erro-login');
-  el.textContent = msg; el.style.display = 'block';
-}
-
-function logout(){
-  sessao.senha = null;
-  sessionStorage.removeItem('gestor_senha');
-  document.getElementById('campo-senha-login').value = '';
-  mostrarTela('tela-inicio');
-}
-
-async function abrirApp(){
-  mostrarTela('tela-dashboard');
-  await carregarCaches();
-  trocarSecao('ops');
-}
-
-/* =====================================================================
-   NAVEGAÇÃO E LISTAGEM
-   ===================================================================== */
-function trocarSecao(entidade){
-  entidadeAtual = entidade;
-  document.querySelectorAll('.nav-item[data-entidade]').forEach(el=>{
-    el.classList.toggle('ativo', el.dataset.entidade === entidade);
-  });
-  const cfg = ENTIDADES[entidade];
-  document.getElementById('titulo-secao').textContent = cfg.titulo;
-  document.getElementById('btn-novo').textContent = cfg.novoRotulo;
-  carregarLista(entidade);
-}
-
-async function carregarCaches(){
-  const [materiais, produtos] = await Promise.all([
-    supabase.from('materiais').select('*').order('nome'),
-    supabase.from('produtos').select('*').order('codigo'),
+async function carregarCadastros() {
+  const [operadores, produtos, moldes, materiais, turnos, motivosParada, tiposRefugo, ordensProducao] = await Promise.all([
+    sb.from('operadores').select('*').eq('ativo', true).order('nome'),
+    sb.from('produtos').select('*').order('nome'),
+    sb.from('moldes').select('*').eq('ativo', true).order('nome'),
+    sb.from('materiais').select('*').order('nome'),
+    sb.from('turnos').select('*').order('hora_inicio'),
+    sb.from('motivos_parada').select('*').eq('ativo', true).order('nome'),
+    sb.from('tipos_refugo').select('*').eq('ativo', true).order('nome'),
+    sb.from('ordens_producao').select('*').in('status', ['planejada', 'em_andamento']).order('numero'),
   ]);
-  if(!materiais.error) cache.materiais = materiais.data || [];
-  if(!produtos.error) cache.produtos = produtos.data || [];
+  const resultados = { operadores, produtos, moldes, materiais, turnos, motivosParada, tiposRefugo, ordensProducao };
+  for (const chave in resultados) {
+    if (resultados[chave].error) throw new Error('Erro ao carregar cadastros (' + chave + '): ' + resultados[chave].error.message);
+  }
+  return {
+    operadores: operadores.data, produtos: produtos.data, moldes: moldes.data,
+    materiais: materiais.data, turnos: turnos.data, motivosParada: motivosParada.data,
+    tiposRefugo: tiposRefugo.data, ordensProducao: ordensProducao.data,
+  };
 }
 
-async function carregarLista(entidade){
-  const cfg = ENTIDADES[entidade];
-  const area = document.getElementById('area-tabela');
-  area.innerHTML = '<p class="carregando">Carregando…</p>';
-  const { data, error } = await supabase.from(cfg.tabela).select(cfg.select)
-    .order(cfg.ordenarPor.coluna, { ascending: cfg.ordenarPor.asc });
-  if(error){
-    area.innerHTML = '<p class="erro-lista">Erro ao carregar: '+escapeHtml(error.message)+'</p>';
+async function buscarApontamentoAberto(maquinaId) {
+  const { data, error } = await sb.from('apontamentos').select('*').eq('maquina_id', maquinaId).is('fim', null).maybeSingle();
+  if (error) throw new Error('Erro ao verificar apontamento em aberto: ' + error.message);
+  return data;
+}
+
+async function buscarParadaAberta(apontamentoId) {
+  const { data, error } = await sb.from('paradas').select('*').eq('apontamento_id', apontamentoId).is('fim', null).maybeSingle();
+  if (error) throw new Error('Erro ao verificar parada em aberto: ' + error.message);
+  return data;
+}
+
+async function iniciarApontamento(payload) {
+  const { data, error } = await sb.from('apontamentos').insert(payload).select().single();
+  if (error) throw new Error('Erro ao iniciar apontamento: ' + error.message);
+  return data;
+}
+
+async function iniciarParada(payload) {
+  const { data, error } = await sb.from('paradas').insert(payload).select().single();
+  if (error) throw new Error('Erro ao registrar parada: ' + error.message);
+  return data;
+}
+
+async function finalizarParadaDB(paradaId) {
+  const { data, error } = await sb.from('paradas').update({ fim: new Date().toISOString() }).eq('id', paradaId).select().single();
+  if (error) throw new Error('Erro ao finalizar parada: ' + error.message);
+  return data;
+}
+
+async function finalizarApontamentoDB(apontamentoId, payload, refugos) {
+  const { error: errApont } = await sb.from('apontamentos').update(payload).eq('id', apontamentoId);
+  if (errApont) throw new Error('Erro ao finalizar apontamento: ' + errApont.message);
+  const linhas = refugos.filter(function (r) { return r.quantidade > 0; })
+    .map(function (r) { return { apontamento_id: apontamentoId, tipo_id: r.tipo_id, quantidade: r.quantidade }; });
+  if (linhas.length > 0) {
+    const { error: errRefugo } = await sb.from('refugos').insert(linhas);
+    if (errRefugo) throw new Error('Apontamento fechado, mas erro ao salvar refugo: ' + errRefugo.message);
+  }
+}
+
+// ============================================================
+// Utilidades
+// ============================================================
+
+function fmtDuracao(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return hh + ':' + mm + ':' + ss;
+}
+
+function fmtHora(iso) {
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+function porId(lista, id) {
+  return (lista || []).find(function (x) { return x.id === id; }) || null;
+}
+
+// ============================================================
+// Ações (ligam UI a dados)
+// ============================================================
+
+async function init() {
+  if (erroConfig) {
+    ctx.carregando = false;
+    ctx.erro = erroConfig;
+    render();
     return;
   }
-  linhasCache[entidade] = data || [];
-  renderTabela(entidade, data || []);
-}
-
-function renderTabela(entidade, linhas){
-  const cfg = ENTIDADES[entidade];
-  const area = document.getElementById('area-tabela');
-  if(!linhas.length){
-    area.innerHTML = '<div class="vazio">Nada cadastrado ainda. Clique em “'+cfg.novoRotulo.replace('+','').trim()+'” pra começar.</div>';
-    return;
-  }
-  const cabecalho = cfg.colunas.map(c=>`<th>${c.rotulo}</th>`).join('') + '<th class="col-acoes"></th>';
-  const corpo = linhas.map(r=>{
-    const celulas = cfg.colunas.map(c=>`<td data-rotulo="${escapeAttr(c.rotulo)}">${c.render(r)}</td>`).join('');
-    return `<tr>${celulas}<td class="col-acoes" data-rotulo="Ações">
-      <button class="btn-ghost" onclick="abrirModal(${r.id})">Editar</button>
-      <button class="btn-ghost perigo" onclick="excluirAtual(${r.id})">Excluir</button>
-    </td></tr>`;
-  }).join('');
-  area.innerHTML = `<table><thead><tr>${cabecalho}</tr></thead><tbody>${corpo}</tbody></table>`;
-}
-
-/* =====================================================================
-   MODAL / FORMULÁRIO
-   ===================================================================== */
-function abrirModal(id){
-  editandoId = id || null;
-  const cfg = ENTIDADES[entidadeAtual];
-  const registro = editandoId ? (linhasCache[entidadeAtual]||[]).find(r=>r.id===editandoId) : null;
-  document.getElementById('modal-titulo').textContent =
-    (editandoId ? 'Editar ' : 'Nov'+(cfg.tituloSingular.startsWith('o')||cfg.tituloSingular==='operador'?'o ':'a ')) + cfg.tituloSingular;
-  const corpo = document.getElementById('modal-corpo');
-  corpo.innerHTML = cfg.campos.map(campo=>{
-    let valor;
-    if(registro){ valor = registro[campo.chave]; }
-    else { valor = typeof campo.padrao === 'function' ? campo.padrao() : (campo.padrao !== undefined ? campo.padrao : ''); }
-    return '<div class="campo">'+construirCampoFormulario(campo, valor)+'</div>';
-  }).join('');
-  document.getElementById('overlay-modal').classList.add('aberto');
-}
-
-function fecharModal(){
-  document.getElementById('overlay-modal').classList.remove('aberto');
-  editandoId = null;
-}
-
-function construirCampoFormulario(campo, valorAtual){
-  const id = 'campo-'+campo.chave;
-  const req = campo.obrigatorio ? ' required' : '';
-  const rotuloReq = campo.obrigatorio ? ' *' : '';
-  if(campo.tipo === 'select-fk'){
-    const lista = cache[campo.fonte] || [];
-    const opcoes = lista.map(item=>
-      `<option value="${item.id}"${String(item.id)===String(valorAtual)?' selected':''}>${escapeHtml(campo.rotuloOpcao(item))}</option>`
-    ).join('');
-    return `<label for="${id}">${campo.rotulo}${rotuloReq}</label>
-      <select id="${id}"${req}><option value="">Selecione…</option>${opcoes}</select>`;
-  }
-  if(campo.tipo === 'select'){
-    const opcoes = campo.opcoes.map(o=>
-      `<option value="${o.valor}"${o.valor===valorAtual?' selected':''}>${o.rotulo}</option>`
-    ).join('');
-    return `<label for="${id}">${campo.rotulo}${rotuloReq}</label><select id="${id}"${req}>${opcoes}</select>`;
-  }
-  if(campo.tipo === 'checkbox'){
-    return `<label class="linha-checkbox"><input type="checkbox" id="${id}"${valorAtual?' checked':''}> ${campo.rotulo}</label>`;
-  }
-  if(campo.tipo === 'textarea'){
-    return `<label for="${id}">${campo.rotulo}</label><textarea id="${id}" rows="3">${escapeHtml(valorAtual||'')}</textarea>`;
-  }
-  const maxlen = campo.maxlength ? ` maxlength="${campo.maxlength}"` : '';
-  const monoAtributo = campo.mono ? ' style="font-family:var(--mono);text-transform:uppercase"' : '';
-  return `<label for="${id}">${campo.rotulo}${rotuloReq}</label>
-    <input type="${campo.tipo}" id="${id}" value="${valorAtual!=null?escapeAttr(String(valorAtual)):''}"${req}${maxlen}${monoAtributo}>`;
-}
-
-function lerFormulario(cfg){
-  const dados = {};
-  cfg.campos.forEach(campo=>{
-    const el = document.getElementById('campo-'+campo.chave);
-    dados[campo.chave] = campo.tipo === 'checkbox' ? el.checked : el.value;
-  });
-  return dados;
-}
-
-function validarObrigatorios(cfg, dados){
-  for(const campo of cfg.campos){
-    if(campo.obrigatorio && !String(dados[campo.chave]||'').trim()){
-      toast('Preencha: '+campo.rotulo, 'erro');
-      return false;
+  try {
+    ctx.maquina = await carregarMaquina();
+    ctx.cadastros = await carregarCadastros();
+    ctx.apontamento = await buscarApontamentoAberto(ctx.maquina.id);
+    if (ctx.apontamento) {
+      ctx.parada = await buscarParadaAberta(ctx.apontamento.id);
+      ctx.tela = 'andamento';
+    } else {
+      ctx.tela = 'ocioso';
     }
+    ctx.carregando = false;
+    iniciarRelogio();
+  } catch (e) {
+    ctx.carregando = false;
+    ctx.erro = e.message;
   }
-  return true;
+  render();
 }
 
-function montarPayload(entidade, d, id){
-  const p_senha = sessao.senha;
-  if(entidade === 'materiais'){
-    return { p_senha, p_id:id, p_nome:d.nome, p_prefixo:d.prefixo_lote, p_ativo: !!d.ativo };
+function abrirIniciar() {
+  ctx.form = { operador_id: '', turno_id: turnoSugeridoAgora(), ordem_producao_id: '', produto_id: '', molde_id: '', numero_cavidades_ativas: '', material_id: '', lote_material: '' };
+  ctx.tela = 'iniciando';
+  render();
+}
+
+function turnoSugeridoAgora() {
+  const agora = new Date();
+  const hhmm = String(agora.getHours()).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0');
+  const turnos = (ctx.cadastros && ctx.cadastros.turnos) || [];
+  for (const t of turnos) {
+    const ini = t.hora_inicio.slice(0, 5);
+    const fim = t.hora_fim.slice(0, 5);
+    if (ini < fim ? (hhmm >= ini && hhmm < fim) : (hhmm >= ini || hhmm < fim)) return t.id;
   }
-  if(entidade === 'produtos'){
-    return {
-      p_senha, p_id:id, p_codigo:d.codigo, p_descricao:d.descricao,
-      p_cavidades: Number(d.cavidades_molde)||1,
-      p_meta: d.meta_injetadas_hora ? Number(d.meta_injetadas_hora) : null,
-      p_material_id: d.material_padrao_id ? Number(d.material_padrao_id) : null,
-      p_ativo: !!d.ativo
+  return '';
+}
+
+function cancelarIniciar() {
+  ctx.tela = 'ocioso';
+  render();
+}
+
+function aoMudarProdutoForm(produtoId) {
+  ctx.form.produto_id = produtoId;
+  ctx.form.molde_id = '';
+  ctx.form.numero_cavidades_ativas = '';
+  render();
+}
+
+function aoMudarOrdemForm(opId) {
+  ctx.form.ordem_producao_id = opId;
+  if (opId) {
+    const op = porId(ctx.cadastros.ordensProducao, Number(opId));
+    if (op) aoMudarProdutoForm(String(op.produto_id));
+  }
+  render();
+}
+
+function aoMudarMoldeForm(moldeId) {
+  ctx.form.molde_id = moldeId;
+  const molde = porId(ctx.cadastros.moldes, Number(moldeId));
+  ctx.form.numero_cavidades_ativas = molde ? String(molde.numero_cavidades) : '';
+  render();
+}
+
+async function confirmarIniciar() {
+  const f = ctx.form;
+  const obrigatorios = ['operador_id', 'turno_id', 'produto_id', 'molde_id', 'numero_cavidades_ativas', 'material_id', 'lote_material'];
+  const faltando = obrigatorios.some(function (k) { return !f[k]; });
+  if (faltando) { ctx.erroForm = 'Preencha todos os campos antes de iniciar.'; render(); return; }
+
+  const molde = porId(ctx.cadastros.moldes, Number(f.molde_id));
+  if (molde && Number(f.numero_cavidades_ativas) > molde.numero_cavidades) {
+    ctx.erroForm = 'Número de cavidades não pode passar de ' + molde.numero_cavidades + ' (cadastro do molde).';
+    render();
+    return;
+  }
+
+  ctx.erroForm = null;
+  ctx.salvando = true;
+  render();
+  try {
+    const payload = {
+      maquina_id: ctx.maquina.id,
+      operador_id: Number(f.operador_id),
+      produto_id: Number(f.produto_id),
+      molde_id: Number(f.molde_id),
+      material_id: Number(f.material_id),
+      turno_id: Number(f.turno_id),
+      ordem_producao_id: f.ordem_producao_id ? Number(f.ordem_producao_id) : null,
+      numero_cavidades_ativas: Number(f.numero_cavidades_ativas),
+      lote_material: f.lote_material,
     };
+    ctx.apontamento = await iniciarApontamento(payload);
+    ctx.parada = null;
+    ctx.tela = 'andamento';
+  } catch (e) {
+    ctx.erroForm = e.message;
   }
-  if(entidade === 'maquinas'){
-    return { p_senha, p_id:id, p_codigo:d.codigo, p_nome:d.nome||null, p_ativo: !!d.ativo };
+  ctx.salvando = false;
+  render();
+}
+
+function abrirModalParada() {
+  ctx.form = { motivo_id: '', observacao: '' };
+  ctx.erroForm = null;
+  ctx.modal = 'parada';
+  render();
+}
+
+function fecharModal() {
+  ctx.modal = null;
+  ctx.erroForm = null;
+  render();
+}
+
+async function confirmarParada() {
+  if (!ctx.form.motivo_id) { ctx.erroForm = 'Selecione o motivo da parada.'; render(); return; }
+  ctx.salvando = true;
+  render();
+  try {
+    ctx.parada = await iniciarParada({
+      apontamento_id: ctx.apontamento.id,
+      maquina_id: ctx.maquina.id,
+      motivo_id: Number(ctx.form.motivo_id),
+      observacao: ctx.form.observacao || null,
+    });
+    ctx.modal = null;
+  } catch (e) {
+    ctx.erroForm = e.message;
   }
-  if(entidade === 'operadores'){
-    return { p_senha, p_id:id, p_matricula:d.matricula, p_nome:d.nome, p_turno:d.turno_padrao||'', p_ativo: !!d.ativo };
+  ctx.salvando = false;
+  render();
+}
+
+async function confirmarFimParada() {
+  ctx.salvando = true;
+  render();
+  try {
+    await finalizarParadaDB(ctx.parada.id);
+    ctx.parada = null;
+  } catch (e) {
+    ctx.erro = e.message;
   }
-  if(entidade === 'ops'){
-    return {
-      p_senha, p_id:id, p_numero:d.numero_op, p_produto_id: Number(d.produto_id),
-      p_quantidade: Number(d.quantidade_planejada), p_data_abertura: d.data_abertura||null,
-      p_prazo: d.prazo||null, p_status: d.status||'aberta', p_observacoes: d.observacoes||null
+  ctx.salvando = false;
+  render();
+}
+
+function abrirModalFinalizar() {
+  const tipos = ctx.cadastros.tiposRefugo;
+  const refugoPorTipo = {};
+  tipos.forEach(function (t) { refugoPorTipo[t.id] = '0'; });
+  ctx.form = { quantidade_produzida: '', refugoPorTipo: refugoPorTipo, peso_total_usado_kg: '', peso_sobra_kg: '' };
+  ctx.erroForm = null;
+  ctx.modal = 'finalizar';
+  render();
+}
+
+function somaRefugoForm() {
+  return Object.values(ctx.form.refugoPorTipo || {}).reduce(function (acc, v) { return acc + (Number(v) || 0); }, 0);
+}
+
+async function confirmarFinalizar() {
+  const f = ctx.form;
+  if (f.quantidade_produzida === '' || Number(f.quantidade_produzida) < 0) {
+    ctx.erroForm = 'Informe a quantidade produzida.'; render(); return;
+  }
+  const totalRefugo = somaRefugoForm();
+  if (totalRefugo > Number(f.quantidade_produzida)) {
+    ctx.erroForm = 'A soma do refugo (' + totalRefugo + ') não pode passar da quantidade produzida (' + f.quantidade_produzida + ').';
+    render();
+    return;
+  }
+  ctx.salvando = true;
+  render();
+  try {
+    const payload = {
+      fim: new Date().toISOString(),
+      quantidade_produzida: Number(f.quantidade_produzida),
+      peso_total_usado_kg: f.peso_total_usado_kg === '' ? null : Number(f.peso_total_usado_kg),
+      peso_sobra_kg: f.peso_sobra_kg === '' ? null : Number(f.peso_sobra_kg),
     };
+    const refugos = Object.keys(f.refugoPorTipo).map(function (tipoId) {
+      return { tipo_id: Number(tipoId), quantidade: Number(f.refugoPorTipo[tipoId]) || 0 };
+    });
+    await finalizarApontamentoDB(ctx.apontamento.id, payload, refugos);
+    ctx.apontamento = null;
+    ctx.parada = null;
+    ctx.modal = null;
+    ctx.tela = 'ocioso';
+  } catch (e) {
+    ctx.erroForm = e.message;
+  }
+  ctx.salvando = false;
+  render();
+}
+
+function iniciarRelogio() {
+  if (ctx.timerId) clearInterval(ctx.timerId);
+  ctx.timerId = setInterval(function () {
+    atualizarRelogioDOM();
+  }, 1000);
+}
+
+function atualizarRelogioDOM() {
+  const relogioEl = document.getElementById('relogio');
+  if (relogioEl) relogioEl.textContent = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' });
+  const cronoEl = document.getElementById('cronometro');
+  if (cronoEl && ctx.apontamento) {
+    const base = ctx.parada ? ctx.parada.inicio : ctx.apontamento.inicio;
+    cronoEl.textContent = fmtDuracao(Date.now() - new Date(base).getTime());
   }
 }
 
-async function salvarAtual(){
-  const cfg = ENTIDADES[entidadeAtual];
-  const dados = lerFormulario(cfg);
-  if(!validarObrigatorios(cfg, dados)) return;
-  const btn = document.getElementById('btn-salvar-modal');
-  btn.disabled = true; btn.textContent = 'Salvando…';
-  const payload = montarPayload(entidadeAtual, dados, editandoId);
-  const { error } = await supabase.rpc(cfg.rpcSalvar, payload);
-  btn.disabled = false; btn.textContent = 'Salvar';
-  if(error){ toast('Erro ao salvar: '+error.message, 'erro'); return; }
-  toast('Salvo com sucesso', 'sucesso');
-  fecharModal();
-  await carregarCaches();
-  await carregarLista(entidadeAtual);
+// ============================================================
+// Render
+// ============================================================
+
+function render() {
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  if (ctx.carregando) { app.innerHTML = viewCarregando(); return; }
+  if (ctx.erro) { app.innerHTML = viewErro(); return; }
+
+  let html = viewCabecalho();
+  if (ctx.tela === 'ocioso') html += viewOcioso();
+  else if (ctx.tela === 'iniciando') html += viewIniciando();
+  else if (ctx.tela === 'andamento') html += viewAndamento();
+
+  if (ctx.modal === 'parada') html += viewModalParada();
+  if (ctx.modal === 'finalizar') html += viewModalFinalizar();
+
+  app.innerHTML = html;
+  atualizarRelogioDOM();
+  ligarEventos();
 }
 
-async function excluirAtual(id){
-  if(!confirm('Excluir este registro? Essa ação não pode ser desfeita.')) return;
-  const cfg = ENTIDADES[entidadeAtual];
-  const { error } = await supabase.rpc(cfg.rpcExcluir, { p_senha: sessao.senha, p_id: id });
-  if(error){ toast('Erro ao excluir: '+error.message, 'erro'); return; }
-  toast('Excluído', 'sucesso');
-  await carregarCaches();
-  await carregarLista(entidadeAtual);
+function viewCarregando() {
+  return '<div class="tela-central"><div class="spinner"></div><p class="muted">Carregando dados da máquina…</p></div>';
 }
 
-/* =====================================================================
-   HELPERS
-   ===================================================================== */
-function escapeHtml(str){
-  return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+function viewErro() {
+  return '<div class="tela-central"><div class="cartao erro-cartao">' +
+    '<h2>Não deu pra carregar</h2><p>' + esc(ctx.erro) + '</p>' +
+    '<button class="botao botao-primario" data-acao="recarregar">Tentar de novo</button>' +
+    '</div></div>';
 }
-function escapeAttr(str){ return escapeHtml(str); }
-function formatarData(iso){
-  if(!iso) return '—';
-  const [ano,mes,dia] = iso.split('-');
-  return `${dia}/${mes}/${ano}`;
+
+function viewCabecalho() {
+  return '<header class="cabecalho">' +
+    '<div class="marca">Vitalbor <span class="marca-sub">Apontamento</span></div>' +
+    '<div class="maquina-chip">' + esc(ctx.maquina.codigo) + (ctx.maquina.nome ? ' · ' + esc(ctx.maquina.nome) : '') + '</div>' +
+    '<div id="relogio" class="relogio"></div>' +
+    '</header>';
 }
-function rotuloStatus(s){
-  return {aberta:'Aberta', em_producao:'Em produção', concluida:'Concluída', cancelada:'Cancelada'}[s] || s;
+
+function viewOcioso() {
+  return '<main class="conteudo tela-central">' +
+    '<div class="cartao cartao-ocioso">' +
+    '<div class="status-pill status-ocioso">Sem apontamento em aberto</div>' +
+    '<h1>' + esc(ctx.maquina.codigo) + '</h1>' +
+    '<p class="muted">Inicie um novo apontamento para começar a registrar produção.</p>' +
+    '<button class="botao botao-primario botao-grande" data-acao="abrir-iniciar">Iniciar Produção</button>' +
+    '</div></main>';
 }
-function toast(msg, tipo){
-  const cont = document.getElementById('toast-container');
-  const el = document.createElement('div');
-  el.className = 'toast'+(tipo?(' '+tipo):'');
-  el.textContent = msg;
-  cont.appendChild(el);
-  setTimeout(()=>el.remove(), 3500);
+
+function opcoes(lista, valorSelecionado, rotulo) {
+  let html = '<option value="">Selecione…</option>';
+  (lista || []).forEach(function (item) {
+    const sel = String(valorSelecionado) === String(item.id) ? ' selected' : '';
+    html += '<option value="' + item.id + '"' + sel + '>' + esc(rotulo(item)) + '</option>';
+  });
+  return html;
 }
+
+function viewIniciando() {
+  const f = ctx.form;
+  const c = ctx.cadastros;
+  const moldesFiltrados = f.produto_id ? c.moldes.filter(function (m) { return String(m.produto_id) === String(f.produto_id); }) : c.moldes;
+  const opSelecionada = f.ordem_producao_id;
+
+  return '<main class="conteudo">' +
+    '<div class="cartao">' +
+    '<h2>Iniciar Produção</h2>' +
+    (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
+
+    '<label>Operador</label>' +
+    '<select data-campo="operador_id">' + opcoes(c.operadores, f.operador_id, function (o) { return o.nome; }) + '</select>' +
+
+    '<label>Turno</label>' +
+    '<select data-campo="turno_id">' + opcoes(c.turnos, f.turno_id, function (t) { return t.nome; }) + '</select>' +
+
+    '<label>Ordem de Produção (opcional)</label>' +
+    '<select data-campo="ordem_producao_id">' +
+    '<option value="">Sem OP</option>' +
+    (c.ordensProducao || []).map(function (op) {
+      const sel = String(opSelecionada) === String(op.id) ? ' selected' : '';
+      return '<option value="' + op.id + '"' + sel + '>' + esc(op.numero) + '</option>';
+    }).join('') +
+    '</select>' +
+
+    '<label>Produto</label>' +
+    '<select data-campo="produto_id"' + (f.ordem_producao_id ? ' disabled' : '') + '>' + opcoes(c.produtos, f.produto_id, function (p) { return p.codigo + ' — ' + p.nome; }) + '</select>' +
+
+    '<label>Molde</label>' +
+    '<select data-campo="molde_id">' + opcoes(moldesFiltrados, f.molde_id, function (m) { return m.codigo + (m.nome ? ' — ' + m.nome : ''); }) + '</select>' +
+
+    '<label>Número de cavidades ativas</label>' +
+    '<input type="number" inputmode="numeric" min="1" data-campo="numero_cavidades_ativas" value="' + esc(f.numero_cavidades_ativas) + '">' +
+
+    '<label>Material</label>' +
+    '<select data-campo="material_id">' + opcoes(c.materiais, f.material_id, function (m) { return m.codigo + ' — ' + m.nome; }) + '</select>' +
+
+    '<label>Lote do material</label>' +
+    '<input type="text" data-campo="lote_material" value="' + esc(f.lote_material) + '" placeholder="Ex: L2026-0731">' +
+
+    '<div class="linha-botoes">' +
+    '<button class="botao botao-secundario" data-acao="cancelar-iniciar">Cancelar</button>' +
+    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-iniciar">' + (ctx.salvando ? 'Iniciando…' : 'Iniciar') + '</button>' +
+    '</div>' +
+    '</div></main>';
+}
+
+function viewAndamento() {
+  const c = ctx.cadastros;
+  const a = ctx.apontamento;
+  const produto = porId(c.produtos, a.produto_id);
+  const molde = porId(c.moldes, a.molde_id);
+  const operador = porId(c.operadores, a.operador_id);
+  const material = porId(c.materiais, a.material_id);
+  const parado = !!ctx.parada;
+  const motivoAtual = parado ? porId(c.motivosParada, ctx.parada.motivo_id) : null;
+
+  return '<main class="conteudo tela-central">' +
+    '<div class="cartao cartao-andamento ' + (parado ? 'cartao-parado' : 'cartao-rodando') + '">' +
+    '<div class="status-pill ' + (parado ? 'status-parado' : 'status-rodando') + '">' + (parado ? 'Parada em andamento' : 'Produzindo') + '</div>' +
+    '<div id="cronometro" class="cronometro"></div>' +
+    (parado ? '<p class="motivo-parada">Motivo: ' + esc(motivoAtual ? motivoAtual.nome : '—') + '</p>' : '') +
+
+    '<div class="grade-info">' +
+    '<div><span class="rotulo-info">Produto</span>' + esc(produto ? produto.codigo : '—') + '</div>' +
+    '<div><span class="rotulo-info">Molde</span>' + esc(molde ? molde.codigo : '—') + '</div>' +
+    '<div><span class="rotulo-info">Operador</span>' + esc(operador ? operador.nome : '—') + '</div>' +
+    '<div><span class="rotulo-info">Material</span>' + esc(material ? material.codigo : '—') + '</div>' +
+    '<div><span class="rotulo-info">Lote</span>' + esc(a.lote_material) + '</div>' +
+    '<div><span class="rotulo-info">Início</span>' + fmtHora(a.inicio) + '</div>' +
+    '</div>' +
+
+    '<div class="linha-botoes">' +
+    (parado
+      ? '<button class="botao botao-primario botao-grande" data-acao="finalizar-parada">Finalizar Parada</button>'
+      : '<button class="botao botao-alerta botao-grande" data-acao="abrir-parada">Registrar Parada</button>' +
+        '<button class="botao botao-primario botao-grande" data-acao="abrir-finalizar">Finalizar Produção</button>') +
+    '</div>' +
+    '</div></main>';
+}
+
+function viewModalParada() {
+  const f = ctx.form;
+  return '<div class="modal-fundo" data-acao="fechar-modal-fundo">' +
+    '<div class="modal-cartao" data-parar-propagacao="1">' +
+    '<h2>Registrar Parada</h2>' +
+    (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
+    '<label>Motivo</label>' +
+    '<select data-campo="motivo_id">' + opcoes(ctx.cadastros.motivosParada, f.motivo_id, function (m) { return m.nome; }) + '</select>' +
+    '<label>Observação (opcional)</label>' +
+    '<textarea data-campo="observacao" rows="3">' + esc(f.observacao) + '</textarea>' +
+    '<div class="linha-botoes">' +
+    '<button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
+    '<button class="botao botao-alerta"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-parada">' + (ctx.salvando ? 'Registrando…' : 'Confirmar Parada') + '</button>' +
+    '</div></div></div>';
+}
+
+function viewModalFinalizar() {
+  const f = ctx.form;
+  const soma = somaRefugoForm();
+  return '<div class="modal-fundo" data-acao="fechar-modal-fundo">' +
+    '<div class="modal-cartao" data-parar-propagacao="1">' +
+    '<h2>Finalizar Produção</h2>' +
+    (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
+
+    '<label>Quantidade produzida (total)</label>' +
+    '<input type="number" inputmode="numeric" min="0" data-campo="quantidade_produzida" value="' + esc(f.quantidade_produzida) + '">' +
+
+    '<label>Refugo por tipo</label>' +
+    '<div class="grade-refugo">' +
+    ctx.cadastros.tiposRefugo.map(function (t) {
+      return '<div class="linha-refugo"><span>' + esc(t.nome) + '</span>' +
+        '<input type="number" inputmode="numeric" min="0" data-campo-refugo="' + t.id + '" value="' + esc(f.refugoPorTipo[t.id]) + '"></div>';
+    }).join('') +
+    '</div>' +
+    '<p class="muted-pequeno">Soma do refugo: ' + soma + '</p>' +
+
+    '<label>Peso total usado (kg, opcional)</label>' +
+    '<input type="number" inputmode="decimal" step="0.001" min="0" data-campo="peso_total_usado_kg" value="' + esc(f.peso_total_usado_kg) + '">' +
+
+    '<label>Sobra (kg, opcional)</label>' +
+    '<input type="number" inputmode="decimal" step="0.001" min="0" data-campo="peso_sobra_kg" value="' + esc(f.peso_sobra_kg) + '">' +
+
+    '<div class="linha-botoes">' +
+    '<button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
+    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-finalizar">' + (ctx.salvando ? 'Salvando…' : 'Confirmar e Finalizar') + '</button>' +
+    '</div></div></div>';
+}
+
+// ============================================================
+// Eventos (delegação simples, sem framework)
+// ============================================================
+
+function ligarEventos() {
+  document.querySelectorAll('[data-campo]').forEach(function (elCampo) {
+    const evento = elCampo.tagName === 'SELECT' ? 'change' : 'input';
+    elCampo.addEventListener(evento, function () {
+      const campo = elCampo.getAttribute('data-campo');
+      if (campo === 'produto_id') return aoMudarProdutoForm(elCampo.value);
+      if (campo === 'ordem_producao_id') return aoMudarOrdemForm(elCampo.value);
+      if (campo === 'molde_id') return aoMudarMoldeForm(elCampo.value);
+      ctx.form[campo] = elCampo.value;
+    });
+  });
+
+  document.querySelectorAll('[data-campo-refugo]').forEach(function (elCampo) {
+    elCampo.addEventListener('input', function () {
+      const tipoId = elCampo.getAttribute('data-campo-refugo');
+      ctx.form.refugoPorTipo[tipoId] = elCampo.value;
+      const somaEl = document.querySelector('.muted-pequeno');
+      if (somaEl) somaEl.textContent = 'Soma do refugo: ' + somaRefugoForm();
+    });
+  });
+
+  document.querySelectorAll('[data-acao]').forEach(function (elBotao) {
+    elBotao.addEventListener('click', function (ev) {
+      const acao = elBotao.getAttribute('data-acao');
+      if (acao === 'fechar-modal-fundo' && ev.target !== elBotao) return; // clique dentro do cartão não fecha
+      const mapa = {
+        'abrir-iniciar': abrirIniciar,
+        'cancelar-iniciar': cancelarIniciar,
+        'confirmar-iniciar': confirmarIniciar,
+        'abrir-parada': abrirModalParada,
+        'confirmar-parada': confirmarParada,
+        'finalizar-parada': confirmarFimParada,
+        'abrir-finalizar': abrirModalFinalizar,
+        'confirmar-finalizar': confirmarFinalizar,
+        'fechar-modal': fecharModal,
+        'fechar-modal-fundo': fecharModal,
+        'recarregar': function () { ctx.erro = null; ctx.carregando = true; render(); init(); },
+      };
+      if (mapa[acao]) mapa[acao]();
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
