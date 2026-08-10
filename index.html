@@ -285,6 +285,15 @@ textarea { resize: vertical; }
   #etiqueta-imprimir { position: fixed; top: 0; left: 0; width: 100%; margin: 0; }
   .modal-fundo, .modal-cartao { position: static !important; background: none !important; box-shadow: none !important; padding: 0 !important; max-height: none !important; overflow: visible !important; }
 }
+
+.passo-indicador { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+
+.cavidade-atual { text-align: left; font-size: 14px; color: var(--ink); margin: 14px 0; padding-top: 14px; border-top: 1px solid var(--linha); }
+.link-editar { background: none; border: none; color: var(--accent); font-family: var(--fonte-corpo); font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer; padding: 4px; min-height: auto; }
+
+.desempenho-bloco { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; margin: 12px 0 4px; }
+.desempenho-item { background: var(--neutro-bg-fraca); border-radius: var(--radius-sm); padding: 10px 12px; }
+.desempenho-item .rotulo-info { margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -298,9 +307,11 @@ textarea { resize: vertical; }
 // ============================================================
 
 // ---------- Configuração ----------
+// Não existe mais MAQUINA_CODIGO fixo — a máquina agora é escolhida
+// na tela (passo 1 do assistente), então o MESMO arquivo serve pra
+// qualquer tablet, sem editar nada por aparelho.
 const SUPABASE_URL = 'https://wjukjrzkqerqdtceawyt.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqdWtqcnprcWVycWR0Y2Vhd3l0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzM0MDIsImV4cCI6MjEwMTk0OTQwMn0.dtelewESHMy27Hz31kQlyWWn9OgWKKoZV78f1VzvbEw';
-const MAQUINA_CODIGO = 'INJ-01'; // qual máquina este tablet representa
 
 let sb = null;
 let erroConfig = null;
@@ -314,6 +325,16 @@ try {
   erroConfig = e.message;
 }
 
+const CHAVE_MAQUINA_LEMBRADA = 'vitalbor_maquina_id';
+const PASSOS_INICIAR = ['maquina', 'turno', 'operador', 'op'];
+
+function lembrarMaquina(id) {
+  try { localStorage.setItem(CHAVE_MAQUINA_LEMBRADA, String(id)); } catch (e) { /* ambiente pode bloquear localStorage; segue sem lembrar */ }
+}
+function lerMaquinaLembrada() {
+  try { return localStorage.getItem(CHAVE_MAQUINA_LEMBRADA); } catch (e) { return null; }
+}
+
 // ---------- Estado em memória ----------
 let ctx = {
   carregando: true,
@@ -323,12 +344,13 @@ let ctx = {
   cadastros: null,
   apontamento: null,
   parada: null,
-  refugoTally: {},              // tipo_id -> total desde o início do apontamento
-  caixas: [],                   // caixas já fechadas nesse apontamento (mais recente primeiro)
-  ultimoFechamentoCaixa: null,  // timestamp iso do último fechamento (null = usa apontamento.inicio)
-  ultimaCaixaFechada: null,     // objeto da última caixa, pra tela de etiqueta
-  tela: 'ocioso',               // 'ocioso' | 'iniciando' | 'andamento'
-  modal: null,                  // null | 'parada' | 'caixa' | 'etiqueta' | 'finalizar'
+  refugoTally: {},
+  caixas: [],
+  ultimoFechamentoCaixa: null,
+  ultimaCaixaFechada: null,
+  tela: 'ocioso',           // 'ocioso' | 'iniciando' | 'andamento'
+  wizard: null,
+  modal: null,               // null | 'parada' | 'caixa' | 'etiqueta' | 'cavidade' | 'confirmar-finalizar' | 'finalizar'
   form: {},
   erroForm: null,
   salvando: false,
@@ -340,19 +362,9 @@ let ctx = {
 // Acesso a dados (Supabase)
 // ============================================================
 
-async function carregarMaquina() {
-  const { data, error } = await sb.from('maquinas').select('*').eq('codigo', MAQUINA_CODIGO).single();
-  if (error) {
-    if (error.code === 'PGRST116') {
-      throw new Error('Máquina "' + MAQUINA_CODIGO + '" não encontrada no cadastro. Rodou o schema.sql nesse projeto? O código bate certinho, com as mesmas maiúsculas?');
-    }
-    throw new Error(erroSupabaseParaMensagem(error, 'Erro ao buscar a máquina "' + MAQUINA_CODIGO + '"'));
-  }
-  return data;
-}
-
 async function carregarCadastros() {
-  const [operadores, produtos, moldes, materiais, turnos, motivosParada, tiposRefugo, ordensProducao] = await Promise.all([
+  const [maquinas, operadores, produtos, moldes, materiais, turnos, motivosParada, tiposRefugo, ordensProducao] = await Promise.all([
+    sb.from('maquinas').select('*').eq('ativo', true).order('codigo'),
     sb.from('operadores').select('*').eq('ativo', true).order('nome'),
     sb.from('produtos').select('*').order('nome'),
     sb.from('moldes').select('*').eq('ativo', true).order('nome'),
@@ -362,12 +374,12 @@ async function carregarCadastros() {
     sb.from('tipos_refugo').select('*').eq('ativo', true).order('nome'),
     sb.from('ordens_producao').select('*').in('status', ['planejada', 'em_andamento']).order('numero'),
   ]);
-  const resultados = { operadores, produtos, moldes, materiais, turnos, motivosParada, tiposRefugo, ordensProducao };
+  const resultados = { maquinas, operadores, produtos, moldes, materiais, turnos, motivosParada, tiposRefugo, ordensProducao };
   for (const chave in resultados) {
     if (resultados[chave].error) throw new Error(erroSupabaseParaMensagem(resultados[chave].error, 'Erro ao carregar cadastros (' + chave + ')'));
   }
   return {
-    operadores: operadores.data, produtos: produtos.data, moldes: moldes.data,
+    maquinas: maquinas.data, operadores: operadores.data, produtos: produtos.data, moldes: moldes.data,
     materiais: materiais.data, turnos: turnos.data, motivosParada: motivosParada.data,
     tiposRefugo: tiposRefugo.data, ordensProducao: ordensProducao.data,
   };
@@ -433,6 +445,11 @@ async function fecharCaixaDB(payload) {
   return data;
 }
 
+async function atualizarCavidadesDB(apontamentoId, novoValor) {
+  const { error } = await sb.from('apontamentos').update({ numero_cavidades_ativas: novoValor }).eq('id', apontamentoId);
+  if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao atualizar cavidades'));
+}
+
 async function chamarResponsavelDB(apontamentoId, maquinaId) {
   const { error } = await sb.from('chamados_responsavel').insert({ apontamento_id: apontamentoId, maquina_id: maquinaId });
   if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao chamar responsável'));
@@ -466,16 +483,12 @@ function esc(s) {
 }
 
 function porId(lista, id) {
-  return (lista || []).find(function (x) { return x.id === id; }) || null;
+  return (lista || []).find(function (x) { return x.id === Number(id); }) || null;
 }
 
-// "Failed to fetch" é a requisição nem saindo do navegador (URL errada,
-// sem internet, CORS) — bem diferente de um erro que o Supabase de fato
-// respondeu. Separar os dois evita mensagem enganosa tipo "não encontrada"
-// quando na real é problema de conexão/config.
 function erroSupabaseParaMensagem(error, contexto) {
   if (error && error.message && error.message.indexOf('Failed to fetch') !== -1) {
-    return 'Não deu pra conectar no Supabase (' + contexto + '). Confira: SUPABASE_URL precisa ser a "Project URL" (formato https://xxxxxxxx.supabase.co) — não a connection string do Postgres nem a Reference ID sozinha — e se o aparelho tem internet.';
+    return 'Não deu pra conectar no Supabase (' + contexto + '). Confira: SUPABASE_URL precisa ser a "Project URL" (formato https://xxxxxxxx.supabase.co) e se o aparelho tem internet.';
   }
   if (error && error.code === 'PGRST116') {
     return contexto + ': registro não encontrado.';
@@ -490,8 +503,29 @@ function mostrarToast(msg) {
   ctx.toastTimeoutId = setTimeout(function () { ctx.erroToast = null; render(); }, 4500);
 }
 
+// Peças boas (bruto - refugo) — usado na etiqueta e no total final.
 function somaPecasCaixas() {
   return ctx.caixas.reduce(function (acc, c) { return acc + c.quantidade_pecas; }, 0);
+}
+// Peças brutas (sem descontar refugo) — usado no saldo da OP e no
+// desempenho, por pedido explícito: refugo não desconta dessa conta.
+function somaBrutaCaixas() {
+  return ctx.caixas.reduce(function (acc, c) { return acc + c.quantidade_bruta; }, 0);
+}
+
+// Calcula quando o turno atual termina (trata turno que vira a noite,
+// tipo 22:00–06:00, sem isso o cálculo de "quanto falta" quebra).
+function calcularFimTurno(turno, agora) {
+  const [hIni, mIni] = turno.hora_inicio.slice(0, 5).split(':').map(Number);
+  const [hFim, mFim] = turno.hora_fim.slice(0, 5).split(':').map(Number);
+  const inicioMin = hIni * 60 + mIni, fimMin = hFim * 60 + mFim;
+  const fim = new Date(agora);
+  fim.setHours(hFim, mFim, 0, 0);
+  if (fimMin <= inicioMin) {
+    const agoraMin = agora.getHours() * 60 + agora.getMinutes();
+    if (agoraMin >= inicioMin) fim.setDate(fim.getDate() + 1);
+  }
+  return fim;
 }
 
 // ============================================================
@@ -506,16 +540,22 @@ async function init() {
     return;
   }
   try {
-    ctx.maquina = await carregarMaquina();
     ctx.cadastros = await carregarCadastros();
-    ctx.apontamento = await buscarApontamentoAberto(ctx.maquina.id);
-    if (ctx.apontamento) {
-      ctx.parada = await buscarParadaAberta(ctx.apontamento.id);
-      const progresso = await carregarProgressoApontamento(ctx.apontamento.id);
-      ctx.refugoTally = progresso.refugoTally;
-      ctx.caixas = progresso.caixas;
-      ctx.ultimoFechamentoCaixa = progresso.ultimoFechamentoCaixa;
-      ctx.tela = 'andamento';
+    const maquinaLembradaId = lerMaquinaLembrada();
+    const maquinaLembrada = maquinaLembradaId ? porId(ctx.cadastros.maquinas, Number(maquinaLembradaId)) : null;
+    if (maquinaLembrada) {
+      ctx.maquina = maquinaLembrada;
+      ctx.apontamento = await buscarApontamentoAberto(maquinaLembrada.id);
+      if (ctx.apontamento) {
+        ctx.parada = await buscarParadaAberta(ctx.apontamento.id);
+        const progresso = await carregarProgressoApontamento(ctx.apontamento.id);
+        ctx.refugoTally = progresso.refugoTally;
+        ctx.caixas = progresso.caixas;
+        ctx.ultimoFechamentoCaixa = progresso.ultimoFechamentoCaixa;
+        ctx.tela = 'andamento';
+      } else {
+        ctx.tela = 'ocioso';
+      }
     } else {
       ctx.tela = 'ocioso';
     }
@@ -529,7 +569,14 @@ async function init() {
 }
 
 function abrirIniciar() {
-  ctx.form = { operador_id: '', turno_id: turnoSugeridoAgora(), ordem_producao_id: '', produto_id: '', molde_id: '', numero_cavidades_ativas: '', material_id: '', lote_material: '', _lotePrefixoAuto: '' };
+  ctx.wizard = {
+    passo: 'maquina',
+    maquina_id: ctx.maquina ? String(ctx.maquina.id) : (lerMaquinaLembrada() || ''),
+    turno_id: turnoSugeridoAgora(),
+    operador_id: '',
+    ordem_producao_id: '',
+    produto_id: '', molde_id: '', material_id: '', numero_cavidades_ativas: '', lote_material: '', _lotePrefixoAuto: '',
+  };
   ctx.erroForm = null;
   ctx.tela = 'iniciando';
   render();
@@ -542,61 +589,91 @@ function turnoSugeridoAgora() {
   for (const t of turnos) {
     const ini = t.hora_inicio.slice(0, 5);
     const fim = t.hora_fim.slice(0, 5);
-    if (ini < fim ? (hhmm >= ini && hhmm < fim) : (hhmm >= ini || hhmm < fim)) return t.id;
+    if (ini < fim ? (hhmm >= ini && hhmm < fim) : (hhmm >= ini || hhmm < fim)) return String(t.id);
   }
   return '';
 }
 
-function cancelarIniciar() {
-  ctx.tela = 'ocioso';
+function avancarPasso() {
+  const w = ctx.wizard;
+  if (w.passo === 'maquina' && !w.maquina_id) { ctx.erroForm = 'Selecione a máquina.'; render(); return; }
+  if (w.passo === 'turno' && !w.turno_id) { ctx.erroForm = 'Selecione o turno.'; render(); return; }
+  if (w.passo === 'operador' && !w.operador_id) { ctx.erroForm = 'Selecione o operador.'; render(); return; }
+  ctx.erroForm = null;
+  const idx = PASSOS_INICIAR.indexOf(w.passo);
+  if (idx < PASSOS_INICIAR.length - 1) { w.passo = PASSOS_INICIAR[idx + 1]; render(); }
+}
+
+function voltarPasso() {
+  ctx.erroForm = null;
+  const idx = PASSOS_INICIAR.indexOf(ctx.wizard.passo);
+  if (idx <= 0) { ctx.tela = 'ocioso'; render(); return; }
+  ctx.wizard.passo = PASSOS_INICIAR[idx - 1];
   render();
 }
 
-function aoMudarProdutoForm(produtoId) {
-  ctx.form.produto_id = produtoId;
-  ctx.form.molde_id = '';
-  ctx.form.numero_cavidades_ativas = '';
-  render();
-}
-
-function aoMudarOrdemForm(opId) {
-  ctx.form.ordem_producao_id = opId;
-  if (opId) {
-    const op = porId(ctx.cadastros.ordensProducao, Number(opId));
-    if (op) aoMudarProdutoForm(String(op.produto_id));
-  }
-  render();
-}
-
-function aoMudarMoldeForm(moldeId) {
-  ctx.form.molde_id = moldeId;
-  const molde = porId(ctx.cadastros.moldes, Number(moldeId));
-  ctx.form.numero_cavidades_ativas = molde ? String(molde.numero_cavidades) : '';
-  render();
-}
-
-// Ao trocar material, sugere o início do lote (tipo do material + "-")
-// pro operador só completar. Só sobrescreve se o campo estiver vazio ou
-// for exatamente a sugestão anterior — não apaga o que já foi digitado.
-function aoMudarMaterialForm(materialId) {
-  ctx.form.material_id = materialId;
-  const material = porId(ctx.cadastros.materiais, Number(materialId));
+function aplicarPrefixoLote(w, materialId) {
+  const material = porId(ctx.cadastros.materiais, materialId);
   const prefixo = material ? (material.tipo || material.codigo) + '-' : '';
-  if (!ctx.form.lote_material || ctx.form.lote_material === ctx.form._lotePrefixoAuto) {
-    ctx.form.lote_material = prefixo;
+  w.lote_material = prefixo;
+  w._lotePrefixoAuto = prefixo;
+}
+
+function aoMudarWizOp(valor) {
+  const w = ctx.wizard;
+  w.ordem_producao_id = valor;
+  if (valor === '999' || !valor) {
+    w.produto_id = ''; w.molde_id = ''; w.material_id = ''; w.numero_cavidades_ativas = '';
+    w.lote_material = ''; w._lotePrefixoAuto = '';
+  } else {
+    const op = porId(ctx.cadastros.ordensProducao, valor);
+    if (op) {
+      w.produto_id = op.produto_id ? String(op.produto_id) : '';
+      w.molde_id = op.molde_id ? String(op.molde_id) : '';
+      w.material_id = op.material_id ? String(op.material_id) : '';
+      const molde = op.molde_id ? porId(ctx.cadastros.moldes, op.molde_id) : null;
+      w.numero_cavidades_ativas = molde ? String(molde.numero_cavidades) : '';
+      if (op.material_id) aplicarPrefixoLote(w, op.material_id); else { w.lote_material = ''; w._lotePrefixoAuto = ''; }
+    }
   }
-  ctx.form._lotePrefixoAuto = prefixo;
   render();
 }
 
-async function confirmarIniciar() {
-  const f = ctx.form;
-  const obrigatorios = ['operador_id', 'turno_id', 'produto_id', 'molde_id', 'numero_cavidades_ativas', 'material_id', 'lote_material'];
-  const faltando = obrigatorios.some(function (k) { return !f[k]; });
+function aoMudarWizProduto(valor) {
+  ctx.wizard.produto_id = valor;
+  ctx.wizard.molde_id = '';
+  ctx.wizard.numero_cavidades_ativas = '';
+  render();
+}
+
+function aoMudarWizMolde(valor) {
+  ctx.wizard.molde_id = valor;
+  const molde = porId(ctx.cadastros.moldes, valor);
+  ctx.wizard.numero_cavidades_ativas = molde ? String(molde.numero_cavidades) : '';
+  render();
+}
+
+function aoMudarWizMaterial(valor) {
+  const w = ctx.wizard;
+  w.material_id = valor;
+  if (!w.lote_material || w.lote_material === w._lotePrefixoAuto) {
+    aplicarPrefixoLote(w, valor);
+  } else {
+    const material = porId(ctx.cadastros.materiais, valor);
+    w._lotePrefixoAuto = material ? (material.tipo || material.codigo) + '-' : '';
+  }
+  render();
+}
+
+async function confirmarIniciarWizard() {
+  const w = ctx.wizard;
+  if (!w.ordem_producao_id) { ctx.erroForm = 'Selecione a Ordem de Produção (ou 999 pra sem OP).'; render(); return; }
+  const obrigatorios = ['maquina_id', 'turno_id', 'operador_id', 'produto_id', 'molde_id', 'numero_cavidades_ativas', 'material_id', 'lote_material'];
+  const faltando = obrigatorios.some(function (k) { return !w[k]; });
   if (faltando) { ctx.erroForm = 'Preencha todos os campos antes de iniciar.'; render(); return; }
 
-  const molde = porId(ctx.cadastros.moldes, Number(f.molde_id));
-  if (molde && Number(f.numero_cavidades_ativas) > molde.numero_cavidades) {
+  const molde = porId(ctx.cadastros.moldes, w.molde_id);
+  if (molde && Number(w.numero_cavidades_ativas) > molde.numero_cavidades) {
     ctx.erroForm = 'Número de cavidades não pode passar de ' + molde.numero_cavidades + ' (cadastro do molde).';
     render();
     return;
@@ -606,18 +683,21 @@ async function confirmarIniciar() {
   ctx.salvando = true;
   render();
   try {
+    const maquina = porId(ctx.cadastros.maquinas, w.maquina_id);
     const payload = {
-      maquina_id: ctx.maquina.id,
-      operador_id: Number(f.operador_id),
-      produto_id: Number(f.produto_id),
-      molde_id: Number(f.molde_id),
-      material_id: Number(f.material_id),
-      turno_id: Number(f.turno_id),
-      ordem_producao_id: f.ordem_producao_id ? Number(f.ordem_producao_id) : null,
-      numero_cavidades_ativas: Number(f.numero_cavidades_ativas),
-      lote_material: f.lote_material,
+      maquina_id: Number(w.maquina_id),
+      operador_id: Number(w.operador_id),
+      produto_id: Number(w.produto_id),
+      molde_id: Number(w.molde_id),
+      material_id: Number(w.material_id),
+      turno_id: Number(w.turno_id),
+      ordem_producao_id: w.ordem_producao_id === '999' ? null : Number(w.ordem_producao_id),
+      numero_cavidades_ativas: Number(w.numero_cavidades_ativas),
+      lote_material: w.lote_material,
     };
     ctx.apontamento = await iniciarApontamento(payload);
+    ctx.maquina = maquina;
+    if (maquina) lembrarMaquina(maquina.id);
     ctx.parada = null;
     ctx.refugoTally = {};
     ctx.caixas = [];
@@ -687,6 +767,36 @@ async function registrarRefugoRapido(tipoId) {
   }
 }
 
+function abrirModalCavidade() {
+  ctx.form = { numero_cavidades_ativas: String(ctx.apontamento.numero_cavidades_ativas) };
+  ctx.erroForm = null;
+  ctx.modal = 'cavidade';
+  render();
+}
+
+async function confirmarCavidade() {
+  const molde = porId(ctx.cadastros.moldes, ctx.apontamento.molde_id);
+  const novo = Number(ctx.form.numero_cavidades_ativas);
+  if (!ctx.form.numero_cavidades_ativas || !Number.isInteger(novo) || novo <= 0) {
+    ctx.erroForm = 'Informe um número de cavidades válido.'; render(); return;
+  }
+  if (molde && novo > molde.numero_cavidades) {
+    ctx.erroForm = 'Não pode passar de ' + molde.numero_cavidades + ' (cadastro do molde).'; render(); return;
+  }
+  ctx.erroForm = null;
+  ctx.salvando = true;
+  render();
+  try {
+    await atualizarCavidadesDB(ctx.apontamento.id, novo);
+    ctx.apontamento.numero_cavidades_ativas = novo;
+    ctx.modal = null;
+  } catch (e) {
+    ctx.erroForm = e.message;
+  }
+  ctx.salvando = false;
+  render();
+}
+
 function abrirModalCaixa() {
   ctx.form = { numero_injecoes: '' };
   ctx.erroForm = null;
@@ -707,19 +817,21 @@ async function confirmarCaixa() {
   try {
     const desde = ctx.ultimoFechamentoCaixa || ctx.apontamento.inicio;
     const refugoDaCaixa = await buscarRefugoDesde(ctx.apontamento.id, desde);
-    const brutas = injecoes * ctx.apontamento.numero_cavidades_ativas;
+    const cavAtual = ctx.apontamento.numero_cavidades_ativas;
+    const brutas = injecoes * cavAtual;
     if (refugoDaCaixa > brutas) {
-      ctx.erroForm = 'O refugo registrado desde a última caixa (' + refugoDaCaixa + ') é maior que o total dessa leva (' + brutas + ' = ' + injecoes + ' injetadas × ' + ctx.apontamento.numero_cavidades_ativas + ' cavidades). Confere as injetadas ou o refugo antes de fechar.';
+      ctx.erroForm = 'O refugo registrado desde a última caixa (' + refugoDaCaixa + ') é maior que o total dessa leva (' + brutas + ' = ' + injecoes + ' injetadas × ' + cavAtual + ' cavidades). Confere antes de fechar.';
       ctx.salvando = false;
       render();
       return;
     }
-    const quantidadePecas = brutas - refugoDaCaixa;
     const caixa = await fecharCaixaDB({
       apontamento_id: ctx.apontamento.id,
       numero_injecoes: injecoes,
+      cavidades_no_fechamento: cavAtual,
       refugo_contabilizado: refugoDaCaixa,
-      quantidade_pecas: quantidadePecas,
+      quantidade_bruta: brutas,
+      quantidade_pecas: brutas - refugoDaCaixa,
     });
     ctx.caixas = [caixa].concat(ctx.caixas);
     ctx.ultimoFechamentoCaixa = caixa.fechada_em;
@@ -739,6 +851,11 @@ async function chamarResponsavel() {
   } catch (e) {
     mostrarToast(e.message);
   }
+}
+
+function abrirConfirmarFinalizar() {
+  ctx.modal = 'confirmar-finalizar';
+  render();
 }
 
 function abrirModalFinalizar() {
@@ -806,8 +923,10 @@ function render() {
   else if (ctx.tela === 'andamento') html += viewAndamento();
 
   if (ctx.modal === 'parada') html += viewModalParada();
+  if (ctx.modal === 'cavidade') html += viewModalCavidade();
   if (ctx.modal === 'caixa') html += viewModalCaixa();
   if (ctx.modal === 'etiqueta') html += viewEtiqueta();
+  if (ctx.modal === 'confirmar-finalizar') html += viewModalConfirmarFinalizar();
   if (ctx.modal === 'finalizar') html += viewModalFinalizar();
 
   if (ctx.erroToast) html += '<div class="toast">' + esc(ctx.erroToast) + '</div>';
@@ -818,7 +937,7 @@ function render() {
 }
 
 function viewCarregando() {
-  return '<div class="tela-central"><div class="spinner"></div><p class="muted">Carregando dados da máquina…</p></div>';
+  return '<div class="tela-central"><div class="spinner"></div><p class="muted">Carregando dados…</p></div>';
 }
 
 function viewErro() {
@@ -831,7 +950,7 @@ function viewErro() {
 function viewCabecalho() {
   return '<header class="cabecalho">' +
     '<div class="marca">Vitalbor <span class="marca-sub">Apontamento</span></div>' +
-    '<div class="maquina-chip">' + esc(ctx.maquina.codigo) + (ctx.maquina.nome ? ' · ' + esc(ctx.maquina.nome) : '') + '</div>' +
+    (ctx.maquina ? '<div class="maquina-chip">' + esc(ctx.maquina.codigo) + (ctx.maquina.nome ? ' · ' + esc(ctx.maquina.nome) : '') + '</div>' : '') +
     '<div id="relogio" class="relogio"></div>' +
     '</header>';
 }
@@ -840,8 +959,8 @@ function viewOcioso() {
   return '<main class="conteudo tela-central">' +
     '<div class="cartao cartao-ocioso">' +
     '<div class="status-pill status-ocioso">Sem apontamento em aberto</div>' +
-    '<h1>' + esc(ctx.maquina.codigo) + '</h1>' +
-    '<p class="muted">Inicie um novo apontamento para começar a registrar produção.</p>' +
+    '<h1>' + (ctx.maquina ? esc(ctx.maquina.codigo) : 'Nova produção') + '</h1>' +
+    '<p class="muted">' + (ctx.maquina ? 'Inicie um novo apontamento para começar a registrar produção.' : 'Toque em Iniciar Produção para escolher a máquina.') + '</p>' +
     '<button class="botao botao-primario botao-grande" data-acao="abrir-iniciar">Iniciar Produção</button>' +
     '</div></main>';
 }
@@ -855,51 +974,89 @@ function opcoes(lista, valorSelecionado, rotulo) {
   return html;
 }
 
-function viewIniciando() {
-  const f = ctx.form;
-  const c = ctx.cadastros;
-  const moldesFiltrados = f.produto_id ? c.moldes.filter(function (m) { return String(m.produto_id) === String(f.produto_id); }) : c.moldes;
-  const opSelecionada = f.ordem_producao_id;
-
-  return '<main class="conteudo tela-central">' +
-    '<div class="cartao">' +
-    '<h2>Iniciar Produção</h2>' +
+function viewPassoMaquina() {
+  const w = ctx.wizard;
+  return '<h2>Qual máquina?</h2>' +
     (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
+    '<select data-wiz="maquina_id">' + opcoes(ctx.cadastros.maquinas, w.maquina_id, function (m) { return m.codigo + (m.nome ? ' — ' + m.nome : ''); }) + '</select>' +
+    '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="voltar-passo">Cancelar</button>' +
+    '<button class="botao botao-primario" data-acao="avancar-passo">Próximo</button></div>';
+}
 
-    '<label>Operador</label>' +
-    '<select data-campo="operador_id">' + opcoes(c.operadores, f.operador_id, function (o) { return o.nome; }) + '</select>' +
+function viewPassoTurno() {
+  const w = ctx.wizard;
+  return '<h2>Qual turno?</h2>' +
+    (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
+    '<select data-wiz="turno_id">' + opcoes(ctx.cadastros.turnos, w.turno_id, function (t) { return t.nome; }) + '</select>' +
+    '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="voltar-passo">Voltar</button>' +
+    '<button class="botao botao-primario" data-acao="avancar-passo">Próximo</button></div>';
+}
 
-    '<label>Turno</label>' +
-    '<select data-campo="turno_id">' + opcoes(c.turnos, f.turno_id, function (t) { return t.nome; }) + '</select>' +
+function viewPassoOperador() {
+  const w = ctx.wizard;
+  return '<h2>Quem é o operador?</h2>' +
+    (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
+    '<select data-wiz="operador_id">' + opcoes(ctx.cadastros.operadores, w.operador_id, function (o) { return o.nome; }) + '</select>' +
+    '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="voltar-passo">Voltar</button>' +
+    '<button class="botao botao-primario" data-acao="avancar-passo">Próximo</button></div>';
+}
 
-    '<label>Ordem de Produção (opcional)</label>' +
-    '<select data-campo="ordem_producao_id">' +
-    '<option value="">Sem OP</option>' +
+function viewPassoOp() {
+  const w = ctx.wizard;
+  const c = ctx.cadastros;
+  const semOp = w.ordem_producao_id === '999';
+  const opReal = (!semOp && w.ordem_producao_id) ? porId(c.ordensProducao, w.ordem_producao_id) : null;
+
+  let corpo = '';
+  if (semOp) {
+    const moldesFiltrados = w.produto_id ? c.moldes.filter(function (m) { return String(m.produto_id) === String(w.produto_id); }) : c.moldes;
+    corpo =
+      '<label>Produto</label><select data-wiz="produto_id">' + opcoes(c.produtos, w.produto_id, function (p) { return p.codigo + ' — ' + p.nome; }) + '</select>' +
+      '<label>Ferramenta (molde)</label><select data-wiz="molde_id">' + opcoes(moldesFiltrados, w.molde_id, function (m) { return m.codigo + (m.nome ? ' — ' + m.nome : ''); }) + '</select>' +
+      '<label>Matéria-prima</label><select data-wiz="material_id">' + opcoes(c.materiais, w.material_id, function (m) { return m.codigo + ' — ' + m.nome; }) + '</select>';
+  } else if (opReal) {
+    if (!opReal.molde_id || !opReal.material_id) {
+      corpo = '<div class="alerta-banner">Essa OP ainda não tem ferramenta e/ou matéria-prima cadastrada no banco. Complete o cadastro da OP, ou use "999 — Sem OP".</div>';
+    } else {
+      const produto = porId(c.produtos, opReal.produto_id);
+      const molde = porId(c.moldes, opReal.molde_id);
+      const material = porId(c.materiais, opReal.material_id);
+      corpo = '<div class="grade-info">' +
+        '<div><span class="rotulo-info">Produto</span>' + esc(produto ? produto.codigo : '—') + '</div>' +
+        '<div><span class="rotulo-info">Ferramenta</span>' + esc(molde ? molde.codigo : '—') + '</div>' +
+        '<div><span class="rotulo-info">Matéria-prima</span>' + esc(material ? material.codigo : '—') + '</div>' +
+        '</div>';
+    }
+  }
+
+  const podeMostrarFinais = semOp ? !!w.molde_id : !!(opReal && opReal.molde_id && opReal.material_id);
+
+  return '<h2>Ordem de Produção</h2>' +
+    (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
+    '<label>Número da OP</label>' +
+    '<select data-wiz="ordem_producao_id"><option value="">Selecione…</option>' +
+    '<option value="999"' + (semOp ? ' selected' : '') + '>999 — Sem OP (qualquer ferramenta)</option>' +
     (c.ordensProducao || []).map(function (op) {
-      const sel = String(opSelecionada) === String(op.id) ? ' selected' : '';
-      return '<option value="' + op.id + '"' + sel + '>' + esc(op.numero) + '</option>';
-    }).join('') +
-    '</select>' +
+      return '<option value="' + op.id + '"' + (String(w.ordem_producao_id) === String(op.id) ? ' selected' : '') + '>' + esc(op.numero) + '</option>';
+    }).join('') + '</select>' +
+    corpo +
+    (podeMostrarFinais ?
+      '<label>Número de cavidades ativas</label>' +
+      '<input type="number" inputmode="numeric" min="1" data-wiz="numero_cavidades_ativas" value="' + esc(w.numero_cavidades_ativas) + '">' +
+      '<label>Lote do material</label>' +
+      '<input type="text" data-wiz="lote_material" value="' + esc(w.lote_material) + '" placeholder="Ex: NBR-0731">'
+      : '') +
+    '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="voltar-passo">Voltar</button>' +
+    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-iniciar-wizard">' + (ctx.salvando ? 'Iniciando…' : 'Iniciar Produção') + '</button></div>';
+}
 
-    '<label>Produto</label>' +
-    '<select data-campo="produto_id"' + (f.ordem_producao_id ? ' disabled' : '') + '>' + opcoes(c.produtos, f.produto_id, function (p) { return p.codigo + ' — ' + p.nome; }) + '</select>' +
-
-    '<label>Molde</label>' +
-    '<select data-campo="molde_id">' + opcoes(moldesFiltrados, f.molde_id, function (m) { return m.codigo + (m.nome ? ' — ' + m.nome : ''); }) + '</select>' +
-
-    '<label>Número de cavidades ativas</label>' +
-    '<input type="number" inputmode="numeric" min="1" data-campo="numero_cavidades_ativas" value="' + esc(f.numero_cavidades_ativas) + '">' +
-
-    '<label>Material</label>' +
-    '<select data-campo="material_id">' + opcoes(c.materiais, f.material_id, function (m) { return m.codigo + ' — ' + m.nome; }) + '</select>' +
-
-    '<label>Lote do material</label>' +
-    '<input type="text" data-campo="lote_material" value="' + esc(f.lote_material) + '" placeholder="Ex: NBR-0731">' +
-
-    '<div class="linha-botoes">' +
-    '<button class="botao botao-secundario" data-acao="cancelar-iniciar">Cancelar</button>' +
-    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-iniciar">' + (ctx.salvando ? 'Iniciando…' : 'Iniciar') + '</button>' +
-    '</div>' +
+function viewIniciando() {
+  const w = ctx.wizard;
+  const passos = { maquina: viewPassoMaquina, turno: viewPassoTurno, operador: viewPassoOperador, op: viewPassoOp };
+  const idx = PASSOS_INICIAR.indexOf(w.passo) + 1;
+  return '<main class="conteudo tela-central"><div class="cartao">' +
+    '<div class="passo-indicador">Passo ' + idx + ' de ' + PASSOS_INICIAR.length + '</div>' +
+    passos[w.passo]() +
     '</div></main>';
 }
 
@@ -907,29 +1064,47 @@ function viewBarraProgresso() {
   if (!ctx.apontamento.ordem_producao_id) return '';
   const op = porId(ctx.cadastros.ordensProducao, ctx.apontamento.ordem_producao_id);
   if (!op) return '';
-  const produzido = somaPecasCaixas();
+  const produzido = somaBrutaCaixas();
   const meta = op.quantidade_planejada;
   const pct = meta > 0 ? Math.min(100, Math.round((produzido / meta) * 100)) : 0;
   return '<div class="progresso-bloco">' +
-    '<div class="progresso-legenda"><span>Saldo da OP ' + esc(op.numero) + '</span><span>' + produzido + ' / ' + meta + '</span></div>' +
+    '<div class="progresso-legenda"><span>Saldo da OP ' + esc(op.numero) + ' (bruto, sem descontar refugo)</span><span>' + produzido + ' / ' + meta + '</span></div>' +
     '<div class="barra-fundo"><div class="barra-preenchida" style="width:' + pct + '%"></div></div>' +
+    '</div>';
+}
+
+function viewDesempenho() {
+  const a = ctx.apontamento;
+  const horasDecorridas = (Date.now() - new Date(a.inicio).getTime()) / 3600000;
+  const injecoesTotal = ctx.caixas.reduce(function (acc, c) { return acc + c.numero_injecoes; }, 0);
+  const ritmoAtual = horasDecorridas > 0.02 ? (injecoesTotal / horasDecorridas) : null;
+
+  let necessario = null;
+  if (a.ordem_producao_id) {
+    const op = porId(ctx.cadastros.ordensProducao, a.ordem_producao_id);
+    const turno = porId(ctx.cadastros.turnos, a.turno_id);
+    if (op && turno) {
+      const restante = Math.max(0, op.quantidade_planejada - somaBrutaCaixas());
+      const horasRestantes = (calcularFimTurno(turno, new Date()).getTime() - Date.now()) / 3600000;
+      necessario = (horasRestantes > 0.02 && a.numero_cavidades_ativas > 0) ? (restante / horasRestantes) / a.numero_cavidades_ativas : 0;
+    }
+  }
+  if (ritmoAtual === null && necessario === null) return '';
+  return '<div class="desempenho-bloco">' +
+    (ritmoAtual !== null ? '<div class="desempenho-item"><span class="rotulo-info">Seu ritmo</span>' + ritmoAtual.toFixed(1) + ' inj/h</div>' : '') +
+    (necessario !== null ? '<div class="desempenho-item"><span class="rotulo-info">Necessário p/ bater a OP</span>' + necessario.toFixed(1) + ' inj/h</div>' : '') +
     '</div>';
 }
 
 function viewGradeRefugoRapido() {
   const tipos = ctx.cadastros.tiposRefugo;
   if (!tipos.length) return '';
-  return '<div class="refugo-rapido-bloco">' +
-    '<span class="rotulo-info">Apontar refugo</span>' +
-    '<div class="grade-refugo-rapido">' +
+  return '<div class="refugo-rapido-bloco"><span class="rotulo-info">Apontar refugo</span><div class="grade-refugo-rapido">' +
     tipos.map(function (t) {
       const n = ctx.refugoTally[t.id] || 0;
       return '<button class="botao-refugo-rapido" data-acao="refugo-rapido" data-tipo-refugo="' + t.id + '">' +
-        '<span class="refugo-rapido-nome">' + esc(t.nome) + '</span>' +
-        '<span class="refugo-rapido-contagem">' + n + '</span>' +
-        '</button>';
-    }).join('') +
-    '</div></div>';
+        '<span class="refugo-rapido-nome">' + esc(t.nome) + '</span><span class="refugo-rapido-contagem">' + n + '</span></button>';
+    }).join('') + '</div></div>';
 }
 
 function viewAndamento() {
@@ -957,58 +1132,63 @@ function viewAndamento() {
     '<div><span class="rotulo-info">Início</span>' + fmtHora(a.inicio) + '</div>' +
     '</div>' +
 
-    viewBarraProgresso() +
+    '<div class="cavidade-atual"><span class="rotulo-info">Cavidades ativas</span>' + a.numero_cavidades_ativas +
+    ' <button class="link-editar" data-acao="abrir-cavidade">editar</button></div>' +
 
-    '<div class="caixas-resumo"><span class="rotulo-info">Caixas fechadas</span>' + ctx.caixas.length + ' · ' + somaPecasCaixas() + ' peças no total</div>' +
+    viewBarraProgresso() +
+    viewDesempenho() +
+
+    '<div class="caixas-resumo"><span class="rotulo-info">Caixas fechadas</span>' + ctx.caixas.length + ' · ' + somaPecasCaixas() + ' peças boas no total</div>' +
 
     (parado ? '' : viewGradeRefugoRapido()) +
 
     '<div class="linha-botoes">' +
     (parado
       ? '<button class="botao botao-primario botao-grande" data-acao="finalizar-parada">Finalizar Parada</button>'
-      : '<button class="botao botao-alerta" data-acao="abrir-parada">Registrar Parada</button>' +
-        '<button class="botao botao-secundario" data-acao="chamar-responsavel">Chamar Responsável</button>') +
+      : '<button class="botao botao-alerta" data-acao="abrir-parada">Registrar Parada</button>') +
+    '<button class="botao botao-secundario" data-acao="chamar-responsavel">Chamar Responsável</button>' +
     '</div>' +
     (parado ? '' :
-      '<div class="linha-botoes">' +
-      '<button class="botao botao-primario botao-grande" data-acao="abrir-caixa">Fechar Caixa</button>' +
-      '</div>' +
-      '<div class="linha-botoes">' +
-      '<button class="botao botao-secundario botao-grande" data-acao="abrir-finalizar">Finalizar Produção</button>' +
-      '</div>') +
+      '<div class="linha-botoes"><button class="botao botao-primario botao-grande" data-acao="abrir-caixa">Fechar Caixa</button></div>' +
+      '<div class="linha-botoes"><button class="botao botao-secundario botao-grande" data-acao="abrir-confirmar-finalizar">Finalizar Produção</button></div>') +
     '</div></main>';
 }
 
 function viewModalParada() {
   const f = ctx.form;
-  return '<div class="modal-fundo" data-acao="fechar-modal-fundo">' +
-    '<div class="modal-cartao" data-parar-propagacao="1">' +
+  return '<div class="modal-fundo" data-acao="fechar-modal-fundo"><div class="modal-cartao" data-parar-propagacao="1">' +
     '<h2>Registrar Parada</h2>' +
     (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
-    '<label>Motivo</label>' +
-    '<select data-campo="motivo_id">' + opcoes(ctx.cadastros.motivosParada, f.motivo_id, function (m) { return m.nome; }) + '</select>' +
-    '<label>Observação (opcional)</label>' +
-    '<textarea data-campo="observacao" rows="3">' + esc(f.observacao) + '</textarea>' +
-    '<div class="linha-botoes">' +
-    '<button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
-    '<button class="botao botao-alerta"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-parada">' + (ctx.salvando ? 'Registrando…' : 'Confirmar Parada') + '</button>' +
-    '</div></div></div>';
+    '<label>Motivo</label><select data-campo="motivo_id">' + opcoes(ctx.cadastros.motivosParada, f.motivo_id, function (m) { return m.nome; }) + '</select>' +
+    '<label>Observação (opcional)</label><textarea data-campo="observacao" rows="3">' + esc(f.observacao) + '</textarea>' +
+    '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
+    '<button class="botao botao-alerta"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-parada">' + (ctx.salvando ? 'Registrando…' : 'Confirmar Parada') + '</button></div>' +
+    '</div></div>';
+}
+
+function viewModalCavidade() {
+  const f = ctx.form;
+  return '<div class="modal-fundo" data-acao="fechar-modal-fundo"><div class="modal-cartao" data-parar-propagacao="1">' +
+    '<h2>Editar Cavidades Ativas</h2>' +
+    (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
+    '<input type="number" inputmode="numeric" min="1" data-campo="numero_cavidades_ativas" value="' + esc(f.numero_cavidades_ativas) + '">' +
+    '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
+    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-cavidade">' + (ctx.salvando ? 'Salvando…' : 'Salvar') + '</button></div>' +
+    '</div></div>';
 }
 
 function viewModalCaixa() {
   const f = ctx.form;
   const cav = ctx.apontamento.numero_cavidades_ativas;
-  return '<div class="modal-fundo" data-acao="fechar-modal-fundo">' +
-    '<div class="modal-cartao" data-parar-propagacao="1">' +
+  return '<div class="modal-fundo" data-acao="fechar-modal-fundo"><div class="modal-cartao" data-parar-propagacao="1">' +
     '<h2>Fechar Caixa</h2>' +
     (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
-    '<p class="muted-pequeno">Cavidades ativas: ' + cav + '. Peças da caixa = injetadas × ' + cav + ' − refugo apontado desde a última caixa.</p>' +
+    '<p class="muted-pequeno">Cavidades ativas agora: ' + cav + '. Peças = injetadas × ' + cav + ' − refugo apontado desde a última caixa.</p>' +
     '<label>Quantas injetadas essa caixa levou</label>' +
     '<input type="number" inputmode="numeric" min="1" data-campo="numero_injecoes" value="' + esc(f.numero_injecoes) + '">' +
-    '<div class="linha-botoes">' +
-    '<button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
-    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-caixa">' + (ctx.salvando ? 'Calculando…' : 'Fechar e Calcular') + '</button>' +
-    '</div></div></div>';
+    '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
+    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-caixa">' + (ctx.salvando ? 'Calculando…' : 'Fechar e Calcular') + '</button></div>' +
+    '</div></div>';
 }
 
 function viewEtiqueta() {
@@ -1018,9 +1198,7 @@ function viewEtiqueta() {
   const c = ctx.cadastros;
   const produto = porId(c.produtos, a.produto_id);
   const operador = porId(c.operadores, a.operador_id);
-  const numeroCaixa = ctx.caixas.length;
-  return '<div class="modal-fundo" data-acao="fechar-modal-fundo">' +
-    '<div class="modal-cartao" data-parar-propagacao="1">' +
+  return '<div class="modal-fundo" data-acao="fechar-modal-fundo"><div class="modal-cartao" data-parar-propagacao="1">' +
     '<div id="etiqueta-imprimir" class="etiqueta">' +
     '<div class="etiqueta-marca">VITALBOR</div>' +
     '<div class="etiqueta-produto">' + esc(produto ? produto.nome : '—') + '</div>' +
@@ -1028,36 +1206,38 @@ function viewEtiqueta() {
     '<div class="etiqueta-quantidade">' + cx.quantidade_pecas + '<span> peças</span></div>' +
     '<div class="etiqueta-grade">' +
     '<div><span>Lote</span>' + esc(a.lote_material) + '</div>' +
-    '<div><span>Caixa nº</span>' + numeroCaixa + '</div>' +
+    '<div><span>Caixa nº</span>' + ctx.caixas.length + '</div>' +
     '<div><span>Máquina</span>' + esc(ctx.maquina.codigo) + '</div>' +
     '<div><span>Operador</span>' + esc(operador ? operador.nome : '—') + '</div>' +
     '<div><span>Data</span>' + new Date(cx.fechada_em).toLocaleDateString('pt-BR') + '</div>' +
     '<div><span>Hora</span>' + fmtHora(cx.fechada_em) + '</div>' +
     '</div></div>' +
-    '<div class="linha-botoes nao-imprimir">' +
-    '<button class="botao botao-secundario" data-acao="fechar-modal">Fechar</button>' +
-    '<button class="botao botao-primario" data-acao="imprimir-etiqueta">Imprimir Etiqueta</button>' +
-    '</div></div></div>';
+    '<div class="linha-botoes nao-imprimir"><button class="botao botao-secundario" data-acao="fechar-modal">Fechar</button>' +
+    '<button class="botao botao-primario" data-acao="imprimir-etiqueta">Imprimir Etiqueta</button></div>' +
+    '</div></div>';
+}
+
+function viewModalConfirmarFinalizar() {
+  return '<div class="modal-fundo" data-acao="fechar-modal-fundo"><div class="modal-cartao" data-parar-propagacao="1">' +
+    '<h2>Já fechou a última caixa?</h2>' +
+    '<p class="muted-pequeno">Total já calculado: <strong>' + somaPecasCaixas() + ' peças boas</strong> em ' + ctx.caixas.length + ' caixa(s). Se ainda tem produção fora de caixa, feche ela antes.</p>' +
+    '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="ainda-falta-caixa">Ainda falta fechar</button>' +
+    '<button class="botao botao-primario" data-acao="ja-fechei-tudo">Já fechei tudo</button></div>' +
+    '</div></div>';
 }
 
 function viewModalFinalizar() {
   const f = ctx.form;
-  return '<div class="modal-fundo" data-acao="fechar-modal-fundo">' +
-    '<div class="modal-cartao" data-parar-propagacao="1">' +
+  return '<div class="modal-fundo" data-acao="fechar-modal-fundo"><div class="modal-cartao" data-parar-propagacao="1">' +
     '<h2>Finalizar Produção</h2>' +
     (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
-    '<p class="muted-pequeno">Total já calculado pelas caixas fechadas: <strong>' + somaPecasCaixas() + ' peças</strong> em ' + ctx.caixas.length + ' caixa(s). Se sobrou produção sem caixa, feche a caixa antes de finalizar.</p>' +
-
-    '<label>Peso total usado (kg, opcional)</label>' +
+    '<label>Peso total de matéria-prima usado (kg)</label>' +
     '<input type="number" inputmode="decimal" step="0.001" min="0" data-campo="peso_total_usado_kg" value="' + esc(f.peso_total_usado_kg) + '">' +
-
     '<label>Sobra (kg, opcional)</label>' +
     '<input type="number" inputmode="decimal" step="0.001" min="0" data-campo="peso_sobra_kg" value="' + esc(f.peso_sobra_kg) + '">' +
-
-    '<div class="linha-botoes">' +
-    '<button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
-    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-finalizar">' + (ctx.salvando ? 'Salvando…' : 'Confirmar e Finalizar') + '</button>' +
-    '</div></div></div>';
+    '<div class="linha-botoes"><button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
+    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-finalizar">' + (ctx.salvando ? 'Salvando…' : 'Confirmar e Finalizar') + '</button></div>' +
+    '</div></div>';
 }
 
 // ============================================================
@@ -1067,13 +1247,18 @@ function viewModalFinalizar() {
 function ligarEventos() {
   document.querySelectorAll('[data-campo]').forEach(function (elCampo) {
     const evento = elCampo.tagName === 'SELECT' ? 'change' : 'input';
+    elCampo.addEventListener(evento, function () { ctx.form[elCampo.getAttribute('data-campo')] = elCampo.value; });
+  });
+
+  document.querySelectorAll('[data-wiz]').forEach(function (elCampo) {
+    const evento = elCampo.tagName === 'SELECT' ? 'change' : 'input';
     elCampo.addEventListener(evento, function () {
-      const campo = elCampo.getAttribute('data-campo');
-      if (campo === 'produto_id') return aoMudarProdutoForm(elCampo.value);
-      if (campo === 'ordem_producao_id') return aoMudarOrdemForm(elCampo.value);
-      if (campo === 'molde_id') return aoMudarMoldeForm(elCampo.value);
-      if (campo === 'material_id') return aoMudarMaterialForm(elCampo.value);
-      ctx.form[campo] = elCampo.value;
+      const campo = elCampo.getAttribute('data-wiz');
+      if (campo === 'ordem_producao_id') return aoMudarWizOp(elCampo.value);
+      if (campo === 'produto_id') return aoMudarWizProduto(elCampo.value);
+      if (campo === 'molde_id') return aoMudarWizMolde(elCampo.value);
+      if (campo === 'material_id') return aoMudarWizMaterial(elCampo.value);
+      ctx.wizard[campo] = elCampo.value;
     });
   });
 
@@ -1083,17 +1268,22 @@ function ligarEventos() {
       if (acao === 'fechar-modal-fundo' && ev.target !== elBotao) return;
       if (acao === 'refugo-rapido') return registrarRefugoRapido(Number(elBotao.getAttribute('data-tipo-refugo')));
       if (acao === 'imprimir-etiqueta') { window.print(); return; }
+      if (acao === 'ainda-falta-caixa') { ctx.modal = null; abrirModalCaixa(); return; }
+      if (acao === 'ja-fechei-tudo') { ctx.modal = null; abrirModalFinalizar(); return; }
       const mapa = {
         'abrir-iniciar': abrirIniciar,
-        'cancelar-iniciar': cancelarIniciar,
-        'confirmar-iniciar': confirmarIniciar,
+        'avancar-passo': avancarPasso,
+        'voltar-passo': voltarPasso,
+        'confirmar-iniciar-wizard': confirmarIniciarWizard,
         'abrir-parada': abrirModalParada,
         'confirmar-parada': confirmarParada,
         'finalizar-parada': confirmarFimParada,
+        'abrir-cavidade': abrirModalCavidade,
+        'confirmar-cavidade': confirmarCavidade,
         'abrir-caixa': abrirModalCaixa,
         'confirmar-caixa': confirmarCaixa,
         'chamar-responsavel': chamarResponsavel,
-        'abrir-finalizar': abrirModalFinalizar,
+        'abrir-confirmar-finalizar': abrirConfirmarFinalizar,
         'confirmar-finalizar': confirmarFinalizar,
         'fechar-modal': fecharModal,
         'fechar-modal-fundo': fecharModal,
