@@ -226,6 +226,65 @@ textarea { resize: vertical; }
   .grade-info { grid-template-columns: 1fr; }
   .linha-botoes { flex-direction: column; }
 }
+
+/* Cartão nunca fica maior que a tela — se o conteúdo passar, rola por
+   dentro em vez de cortar o topo/rodapé quando centralizado. */
+.cartao { max-height: calc(100vh - 48px); overflow-y: auto; }
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-size: 14px;
+  max-width: 90%;
+  text-align: center;
+  box-shadow: var(--sombra);
+  z-index: 200;
+}
+
+.progresso-bloco { margin: 18px 0 4px; text-align: left; }
+.progresso-legenda { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-muted); margin-bottom: 6px; font-weight: 600; }
+.barra-fundo { background: var(--neutro-bg-fraca); border-radius: 999px; height: 12px; overflow: hidden; }
+.barra-preenchida { background: var(--accent); height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+
+.caixas-resumo { text-align: left; font-size: 13px; color: var(--ink-muted); margin: 10px 0; }
+
+.refugo-rapido-bloco { text-align: left; margin: 18px 0 4px; }
+.grade-refugo-rapido { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 6px; }
+.botao-refugo-rapido {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--alerta-bg-fraca);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  cursor: pointer;
+  font-family: var(--fonte-corpo);
+  min-height: 52px;
+}
+.botao-refugo-rapido:active { border-color: var(--alerta); }
+.refugo-rapido-nome { font-size: 14px; color: var(--ink); text-align: left; }
+.refugo-rapido-contagem { font-family: var(--fonte-display); font-weight: 700; font-size: 20px; color: var(--alerta-forte); margin-left: 8px; }
+
+.etiqueta { text-align: center; padding: 12px 4px; }
+.etiqueta-marca { font-family: var(--fonte-display); font-weight: 700; letter-spacing: 0.08em; font-size: 15px; color: var(--ink-muted); }
+.etiqueta-produto { font-family: var(--fonte-display); font-weight: 700; font-size: 22px; margin-top: 6px; }
+.etiqueta-codigo { color: var(--ink-muted); font-size: 14px; margin-bottom: 12px; }
+.etiqueta-quantidade { font-family: var(--fonte-display); font-weight: 700; font-size: 56px; color: var(--accent); line-height: 1; }
+.etiqueta-quantidade span { font-size: 16px; font-weight: 600; color: var(--ink-muted); margin-left: 6px; }
+.etiqueta-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--linha); font-size: 13px; }
+.etiqueta-grade span { display: block; color: var(--ink-muted); font-size: 11px; }
+
+@media print {
+  body * { visibility: hidden; }
+  #etiqueta-imprimir, #etiqueta-imprimir * { visibility: visible; }
+  #etiqueta-imprimir { position: fixed; top: 0; left: 0; width: 100%; margin: 0; }
+  .modal-fundo, .modal-cartao { position: static !important; background: none !important; box-shadow: none !important; padding: 0 !important; max-height: none !important; overflow: visible !important; }
+}
 </style>
 </head>
 <body>
@@ -238,7 +297,7 @@ textarea { resize: vertical; }
 // resultado. Facilita ajustar consulta sem mexer em tela.
 // ============================================================
 
-// ---------- Configuração (preencher antes de usar) ----------
+// ---------- Configuração ----------
 const SUPABASE_URL = 'https://wjukjrzkqerqdtceawyt.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqdWtqcnprcWVycWR0Y2Vhd3l0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzM0MDIsImV4cCI6MjEwMTk0OTQwMn0.dtelewESHMy27Hz31kQlyWWn9OgWKKoZV78f1VzvbEw';
 const MAQUINA_CODIGO = 'INJ-01'; // qual máquina este tablet representa
@@ -259,15 +318,22 @@ try {
 let ctx = {
   carregando: true,
   erro: null,
+  erroToast: null,
   maquina: null,
   cadastros: null,
-  apontamento: null,   // apontamento aberto (fim = null) ou null
-  parada: null,        // parada aberta (fim = null) ou null
-  tela: 'ocioso',       // 'ocioso' | 'iniciando' | 'andamento'
-  modal: null,          // null | 'parada' | 'finalizar'
-  form: {},             // valores temporários de formulário/modal
+  apontamento: null,
+  parada: null,
+  refugoTally: {},              // tipo_id -> total desde o início do apontamento
+  caixas: [],                   // caixas já fechadas nesse apontamento (mais recente primeiro)
+  ultimoFechamentoCaixa: null,  // timestamp iso do último fechamento (null = usa apontamento.inicio)
+  ultimaCaixaFechada: null,     // objeto da última caixa, pra tela de etiqueta
+  tela: 'ocioso',               // 'ocioso' | 'iniciando' | 'andamento'
+  modal: null,                  // null | 'parada' | 'caixa' | 'etiqueta' | 'finalizar'
+  form: {},
+  erroForm: null,
   salvando: false,
   timerId: null,
+  toastTimeoutId: null,
 };
 
 // ============================================================
@@ -319,6 +385,19 @@ async function buscarParadaAberta(apontamentoId) {
   return data;
 }
 
+async function carregarProgressoApontamento(apontamentoId) {
+  const [refugosRes, caixasRes] = await Promise.all([
+    sb.from('refugos').select('tipo_id, quantidade').eq('apontamento_id', apontamentoId),
+    sb.from('caixas').select('*').eq('apontamento_id', apontamentoId).order('fechada_em', { ascending: false }),
+  ]);
+  if (refugosRes.error) throw new Error(erroSupabaseParaMensagem(refugosRes.error, 'Erro ao carregar refugo do apontamento'));
+  if (caixasRes.error) throw new Error(erroSupabaseParaMensagem(caixasRes.error, 'Erro ao carregar caixas do apontamento'));
+  const tally = {};
+  (refugosRes.data || []).forEach(function (r) { tally[r.tipo_id] = (tally[r.tipo_id] || 0) + r.quantidade; });
+  const caixas = caixasRes.data || [];
+  return { refugoTally: tally, caixas: caixas, ultimoFechamentoCaixa: caixas.length ? caixas[0].fechada_em : null };
+}
+
 async function iniciarApontamento(payload) {
   const { data, error } = await sb.from('apontamentos').insert(payload).select().single();
   if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao iniciar apontamento'));
@@ -337,15 +416,31 @@ async function finalizarParadaDB(paradaId) {
   return data;
 }
 
-async function finalizarApontamentoDB(apontamentoId, payload, refugos) {
-  const { error: errApont } = await sb.from('apontamentos').update(payload).eq('id', apontamentoId);
-  if (errApont) throw new Error(erroSupabaseParaMensagem(errApont, 'Erro ao finalizar apontamento'));
-  const linhas = refugos.filter(function (r) { return r.quantidade > 0; })
-    .map(function (r) { return { apontamento_id: apontamentoId, tipo_id: r.tipo_id, quantidade: r.quantidade }; });
-  if (linhas.length > 0) {
-    const { error: errRefugo } = await sb.from('refugos').insert(linhas);
-    if (errRefugo) throw new Error(erroSupabaseParaMensagem(errRefugo, 'Apontamento fechado, mas erro ao salvar refugo'));
-  }
+async function registrarRefugoDB(apontamentoId, tipoId) {
+  const { error } = await sb.from('refugos').insert({ apontamento_id: apontamentoId, tipo_id: tipoId, quantidade: 1 });
+  if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao registrar refugo'));
+}
+
+async function buscarRefugoDesde(apontamentoId, desde) {
+  const { data, error } = await sb.from('refugos').select('quantidade').eq('apontamento_id', apontamentoId).gt('registrado_em', desde);
+  if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao calcular refugo da caixa'));
+  return (data || []).reduce(function (acc, r) { return acc + r.quantidade; }, 0);
+}
+
+async function fecharCaixaDB(payload) {
+  const { data, error } = await sb.from('caixas').insert(payload).select().single();
+  if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao fechar caixa'));
+  return data;
+}
+
+async function chamarResponsavelDB(apontamentoId, maquinaId) {
+  const { error } = await sb.from('chamados_responsavel').insert({ apontamento_id: apontamentoId, maquina_id: maquinaId });
+  if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao chamar responsável'));
+}
+
+async function finalizarApontamentoDB(apontamentoId, payload) {
+  const { error } = await sb.from('apontamentos').update(payload).eq('id', apontamentoId);
+  if (error) throw new Error(erroSupabaseParaMensagem(error, 'Erro ao finalizar apontamento'));
 }
 
 // ============================================================
@@ -375,8 +470,8 @@ function porId(lista, id) {
 }
 
 // "Failed to fetch" é a requisição nem saindo do navegador (URL errada,
-// sem internet, CORS) — bem diferente de um erro que o Supabase respondeu
-// de fato. Separar os dois evita mensagem enganosa tipo "não encontrada"
+// sem internet, CORS) — bem diferente de um erro que o Supabase de fato
+// respondeu. Separar os dois evita mensagem enganosa tipo "não encontrada"
 // quando na real é problema de conexão/config.
 function erroSupabaseParaMensagem(error, contexto) {
   if (error && error.message && error.message.indexOf('Failed to fetch') !== -1) {
@@ -388,8 +483,19 @@ function erroSupabaseParaMensagem(error, contexto) {
   return contexto + ': ' + (error && error.message ? error.message : 'erro desconhecido');
 }
 
+function mostrarToast(msg) {
+  ctx.erroToast = msg;
+  render();
+  if (ctx.toastTimeoutId) clearTimeout(ctx.toastTimeoutId);
+  ctx.toastTimeoutId = setTimeout(function () { ctx.erroToast = null; render(); }, 4500);
+}
+
+function somaPecasCaixas() {
+  return ctx.caixas.reduce(function (acc, c) { return acc + c.quantidade_pecas; }, 0);
+}
+
 // ============================================================
-// Ações (ligam UI a dados)
+// Ações
 // ============================================================
 
 async function init() {
@@ -405,6 +511,10 @@ async function init() {
     ctx.apontamento = await buscarApontamentoAberto(ctx.maquina.id);
     if (ctx.apontamento) {
       ctx.parada = await buscarParadaAberta(ctx.apontamento.id);
+      const progresso = await carregarProgressoApontamento(ctx.apontamento.id);
+      ctx.refugoTally = progresso.refugoTally;
+      ctx.caixas = progresso.caixas;
+      ctx.ultimoFechamentoCaixa = progresso.ultimoFechamentoCaixa;
       ctx.tela = 'andamento';
     } else {
       ctx.tela = 'ocioso';
@@ -419,7 +529,8 @@ async function init() {
 }
 
 function abrirIniciar() {
-  ctx.form = { operador_id: '', turno_id: turnoSugeridoAgora(), ordem_producao_id: '', produto_id: '', molde_id: '', numero_cavidades_ativas: '', material_id: '', lote_material: '' };
+  ctx.form = { operador_id: '', turno_id: turnoSugeridoAgora(), ordem_producao_id: '', produto_id: '', molde_id: '', numero_cavidades_ativas: '', material_id: '', lote_material: '', _lotePrefixoAuto: '' };
+  ctx.erroForm = null;
   ctx.tela = 'iniciando';
   render();
 }
@@ -464,6 +575,20 @@ function aoMudarMoldeForm(moldeId) {
   render();
 }
 
+// Ao trocar material, sugere o início do lote (tipo do material + "-")
+// pro operador só completar. Só sobrescreve se o campo estiver vazio ou
+// for exatamente a sugestão anterior — não apaga o que já foi digitado.
+function aoMudarMaterialForm(materialId) {
+  ctx.form.material_id = materialId;
+  const material = porId(ctx.cadastros.materiais, Number(materialId));
+  const prefixo = material ? (material.tipo || material.codigo) + '-' : '';
+  if (!ctx.form.lote_material || ctx.form.lote_material === ctx.form._lotePrefixoAuto) {
+    ctx.form.lote_material = prefixo;
+  }
+  ctx.form._lotePrefixoAuto = prefixo;
+  render();
+}
+
 async function confirmarIniciar() {
   const f = ctx.form;
   const obrigatorios = ['operador_id', 'turno_id', 'produto_id', 'molde_id', 'numero_cavidades_ativas', 'material_id', 'lote_material'];
@@ -494,6 +619,9 @@ async function confirmarIniciar() {
     };
     ctx.apontamento = await iniciarApontamento(payload);
     ctx.parada = null;
+    ctx.refugoTally = {};
+    ctx.caixas = [];
+    ctx.ultimoFechamentoCaixa = null;
     ctx.tela = 'andamento';
   } catch (e) {
     ctx.erroForm = e.message;
@@ -512,6 +640,7 @@ function abrirModalParada() {
 function fecharModal() {
   ctx.modal = null;
   ctx.erroForm = null;
+  ctx.ultimaCaixaFechada = null;
   render();
 }
 
@@ -547,47 +676,96 @@ async function confirmarFimParada() {
   render();
 }
 
+async function registrarRefugoRapido(tipoId) {
+  ctx.refugoTally[tipoId] = (ctx.refugoTally[tipoId] || 0) + 1;
+  render();
+  try {
+    await registrarRefugoDB(ctx.apontamento.id, tipoId);
+  } catch (e) {
+    ctx.refugoTally[tipoId] -= 1;
+    mostrarToast(e.message);
+  }
+}
+
+function abrirModalCaixa() {
+  ctx.form = { numero_injecoes: '' };
+  ctx.erroForm = null;
+  ctx.modal = 'caixa';
+  render();
+}
+
+async function confirmarCaixa() {
+  const injecoes = Number(ctx.form.numero_injecoes);
+  if (!ctx.form.numero_injecoes || !Number.isInteger(injecoes) || injecoes <= 0) {
+    ctx.erroForm = 'Informe quantas injetadas essa caixa levou (número inteiro maior que zero).';
+    render();
+    return;
+  }
+  ctx.erroForm = null;
+  ctx.salvando = true;
+  render();
+  try {
+    const desde = ctx.ultimoFechamentoCaixa || ctx.apontamento.inicio;
+    const refugoDaCaixa = await buscarRefugoDesde(ctx.apontamento.id, desde);
+    const brutas = injecoes * ctx.apontamento.numero_cavidades_ativas;
+    if (refugoDaCaixa > brutas) {
+      ctx.erroForm = 'O refugo registrado desde a última caixa (' + refugoDaCaixa + ') é maior que o total dessa leva (' + brutas + ' = ' + injecoes + ' injetadas × ' + ctx.apontamento.numero_cavidades_ativas + ' cavidades). Confere as injetadas ou o refugo antes de fechar.';
+      ctx.salvando = false;
+      render();
+      return;
+    }
+    const quantidadePecas = brutas - refugoDaCaixa;
+    const caixa = await fecharCaixaDB({
+      apontamento_id: ctx.apontamento.id,
+      numero_injecoes: injecoes,
+      refugo_contabilizado: refugoDaCaixa,
+      quantidade_pecas: quantidadePecas,
+    });
+    ctx.caixas = [caixa].concat(ctx.caixas);
+    ctx.ultimoFechamentoCaixa = caixa.fechada_em;
+    ctx.ultimaCaixaFechada = caixa;
+    ctx.modal = 'etiqueta';
+  } catch (e) {
+    ctx.erroForm = e.message;
+  }
+  ctx.salvando = false;
+  render();
+}
+
+async function chamarResponsavel() {
+  try {
+    await chamarResponsavelDB(ctx.apontamento.id, ctx.maquina.id);
+    mostrarToast('Chamado registrado. Isso ainda não avisa ninguém automaticamente — depende do painel do gestor (não construído ainda) acompanhar essa tabela.');
+  } catch (e) {
+    mostrarToast(e.message);
+  }
+}
+
 function abrirModalFinalizar() {
-  const tipos = ctx.cadastros.tiposRefugo;
-  const refugoPorTipo = {};
-  tipos.forEach(function (t) { refugoPorTipo[t.id] = '0'; });
-  ctx.form = { quantidade_produzida: '', refugoPorTipo: refugoPorTipo, peso_total_usado_kg: '', peso_sobra_kg: '' };
+  ctx.form = { peso_total_usado_kg: '', peso_sobra_kg: '' };
   ctx.erroForm = null;
   ctx.modal = 'finalizar';
   render();
 }
 
-function somaRefugoForm() {
-  return Object.values(ctx.form.refugoPorTipo || {}).reduce(function (acc, v) { return acc + (Number(v) || 0); }, 0);
-}
-
 async function confirmarFinalizar() {
   const f = ctx.form;
-  if (f.quantidade_produzida === '' || Number(f.quantidade_produzida) < 0) {
-    ctx.erroForm = 'Informe a quantidade produzida.'; render(); return;
-  }
-  const totalRefugo = somaRefugoForm();
-  if (totalRefugo > Number(f.quantidade_produzida)) {
-    ctx.erroForm = 'A soma do refugo (' + totalRefugo + ') não pode passar da quantidade produzida (' + f.quantidade_produzida + ').';
-    render();
-    return;
-  }
+  ctx.erroForm = null;
   ctx.salvando = true;
   render();
   try {
     const payload = {
       fim: new Date().toISOString(),
-      quantidade_produzida: Number(f.quantidade_produzida),
+      quantidade_produzida: somaPecasCaixas(),
       peso_total_usado_kg: f.peso_total_usado_kg === '' ? null : Number(f.peso_total_usado_kg),
       peso_sobra_kg: f.peso_sobra_kg === '' ? null : Number(f.peso_sobra_kg),
     };
-    const refugos = Object.keys(f.refugoPorTipo).map(function (tipoId) {
-      return { tipo_id: Number(tipoId), quantidade: Number(f.refugoPorTipo[tipoId]) || 0 };
-    });
-    await finalizarApontamentoDB(ctx.apontamento.id, payload, refugos);
+    await finalizarApontamentoDB(ctx.apontamento.id, payload);
     ctx.apontamento = null;
     ctx.parada = null;
     ctx.modal = null;
+    ctx.caixas = [];
+    ctx.refugoTally = {};
     ctx.tela = 'ocioso';
   } catch (e) {
     ctx.erroForm = e.message;
@@ -598,9 +776,7 @@ async function confirmarFinalizar() {
 
 function iniciarRelogio() {
   if (ctx.timerId) clearInterval(ctx.timerId);
-  ctx.timerId = setInterval(function () {
-    atualizarRelogioDOM();
-  }, 1000);
+  ctx.timerId = setInterval(function () { atualizarRelogioDOM(); }, 1000);
 }
 
 function atualizarRelogioDOM() {
@@ -630,7 +806,11 @@ function render() {
   else if (ctx.tela === 'andamento') html += viewAndamento();
 
   if (ctx.modal === 'parada') html += viewModalParada();
+  if (ctx.modal === 'caixa') html += viewModalCaixa();
+  if (ctx.modal === 'etiqueta') html += viewEtiqueta();
   if (ctx.modal === 'finalizar') html += viewModalFinalizar();
+
+  if (ctx.erroToast) html += '<div class="toast">' + esc(ctx.erroToast) + '</div>';
 
   app.innerHTML = html;
   atualizarRelogioDOM();
@@ -681,7 +861,7 @@ function viewIniciando() {
   const moldesFiltrados = f.produto_id ? c.moldes.filter(function (m) { return String(m.produto_id) === String(f.produto_id); }) : c.moldes;
   const opSelecionada = f.ordem_producao_id;
 
-  return '<main class="conteudo">' +
+  return '<main class="conteudo tela-central">' +
     '<div class="cartao">' +
     '<h2>Iniciar Produção</h2>' +
     (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
@@ -714,13 +894,42 @@ function viewIniciando() {
     '<select data-campo="material_id">' + opcoes(c.materiais, f.material_id, function (m) { return m.codigo + ' — ' + m.nome; }) + '</select>' +
 
     '<label>Lote do material</label>' +
-    '<input type="text" data-campo="lote_material" value="' + esc(f.lote_material) + '" placeholder="Ex: L2026-0731">' +
+    '<input type="text" data-campo="lote_material" value="' + esc(f.lote_material) + '" placeholder="Ex: NBR-0731">' +
 
     '<div class="linha-botoes">' +
     '<button class="botao botao-secundario" data-acao="cancelar-iniciar">Cancelar</button>' +
     '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-iniciar">' + (ctx.salvando ? 'Iniciando…' : 'Iniciar') + '</button>' +
     '</div>' +
     '</div></main>';
+}
+
+function viewBarraProgresso() {
+  if (!ctx.apontamento.ordem_producao_id) return '';
+  const op = porId(ctx.cadastros.ordensProducao, ctx.apontamento.ordem_producao_id);
+  if (!op) return '';
+  const produzido = somaPecasCaixas();
+  const meta = op.quantidade_planejada;
+  const pct = meta > 0 ? Math.min(100, Math.round((produzido / meta) * 100)) : 0;
+  return '<div class="progresso-bloco">' +
+    '<div class="progresso-legenda"><span>Saldo da OP ' + esc(op.numero) + '</span><span>' + produzido + ' / ' + meta + '</span></div>' +
+    '<div class="barra-fundo"><div class="barra-preenchida" style="width:' + pct + '%"></div></div>' +
+    '</div>';
+}
+
+function viewGradeRefugoRapido() {
+  const tipos = ctx.cadastros.tiposRefugo;
+  if (!tipos.length) return '';
+  return '<div class="refugo-rapido-bloco">' +
+    '<span class="rotulo-info">Apontar refugo</span>' +
+    '<div class="grade-refugo-rapido">' +
+    tipos.map(function (t) {
+      const n = ctx.refugoTally[t.id] || 0;
+      return '<button class="botao-refugo-rapido" data-acao="refugo-rapido" data-tipo-refugo="' + t.id + '">' +
+        '<span class="refugo-rapido-nome">' + esc(t.nome) + '</span>' +
+        '<span class="refugo-rapido-contagem">' + n + '</span>' +
+        '</button>';
+    }).join('') +
+    '</div></div>';
 }
 
 function viewAndamento() {
@@ -748,12 +957,25 @@ function viewAndamento() {
     '<div><span class="rotulo-info">Início</span>' + fmtHora(a.inicio) + '</div>' +
     '</div>' +
 
+    viewBarraProgresso() +
+
+    '<div class="caixas-resumo"><span class="rotulo-info">Caixas fechadas</span>' + ctx.caixas.length + ' · ' + somaPecasCaixas() + ' peças no total</div>' +
+
+    (parado ? '' : viewGradeRefugoRapido()) +
+
     '<div class="linha-botoes">' +
     (parado
       ? '<button class="botao botao-primario botao-grande" data-acao="finalizar-parada">Finalizar Parada</button>'
-      : '<button class="botao botao-alerta botao-grande" data-acao="abrir-parada">Registrar Parada</button>' +
-        '<button class="botao botao-primario botao-grande" data-acao="abrir-finalizar">Finalizar Produção</button>') +
+      : '<button class="botao botao-alerta" data-acao="abrir-parada">Registrar Parada</button>' +
+        '<button class="botao botao-secundario" data-acao="chamar-responsavel">Chamar Responsável</button>') +
     '</div>' +
+    (parado ? '' :
+      '<div class="linha-botoes">' +
+      '<button class="botao botao-primario botao-grande" data-acao="abrir-caixa">Fechar Caixa</button>' +
+      '</div>' +
+      '<div class="linha-botoes">' +
+      '<button class="botao botao-secundario botao-grande" data-acao="abrir-finalizar">Finalizar Produção</button>' +
+      '</div>') +
     '</div></main>';
 }
 
@@ -773,25 +995,58 @@ function viewModalParada() {
     '</div></div></div>';
 }
 
+function viewModalCaixa() {
+  const f = ctx.form;
+  const cav = ctx.apontamento.numero_cavidades_ativas;
+  return '<div class="modal-fundo" data-acao="fechar-modal-fundo">' +
+    '<div class="modal-cartao" data-parar-propagacao="1">' +
+    '<h2>Fechar Caixa</h2>' +
+    (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
+    '<p class="muted-pequeno">Cavidades ativas: ' + cav + '. Peças da caixa = injetadas × ' + cav + ' − refugo apontado desde a última caixa.</p>' +
+    '<label>Quantas injetadas essa caixa levou</label>' +
+    '<input type="number" inputmode="numeric" min="1" data-campo="numero_injecoes" value="' + esc(f.numero_injecoes) + '">' +
+    '<div class="linha-botoes">' +
+    '<button class="botao botao-secundario" data-acao="fechar-modal">Cancelar</button>' +
+    '<button class="botao botao-primario"' + (ctx.salvando ? ' disabled' : '') + ' data-acao="confirmar-caixa">' + (ctx.salvando ? 'Calculando…' : 'Fechar e Calcular') + '</button>' +
+    '</div></div></div>';
+}
+
+function viewEtiqueta() {
+  const cx = ctx.ultimaCaixaFechada;
+  if (!cx) return '';
+  const a = ctx.apontamento;
+  const c = ctx.cadastros;
+  const produto = porId(c.produtos, a.produto_id);
+  const operador = porId(c.operadores, a.operador_id);
+  const numeroCaixa = ctx.caixas.length;
+  return '<div class="modal-fundo" data-acao="fechar-modal-fundo">' +
+    '<div class="modal-cartao" data-parar-propagacao="1">' +
+    '<div id="etiqueta-imprimir" class="etiqueta">' +
+    '<div class="etiqueta-marca">VITALBOR</div>' +
+    '<div class="etiqueta-produto">' + esc(produto ? produto.nome : '—') + '</div>' +
+    '<div class="etiqueta-codigo">' + esc(produto ? produto.codigo : '—') + '</div>' +
+    '<div class="etiqueta-quantidade">' + cx.quantidade_pecas + '<span> peças</span></div>' +
+    '<div class="etiqueta-grade">' +
+    '<div><span>Lote</span>' + esc(a.lote_material) + '</div>' +
+    '<div><span>Caixa nº</span>' + numeroCaixa + '</div>' +
+    '<div><span>Máquina</span>' + esc(ctx.maquina.codigo) + '</div>' +
+    '<div><span>Operador</span>' + esc(operador ? operador.nome : '—') + '</div>' +
+    '<div><span>Data</span>' + new Date(cx.fechada_em).toLocaleDateString('pt-BR') + '</div>' +
+    '<div><span>Hora</span>' + fmtHora(cx.fechada_em) + '</div>' +
+    '</div></div>' +
+    '<div class="linha-botoes nao-imprimir">' +
+    '<button class="botao botao-secundario" data-acao="fechar-modal">Fechar</button>' +
+    '<button class="botao botao-primario" data-acao="imprimir-etiqueta">Imprimir Etiqueta</button>' +
+    '</div></div></div>';
+}
+
 function viewModalFinalizar() {
   const f = ctx.form;
-  const soma = somaRefugoForm();
   return '<div class="modal-fundo" data-acao="fechar-modal-fundo">' +
     '<div class="modal-cartao" data-parar-propagacao="1">' +
     '<h2>Finalizar Produção</h2>' +
     (ctx.erroForm ? '<div class="alerta-banner">' + esc(ctx.erroForm) + '</div>' : '') +
-
-    '<label>Quantidade produzida (total)</label>' +
-    '<input type="number" inputmode="numeric" min="0" data-campo="quantidade_produzida" value="' + esc(f.quantidade_produzida) + '">' +
-
-    '<label>Refugo por tipo</label>' +
-    '<div class="grade-refugo">' +
-    ctx.cadastros.tiposRefugo.map(function (t) {
-      return '<div class="linha-refugo"><span>' + esc(t.nome) + '</span>' +
-        '<input type="number" inputmode="numeric" min="0" data-campo-refugo="' + t.id + '" value="' + esc(f.refugoPorTipo[t.id]) + '"></div>';
-    }).join('') +
-    '</div>' +
-    '<p class="muted-pequeno">Soma do refugo: ' + soma + '</p>' +
+    '<p class="muted-pequeno">Total já calculado pelas caixas fechadas: <strong>' + somaPecasCaixas() + ' peças</strong> em ' + ctx.caixas.length + ' caixa(s). Se sobrou produção sem caixa, feche a caixa antes de finalizar.</p>' +
 
     '<label>Peso total usado (kg, opcional)</label>' +
     '<input type="number" inputmode="decimal" step="0.001" min="0" data-campo="peso_total_usado_kg" value="' + esc(f.peso_total_usado_kg) + '">' +
@@ -806,7 +1061,7 @@ function viewModalFinalizar() {
 }
 
 // ============================================================
-// Eventos (delegação simples, sem framework)
+// Eventos
 // ============================================================
 
 function ligarEventos() {
@@ -817,23 +1072,17 @@ function ligarEventos() {
       if (campo === 'produto_id') return aoMudarProdutoForm(elCampo.value);
       if (campo === 'ordem_producao_id') return aoMudarOrdemForm(elCampo.value);
       if (campo === 'molde_id') return aoMudarMoldeForm(elCampo.value);
+      if (campo === 'material_id') return aoMudarMaterialForm(elCampo.value);
       ctx.form[campo] = elCampo.value;
-    });
-  });
-
-  document.querySelectorAll('[data-campo-refugo]').forEach(function (elCampo) {
-    elCampo.addEventListener('input', function () {
-      const tipoId = elCampo.getAttribute('data-campo-refugo');
-      ctx.form.refugoPorTipo[tipoId] = elCampo.value;
-      const somaEl = document.querySelector('.muted-pequeno');
-      if (somaEl) somaEl.textContent = 'Soma do refugo: ' + somaRefugoForm();
     });
   });
 
   document.querySelectorAll('[data-acao]').forEach(function (elBotao) {
     elBotao.addEventListener('click', function (ev) {
       const acao = elBotao.getAttribute('data-acao');
-      if (acao === 'fechar-modal-fundo' && ev.target !== elBotao) return; // clique dentro do cartão não fecha
+      if (acao === 'fechar-modal-fundo' && ev.target !== elBotao) return;
+      if (acao === 'refugo-rapido') return registrarRefugoRapido(Number(elBotao.getAttribute('data-tipo-refugo')));
+      if (acao === 'imprimir-etiqueta') { window.print(); return; }
       const mapa = {
         'abrir-iniciar': abrirIniciar,
         'cancelar-iniciar': cancelarIniciar,
@@ -841,6 +1090,9 @@ function ligarEventos() {
         'abrir-parada': abrirModalParada,
         'confirmar-parada': confirmarParada,
         'finalizar-parada': confirmarFimParada,
+        'abrir-caixa': abrirModalCaixa,
+        'confirmar-caixa': confirmarCaixa,
+        'chamar-responsavel': chamarResponsavel,
         'abrir-finalizar': abrirModalFinalizar,
         'confirmar-finalizar': confirmarFinalizar,
         'fechar-modal': fecharModal,
