@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MES Vitalbor — Cadastros</title>
+<style>
+:root{
+  --verde-900:#0B3D22; --verde-700:#0F6B36; --verde-500:#16A34A;
+  --ambar:#D97706; --vermelho:#B91C1C; --neutro-600:#64748B;
+  --bg:#F5F7F5; --surface:#FFFFFF; --border:#E2E7E3;
+  --texto:#1C2521; --texto-2:#5B6862;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+*{box-sizing:border-box;}
+body{margin:0; font-family:var(--sans); background:var(--bg); color:var(--texto);}
+button, input, select, textarea{font-family:inherit;}
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{
+  outline:2px solid var(--ambar); outline-offset:2px;
+}
+
+/* LOGIN */
+.tela-login{min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background: radial-gradient(circle at 20% 20%, var(--verde-700) 0%, var(--verde-900) 55%, #072A18 100%);}
+.card-login{background:var(--surface); padding:40px 36px; border-radius:16px; width:340px; max-width:90vw;
+  box-shadow:0 20px 50px rgba(0,0,0,.35);}
+.card-login .eyebrow{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--texto-2); margin:0 0 4px;}
+.card-login h2{font-size:24px; margin:0 0 24px;}
+.card-login label{display:block; font-size:12px; font-weight:600; color:var(--texto-2); margin-bottom:6px;}
+.card-login input{width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:9px; font-size:15px; margin-bottom:6px;}
+.erro-login{color:var(--vermelho); font-size:13px; margin:4px 0 14px;}
+.card-login .btn-primario{width:100%; margin-top:14px;}
+.card-login .btn-secundario{width:100%; margin-top:10px;}
+
+/* TELA INICIAL */
+.tela-inicio{min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background: radial-gradient(circle at 20% 20%, var(--verde-700) 0%, var(--verde-900) 55%, #072A18 100%);}
+.card-inicio{background:var(--surface); padding:40px 36px; border-radius:16px; width:340px; max-width:90vw;
+  box-shadow:0 20px 50px rgba(0,0,0,.35); text-align:center;}
+.card-inicio .eyebrow{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--texto-2); margin:0 0 4px;}
+.maquina-label{font-size:13px; color:var(--texto-2); margin:0 0 22px; min-height:16px;}
+.btn-grande{display:block; width:100%; min-height:76px; font-size:19px; font-weight:700; border-radius:12px;
+  border:none; cursor:pointer; margin-bottom:12px; background:var(--verde-700); color:#fff;}
+.btn-grande:hover{background:var(--verde-500);}
+.btn-grande.secundario{background:var(--verde-900);}
+.btn-grande.secundario:hover{background:var(--verde-700);}
+.link-config{background:none; border:none; color:var(--texto-2); font-size:12px; text-decoration:underline;
+  text-underline-offset:2px; cursor:pointer; margin-top:6px; padding:6px;}
+
+/* SHELL */
+.shell{display:flex; min-height:100vh;}
+.sidebar{width:220px; flex-shrink:0; background:var(--verde-900); color:#fff; padding:22px 0; display:flex; flex-direction:column;}
+.sidebar .logo{padding:0 20px 18px; font-weight:700; font-size:13px; letter-spacing:.08em; border-bottom:1px solid rgba(255,255,255,.12); margin-bottom:8px;}
+.nav-lista{flex:1; display:flex; flex-direction:column;}
+.nav-item{display:block; width:100%; text-align:left; background:none; border:none; border-left:3px solid transparent;
+  color:rgba(255,255,255,.75); padding:13px 20px; font-size:14px; cursor:pointer;}
+.nav-item:hover{background:rgba(255,255,255,.07); color:#fff;}
+.nav-item.ativo{background:rgba(255,255,255,.1); color:#fff; border-left-color:var(--ambar); font-weight:600;}
+.nav-item.sair{color:rgba(255,255,255,.55); border-top:1px solid rgba(255,255,255,.12); margin-top:8px;}
+
+.main{flex:1; padding:30px 34px; min-width:0;}
+.topo-secao{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;}
+.topo-secao h2{margin:0; font-size:21px;}
+
+/* TABLE */
+table{width:100%; border-collapse:collapse; background:var(--surface); border-radius:12px; overflow:hidden;
+  box-shadow:0 1px 3px rgba(0,0,0,.06);}
+th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--texto-2);
+  padding:12px 16px; background:#EEF2EE; border-bottom:1px solid var(--border);}
+td{padding:12px 16px; border-bottom:1px solid var(--border); font-size:14px; vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+.col-acoes{width:1%; white-space:nowrap; text-align:right;}
+.mono{font-family:var(--mono); font-variant-numeric:tabular-nums;}
+.vazio, .carregando, .erro-lista{padding:32px; text-align:center; color:var(--texto-2); background:var(--surface); border-radius:12px;}
+.erro-lista{color:var(--vermelho);}
+
+.badge{display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; color:#fff;}
+.badge.aberta{background:var(--neutro-600);}
+.badge.em_producao{background:var(--ambar);}
+.badge.concluida{background:var(--verde-500);}
+.badge.cancelada{background:var(--vermelho);}
+
+/* BUTTONS */
+.btn-primario{background:var(--verde-700); color:#fff; border:none; padding:11px 20px; border-radius:9px;
+  font-size:14px; font-weight:600; cursor:pointer;}
+.btn-primario:hover{background:var(--verde-500);}
+.btn-primario:disabled{opacity:.6; cursor:not-allowed;}
+.btn-secundario{background:none; border:1px solid var(--border); color:var(--texto); padding:11px 20px;
+  border-radius:9px; font-size:14px; cursor:pointer;}
+.btn-ghost{background:none; border:none; color:var(--verde-700); font-size:13px; cursor:pointer; padding:4px 6px;
+  text-decoration:underline; text-underline-offset:2px;}
+.btn-ghost.perigo{color:var(--vermelho);}
+
+/* MODAL */
+.overlay{position:fixed; inset:0; background:rgba(11,61,34,.45); display:none; align-items:center; justify-content:center;
+  z-index:100; padding:20px;}
+.overlay.aberto{display:flex;}
+.modal{background:#fff; border-radius:14px; width:440px; max-width:100%; max-height:88vh; overflow:auto; padding:28px;}
+.modal h3{margin:0 0 4px;}
+.campo{margin-bottom:2px;}
+.campo label{display:block; font-size:12px; font-weight:600; color:var(--texto-2); margin:14px 0 5px;}
+.campo:first-child label{margin-top:14px;}
+input, select, textarea{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+  font-size:14px; background:#fff; color:var(--texto);}
+input:focus, select:focus, textarea:focus{border-color:var(--verde-500);}
+.linha-checkbox{display:flex; align-items:center; gap:8px; font-size:14px; color:var(--texto); margin-top:16px;}
+.linha-checkbox input{width:auto;}
+.modal-acoes{display:flex; justify-content:flex-end; gap:10px; margin-top:24px;}
+
+/* TOAST */
+.toast-container{position:fixed; bottom:20px; right:20px; display:flex; flex-direction:column; gap:8px; z-index:200;}
+.toast{background:var(--texto); color:#fff; padding:12px 18px; border-radius:10px; font-size:14px;
+  box-shadow:0 8px 20px rgba(0,0,0,.25); animation:subir .2s ease;}
+.toast.erro{background:var(--vermelho);}
+.toast.sucesso{background:var(--verde-700);}
+@keyframes subir{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+
+@media (max-width: 720px){
+  .shell{flex-direction:column;}
+  .sidebar{width:100%; flex-direction:row; align-items:center; overflow-x:auto; padding:10px 12px;}
+  .sidebar .logo{display:none;}
+  .nav-lista{flex-direction:row;}
+  .nav-item{border-left:none; border-bottom:3px solid transparent; white-space:nowrap; padding:10px 14px;}
+  .nav-item.ativo{border-left-color:transparent; border-bottom-color:var(--ambar);}
+  .nav-item.sair{border-top:none; border-left:1px solid rgba(255,255,255,.12); margin-top:0; margin-left:auto;}
+  .main{padding:20px 16px;}
+  table, thead, tbody, tr{display:block; width:100%;}
+  thead{display:none;}
+  tr{background:var(--surface); border-radius:10px; margin-bottom:10px; padding:6px 4px; box-shadow:0 1px 3px rgba(0,0,0,.06);}
+  td{border-bottom:none; display:flex; justify-content:space-between; gap:12px;}
+  td::before{content: attr(data-rotulo); color:var(--texto-2); font-size:12px; font-weight:600;}
+  .col-acoes{justify-content:flex-end;}
+}
+</style>
+</head>
+<body>
+
+<div class="tela-inicio" id="tela-inicio">
+  <div class="card-inicio">
+    <p class="eyebrow">MES VITALBOR</p>
+    <p class="maquina-label" id="maquina-atual-label"></p>
+    <button class="btn-grande" onclick="irOperador()">OPERADOR</button>
+    <button class="btn-grande secundario" onclick="irGestor()">GESTOR</button>
+    <button class="link-config" onclick="abrirConfigMaquina()">Configurar máquina deste tablet</button>
+  </div>
+</div>
+
+<div class="tela-login" id="tela-login" style="display:none;">
+  <div class="card-login">
+    <p class="eyebrow">MES VITALBOR</p>
+    <h2>Cadastros</h2>
+    <label for="campo-senha-login">Senha do gestor</label>
+    <input type="password" id="campo-senha-login" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter') validarLogin()">
+    <p class="erro-login" id="erro-login" style="display:none;"></p>
+    <button class="btn-primario" id="btn-entrar" onclick="validarLogin()">ENTRAR</button>
+    <button class="btn-secundario" onclick="mostrarTela('tela-inicio')">Voltar</button>
+  </div>
+</div>
+
+<div class="shell" id="tela-dashboard" style="display:none;">
+  <aside class="sidebar">
+    <div class="logo">MES VITALBOR</div>
+    <nav class="nav-lista">
+      <button class="nav-item ativo" data-entidade="ops" onclick="trocarSecao('ops')">Ordens de Produção</button>
+      <button class="nav-item" data-entidade="produtos" onclick="trocarSecao('produtos')">Peças</button>
+      <button class="nav-item" data-entidade="operadores" onclick="trocarSecao('operadores')">Operadores</button>
+      <button class="nav-item" data-entidade="materiais" onclick="trocarSecao('materiais')">Matéria-Prima</button>
+      <button class="nav-item" data-entidade="maquinas" onclick="trocarSecao('maquinas')">Máquinas</button>
+    </nav>
+    <button class="nav-item sair" onclick="logout()">Sair</button>
+  </aside>
+  <main class="main">
+    <div class="topo-secao">
+      <h2 id="titulo-secao">Ordens de Produção</h2>
+      <button class="btn-primario" id="btn-novo" onclick="abrirModal()">+ Nova OP</button>
+    </div>
+    <div id="area-tabela"><p class="carregando">Carregando…</p></div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-modal">
+  <div class="modal">
+    <h3 id="modal-titulo">Novo</h3>
+    <div id="modal-corpo"></div>
+    <div class="modal-acoes">
+      <button class="btn-secundario" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-primario" id="btn-salvar-modal" onclick="salvarAtual()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-config-maquina">
+  <div class="modal" style="width:360px;">
+    <h3>Configurar máquina deste tablet</h3>
+    <div class="campo">
+      <label for="config-maquina-select">Este tablet é a máquina:</label>
+      <select id="config-maquina-select"></select>
+    </div>
+    <div class="campo">
+      <label for="config-senha">Senha do gestor</label>
+      <input type="password" id="config-senha">
+    </div>
+    <p class="erro-login" id="config-erro" style="display:none;"></p>
+    <div class="modal-acoes">
+      <button class="btn-secundario" onclick="fecharConfigMaquina()">Cancelar</button>
+      <button class="btn-primario" id="config-btn-confirmar" onclick="confirmarConfigMaquina()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* =====================================================================
+   CONFIG — ATENÇÃO: esse projeto (kktdrybzjtfparqxrouc) é DIFERENTE do
+   projeto ssvsoldtwhqjeusqwrye que o app de apontamento usa — decodifiquei
+   o JWT da anon key colada e o "ref" bate com esse, não com aquele outro.
+   Se for um projeto novo só de teste, ok, mas se a ideia era usar o mesmo
+   banco do apontamento, essa é a key errada.
+   ===================================================================== */
+window.SUPABASE_CFG = {
+  url: 'https://kktdrybzjtfparqxrouc.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrdGRyeWJ6anRmcGFycXhyb3VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzE3NzcsImV4cCI6MjEwMTk0Nzc3N30.n4NAiiO2B6Ubekg4RT26iToBRJPjEKDRXu0NxwnVhOI'
+};
+const supabase = window.supabase.createClient(window.SUPABASE_CFG.url, window.SUPABASE_CFG.anonKey);
+
+// URL onde o app de apontamento (turno → operador → OP → produção) está publicado.
+// Não tenho esse endereço — cola aqui o link do GitHub Pages dele.
+window.APONTAMENTO_URL = '';
+
+/* =====================================================================
+   ESTADO
+   ===================================================================== */
+const sessao = { senha: null };
+const cache = { produtos: [], materiais: [] };
+const linhasCache = {};
+let entidadeAtual = 'ops';
+let editandoId = null;
+
+/* =====================================================================
+   CONFIGURAÇÃO DAS ENTIDADES (dirige tabela, formulário e colunas)
+   ===================================================================== */
+const ENTIDADES = {
+  ops: {
+    titulo:'Ordens de Produção', tituloSingular:'ordem de produção', novoRotulo:'+ Nova OP',
+    tabela:'ordens_producao', select:'*, produtos(codigo,descricao)',
+    ordenarPor:{coluna:'criado_em', asc:false},
+    rpcSalvar:'salvar_op', rpcExcluir:'excluir_op',
+    colunas:[
+      {rotulo:'Nº OP', render:r=>`<span class="mono">${escapeHtml(r.numero_op)}</span>`},
+      {rotulo:'Peça', render:r=> r.produtos ? escapeHtml(r.produtos.codigo+' — '+r.produtos.descricao) : '—'},
+      {rotulo:'Qtd.', render:r=> r.quantidade_planejada},
+      {rotulo:'Status', render:r=> `<span class="badge ${r.status}">${rotuloStatus(r.status)}</span>`},
+      {rotulo:'Prazo', render:r=> r.prazo ? formatarData(r.prazo) : '—'},
+    ],
+    campos:[
+      {chave:'numero_op', rotulo:'Número da OP', tipo:'text', obrigatorio:true, mono:true},
+      {chave:'produto_id', rotulo:'Peça', tipo:'select-fk', fonte:'produtos', obrigatorio:true,
+        rotuloOpcao:p=>p.codigo+' — '+p.descricao},
+      {chave:'quantidade_planejada', rotulo:'Quantidade planejada', tipo:'number', obrigatorio:true},
+      {chave:'data_abertura', rotulo:'Data de abertura', tipo:'date', padrao:()=>new Date().toISOString().slice(0,10)},
+      {chave:'prazo', rotulo:'Prazo', tipo:'date'},
+      {chave:'status', rotulo:'Status', tipo:'select', padrao:'aberta', opcoes:[
+        {valor:'aberta',rotulo:'Aberta'},{valor:'em_producao',rotulo:'Em produção'},
+        {valor:'concluida',rotulo:'Concluída'},{valor:'cancelada',rotulo:'Cancelada'}]},
+      {chave:'observacoes', rotulo:'Observações', tipo:'textarea'},
+    ]
+  },
+  produtos: {
+    titulo:'Peças', tituloSingular:'peça', novoRotulo:'+ Nova Peça',
+    tabela:'produtos', select:'*',
+    ordenarPor:{coluna:'codigo', asc:true},
+    rpcSalvar:'salvar_produto', rpcExcluir:'excluir_produto',
+    colunas:[
+      {rotulo:'Código', render:r=>`<span class="mono">${escapeHtml(r.codigo)}</span>`},
+      {rotulo:'Descrição', render:r=>escapeHtml(r.descricao)},
+      {rotulo:'Cavidades', render:r=>r.cavidades_molde},
+      {rotulo:'Meta inj./h', render:r=> r.meta_injetadas_hora ?? '—'},
+      {rotulo:'Ativo', render:r=> r.ativo ? 'Sim' : 'Não'},
+    ],
+    campos:[
+      {chave:'codigo', rotulo:'Código', tipo:'text', obrigatorio:true, mono:true},
+      {chave:'descricao', rotulo:'Descrição', tipo:'text', obrigatorio:true},
+      {chave:'cavidades_molde', rotulo:'Cavidades do molde', tipo:'number', obrigatorio:true, padrao:1},
+      {chave:'meta_injetadas_hora', rotulo:'Meta de injetadas por hora', tipo:'number'},
+      {chave:'material_padrao_id', rotulo:'Material padrão', tipo:'select-fk', fonte:'materiais',
+        rotuloOpcao:m=>m.nome+' ('+m.prefixo_lote+')'},
+      {chave:'ativo', rotulo:'Ativo', tipo:'checkbox', padrao:true},
+    ]
+  },
+  operadores: {
+    titulo:'Operadores', tituloSingular:'operador', novoRotulo:'+ Novo Operador',
+    tabela:'operadores', select:'*',
+    ordenarPor:{coluna:'nome', asc:true},
+    rpcSalvar:'salvar_operador', rpcExcluir:'excluir_operador',
+    colunas:[
+      {rotulo:'Matrícula', render:r=>`<span class="mono">${escapeHtml(r.matricula)}</span>`},
+      {rotulo:'Nome', render:r=>escapeHtml(r.nome)},
+      {rotulo:'Turno padrão', render:r=> r.turno_padrao || '—'},
+      {rotulo:'Ativo', render:r=> r.ativo ? 'Sim' : 'Não'},
+    ],
+    campos:[
+      {chave:'matricula', rotulo:'Matrícula', tipo:'text', obrigatorio:true, mono:true},
+      {chave:'nome', rotulo:'Nome', tipo:'text', obrigatorio:true},
+      {chave:'turno_padrao', rotulo:'Turno padrão', tipo:'select', opcoes:[
+        {valor:'',rotulo:'—'},{valor:'DIA',rotulo:'Dia'},{valor:'TARDE',rotulo:'Tarde'},{valor:'NOITE',rotulo:'Noite'}]},
+      {chave:'ativo', rotulo:'Ativo', tipo:'checkbox', padrao:true},
+    ]
+  },
+  materiais: {
+    titulo:'Matéria-Prima', tituloSingular:'material', novoRotulo:'+ Novo Material',
+    tabela:'materiais', select:'*',
+    ordenarPor:{coluna:'nome', asc:true},
+    rpcSalvar:'salvar_material', rpcExcluir:'excluir_material',
+    colunas:[
+      {rotulo:'Nome', render:r=>escapeHtml(r.nome)},
+      {rotulo:'Prefixo de lote', render:r=>`<span class="mono">${escapeHtml(r.prefixo_lote)}</span>`},
+      {rotulo:'Ativo', render:r=> r.ativo ? 'Sim' : 'Não'},
+    ],
+    campos:[
+      {chave:'nome', rotulo:'Nome', tipo:'text', obrigatorio:true},
+      {chave:'prefixo_lote', rotulo:'Prefixo de lote (1 letra)', tipo:'text', obrigatorio:true, maxlength:1, mono:true},
+      {chave:'ativo', rotulo:'Ativo', tipo:'checkbox', padrao:true},
+    ]
+  },
+  maquinas: {
+    titulo:'Máquinas', tituloSingular:'máquina', novoRotulo:'+ Nova Máquina',
+    tabela:'maquinas', select:'*',
+    ordenarPor:{coluna:'codigo', asc:true},
+    rpcSalvar:'salvar_maquina', rpcExcluir:'excluir_maquina',
+    colunas:[
+      {rotulo:'Código', render:r=>`<span class="mono">${escapeHtml(r.codigo)}</span>`},
+      {rotulo:'Nome', render:r=> r.nome ? escapeHtml(r.nome) : '—'},
+      {rotulo:'Ativo', render:r=> r.ativo ? 'Sim' : 'Não'},
+    ],
+    campos:[
+      {chave:'codigo', rotulo:'Código (ex: IJ-01)', tipo:'text', obrigatorio:true, mono:true},
+      {chave:'nome', rotulo:'Nome / descrição', tipo:'text'},
+      {chave:'ativo', rotulo:'Ativo', tipo:'checkbox', padrao:true},
+    ]
+  }
+};
+
+/* =====================================================================
+   TELA INICIAL / MÁQUINA DO DISPOSITIVO
+   ===================================================================== */
+document.addEventListener('DOMContentLoaded', iniciar);
+
+async function iniciar(){
+  atualizarLabelMaquina();
+  const senhaSalva = sessionStorage.getItem('gestor_senha');
+  if(senhaSalva){
+    const { data, error } = await supabase.rpc('verificar_senha_gestor', { p_senha: senhaSalva });
+    if(!error && data === true){ sessao.senha = senhaSalva; abrirApp(); return; }
+    sessionStorage.removeItem('gestor_senha');
+  }
+  mostrarTela('tela-inicio');
+}
+
+function mostrarTela(id){
+  ['tela-inicio','tela-login','tela-dashboard'].forEach(t=>{ document.getElementById(t).style.display = 'none'; });
+  document.getElementById(id).style.display = 'flex';
+}
+
+function irGestor(){
+  mostrarTela('tela-login');
+  document.getElementById('campo-senha-login').focus();
+}
+
+function irOperador(){
+  const maq = localStorage.getItem('maquina_dispositivo_codigo');
+  if(!maq){ toast('Configure a máquina deste tablet primeiro (link embaixo dos botões)', 'erro'); return; }
+  if(!window.APONTAMENTO_URL){
+    toast('Falta definir a URL do app de apontamento (APONTAMENTO_URL) no código', 'erro');
+    return;
+  }
+  const separador = window.APONTAMENTO_URL.includes('?') ? '&' : '?';
+  window.location.href = window.APONTAMENTO_URL + separador + 'maquina=' + encodeURIComponent(maq);
+}
+
+function atualizarLabelMaquina(){
+  const codigo = localStorage.getItem('maquina_dispositivo_codigo');
+  const nome = localStorage.getItem('maquina_dispositivo_nome');
+  const label = document.getElementById('maquina-atual-label');
+  label.textContent = codigo ? ('Este tablet: '+codigo+(nome?' — '+nome:'')) : 'Máquina deste tablet ainda não configurada';
+}
+
+async function abrirConfigMaquina(){
+  const sel = document.getElementById('config-maquina-select');
+  sel.innerHTML = '<option value="">Carregando…</option>';
+  document.getElementById('config-senha').value = '';
+  document.getElementById('config-erro').style.display = 'none';
+  document.getElementById('overlay-config-maquina').classList.add('aberto');
+  const { data, error } = await supabase.from('maquinas').select('*').eq('ativo', true).order('codigo');
+  if(error || !data || !data.length){
+    sel.innerHTML = '<option value="">Nenhuma máquina cadastrada ainda</option>';
+    return;
+  }
+  sel.innerHTML = data.map(m=>
+    `<option value="${escapeAttr(m.codigo)}" data-nome="${escapeAttr(m.nome||'')}">${escapeHtml(m.codigo+(m.nome?' — '+m.nome:''))}</option>`
+  ).join('');
+}
+
+function fecharConfigMaquina(){
+  document.getElementById('overlay-config-maquina').classList.remove('aberto');
+}
+
+async function confirmarConfigMaquina(){
+  const sel = document.getElementById('config-maquina-select');
+  const codigo = sel.value;
+  const nome = sel.selectedOptions[0] ? sel.selectedOptions[0].dataset.nome : '';
+  const senha = document.getElementById('config-senha').value;
+  if(!codigo){ mostrarErroConfig('Cadastre uma máquina primeiro (Gestor → Máquinas)'); return; }
+  if(!senha){ mostrarErroConfig('Digite a senha do gestor'); return; }
+  const btn = document.getElementById('config-btn-confirmar');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  const { data, error } = await supabase.rpc('verificar_senha_gestor', { p_senha: senha });
+  btn.disabled = false; btn.textContent = 'Salvar';
+  if(error || data !== true){ mostrarErroConfig('Senha incorreta'); return; }
+  localStorage.setItem('maquina_dispositivo_codigo', codigo);
+  localStorage.setItem('maquina_dispositivo_nome', nome || '');
+  atualizarLabelMaquina();
+  fecharConfigMaquina();
+  toast('Máquina deste tablet: '+codigo, 'sucesso');
+}
+
+function mostrarErroConfig(msg){
+  const el = document.getElementById('config-erro');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+/* =====================================================================
+   LOGIN / SESSÃO DO GESTOR
+   ===================================================================== */
+
+async function validarLogin(){
+  const campo = document.getElementById('campo-senha-login');
+  const senha = campo.value;
+  if(!senha){ mostrarErroLogin('Digite a senha'); return; }
+  const btn = document.getElementById('btn-entrar');
+  btn.disabled = true; btn.textContent = 'ENTRANDO…';
+  const { data, error } = await supabase.rpc('verificar_senha_gestor', { p_senha: senha });
+  btn.disabled = false; btn.textContent = 'ENTRAR';
+  if(error){ mostrarErroLogin('Erro ao conectar: '+error.message); return; }
+  if(data === true){
+    sessao.senha = senha;
+    sessionStorage.setItem('gestor_senha', senha);
+    document.getElementById('erro-login').style.display = 'none';
+    abrirApp();
+  } else {
+    mostrarErroLogin('Senha incorreta');
+  }
+}
+
+function mostrarErroLogin(msg){
+  const el = document.getElementById('erro-login');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function logout(){
+  sessao.senha = null;
+  sessionStorage.removeItem('gestor_senha');
+  document.getElementById('campo-senha-login').value = '';
+  mostrarTela('tela-inicio');
+}
+
+async function abrirApp(){
+  mostrarTela('tela-dashboard');
+  await carregarCaches();
+  trocarSecao('ops');
+}
+
+/* =====================================================================
+   NAVEGAÇÃO E LISTAGEM
+   ===================================================================== */
+function trocarSecao(entidade){
+  entidadeAtual = entidade;
+  document.querySelectorAll('.nav-item[data-entidade]').forEach(el=>{
+    el.classList.toggle('ativo', el.dataset.entidade === entidade);
+  });
+  const cfg = ENTIDADES[entidade];
+  document.getElementById('titulo-secao').textContent = cfg.titulo;
+  document.getElementById('btn-novo').textContent = cfg.novoRotulo;
+  carregarLista(entidade);
+}
+
+async function carregarCaches(){
+  const [materiais, produtos] = await Promise.all([
+    supabase.from('materiais').select('*').order('nome'),
+    supabase.from('produtos').select('*').order('codigo'),
+  ]);
+  if(!materiais.error) cache.materiais = materiais.data || [];
+  if(!produtos.error) cache.produtos = produtos.data || [];
+}
+
+async function carregarLista(entidade){
+  const cfg = ENTIDADES[entidade];
+  const area = document.getElementById('area-tabela');
+  area.innerHTML = '<p class="carregando">Carregando…</p>';
+  const { data, error } = await supabase.from(cfg.tabela).select(cfg.select)
+    .order(cfg.ordenarPor.coluna, { ascending: cfg.ordenarPor.asc });
+  if(error){
+    area.innerHTML = '<p class="erro-lista">Erro ao carregar: '+escapeHtml(error.message)+'</p>';
+    return;
+  }
+  linhasCache[entidade] = data || [];
+  renderTabela(entidade, data || []);
+}
+
+function renderTabela(entidade, linhas){
+  const cfg = ENTIDADES[entidade];
+  const area = document.getElementById('area-tabela');
+  if(!linhas.length){
+    area.innerHTML = '<div class="vazio">Nada cadastrado ainda. Clique em “'+cfg.novoRotulo.replace('+','').trim()+'” pra começar.</div>';
+    return;
+  }
+  const cabecalho = cfg.colunas.map(c=>`<th>${c.rotulo}</th>`).join('') + '<th class="col-acoes"></th>';
+  const corpo = linhas.map(r=>{
+    const celulas = cfg.colunas.map(c=>`<td data-rotulo="${escapeAttr(c.rotulo)}">${c.render(r)}</td>`).join('');
+    return `<tr>${celulas}<td class="col-acoes" data-rotulo="Ações">
+      <button class="btn-ghost" onclick="abrirModal(${r.id})">Editar</button>
+      <button class="btn-ghost perigo" onclick="excluirAtual(${r.id})">Excluir</button>
+    </td></tr>`;
+  }).join('');
+  area.innerHTML = `<table><thead><tr>${cabecalho}</tr></thead><tbody>${corpo}</tbody></table>`;
+}
+
+/* =====================================================================
+   MODAL / FORMULÁRIO
+   ===================================================================== */
+function abrirModal(id){
+  editandoId = id || null;
+  const cfg = ENTIDADES[entidadeAtual];
+  const registro = editandoId ? (linhasCache[entidadeAtual]||[]).find(r=>r.id===editandoId) : null;
+  document.getElementById('modal-titulo').textContent =
+    (editandoId ? 'Editar ' : 'Nov'+(cfg.tituloSingular.startsWith('o')||cfg.tituloSingular==='operador'?'o ':'a ')) + cfg.tituloSingular;
+  const corpo = document.getElementById('modal-corpo');
+  corpo.innerHTML = cfg.campos.map(campo=>{
+    let valor;
+    if(registro){ valor = registro[campo.chave]; }
+    else { valor = typeof campo.padrao === 'function' ? campo.padrao() : (campo.padrao !== undefined ? campo.padrao : ''); }
+    return '<div class="campo">'+construirCampoFormulario(campo, valor)+'</div>';
+  }).join('');
+  document.getElementById('overlay-modal').classList.add('aberto');
+}
+
+function fecharModal(){
+  document.getElementById('overlay-modal').classList.remove('aberto');
+  editandoId = null;
+}
+
+function construirCampoFormulario(campo, valorAtual){
+  const id = 'campo-'+campo.chave;
+  const req = campo.obrigatorio ? ' required' : '';
+  const rotuloReq = campo.obrigatorio ? ' *' : '';
+  if(campo.tipo === 'select-fk'){
+    const lista = cache[campo.fonte] || [];
+    const opcoes = lista.map(item=>
+      `<option value="${item.id}"${String(item.id)===String(valorAtual)?' selected':''}>${escapeHtml(campo.rotuloOpcao(item))}</option>`
+    ).join('');
+    return `<label for="${id}">${campo.rotulo}${rotuloReq}</label>
+      <select id="${id}"${req}><option value="">Selecione…</option>${opcoes}</select>`;
+  }
+  if(campo.tipo === 'select'){
+    const opcoes = campo.opcoes.map(o=>
+      `<option value="${o.valor}"${o.valor===valorAtual?' selected':''}>${o.rotulo}</option>`
+    ).join('');
+    return `<label for="${id}">${campo.rotulo}${rotuloReq}</label><select id="${id}"${req}>${opcoes}</select>`;
+  }
+  if(campo.tipo === 'checkbox'){
+    return `<label class="linha-checkbox"><input type="checkbox" id="${id}"${valorAtual?' checked':''}> ${campo.rotulo}</label>`;
+  }
+  if(campo.tipo === 'textarea'){
+    return `<label for="${id}">${campo.rotulo}</label><textarea id="${id}" rows="3">${escapeHtml(valorAtual||'')}</textarea>`;
+  }
+  const maxlen = campo.maxlength ? ` maxlength="${campo.maxlength}"` : '';
+  const monoAtributo = campo.mono ? ' style="font-family:var(--mono);text-transform:uppercase"' : '';
+  return `<label for="${id}">${campo.rotulo}${rotuloReq}</label>
+    <input type="${campo.tipo}" id="${id}" value="${valorAtual!=null?escapeAttr(String(valorAtual)):''}"${req}${maxlen}${monoAtributo}>`;
+}
+
+function lerFormulario(cfg){
+  const dados = {};
+  cfg.campos.forEach(campo=>{
+    const el = document.getElementById('campo-'+campo.chave);
+    dados[campo.chave] = campo.tipo === 'checkbox' ? el.checked : el.value;
+  });
+  return dados;
+}
+
+function validarObrigatorios(cfg, dados){
+  for(const campo of cfg.campos){
+    if(campo.obrigatorio && !String(dados[campo.chave]||'').trim()){
+      toast('Preencha: '+campo.rotulo, 'erro');
+      return false;
+    }
+  }
+  return true;
+}
+
+function montarPayload(entidade, d, id){
+  const p_senha = sessao.senha;
+  if(entidade === 'materiais'){
+    return { p_senha, p_id:id, p_nome:d.nome, p_prefixo:d.prefixo_lote, p_ativo: !!d.ativo };
+  }
+  if(entidade === 'produtos'){
+    return {
+      p_senha, p_id:id, p_codigo:d.codigo, p_descricao:d.descricao,
+      p_cavidades: Number(d.cavidades_molde)||1,
+      p_meta: d.meta_injetadas_hora ? Number(d.meta_injetadas_hora) : null,
+      p_material_id: d.material_padrao_id ? Number(d.material_padrao_id) : null,
+      p_ativo: !!d.ativo
+    };
+  }
+  if(entidade === 'maquinas'){
+    return { p_senha, p_id:id, p_codigo:d.codigo, p_nome:d.nome||null, p_ativo: !!d.ativo };
+  }
+  if(entidade === 'operadores'){
+    return { p_senha, p_id:id, p_matricula:d.matricula, p_nome:d.nome, p_turno:d.turno_padrao||'', p_ativo: !!d.ativo };
+  }
+  if(entidade === 'ops'){
+    return {
+      p_senha, p_id:id, p_numero:d.numero_op, p_produto_id: Number(d.produto_id),
+      p_quantidade: Number(d.quantidade_planejada), p_data_abertura: d.data_abertura||null,
+      p_prazo: d.prazo||null, p_status: d.status||'aberta', p_observacoes: d.observacoes||null
+    };
+  }
+}
+
+async function salvarAtual(){
+  const cfg = ENTIDADES[entidadeAtual];
+  const dados = lerFormulario(cfg);
+  if(!validarObrigatorios(cfg, dados)) return;
+  const btn = document.getElementById('btn-salvar-modal');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  const payload = montarPayload(entidadeAtual, dados, editandoId);
+  const { error } = await supabase.rpc(cfg.rpcSalvar, payload);
+  btn.disabled = false; btn.textContent = 'Salvar';
+  if(error){ toast('Erro ao salvar: '+error.message, 'erro'); return; }
+  toast('Salvo com sucesso', 'sucesso');
+  fecharModal();
+  await carregarCaches();
+  await carregarLista(entidadeAtual);
+}
+
+async function excluirAtual(id){
+  if(!confirm('Excluir este registro? Essa ação não pode ser desfeita.')) return;
+  const cfg = ENTIDADES[entidadeAtual];
+  const { error } = await supabase.rpc(cfg.rpcExcluir, { p_senha: sessao.senha, p_id: id });
+  if(error){ toast('Erro ao excluir: '+error.message, 'erro'); return; }
+  toast('Excluído', 'sucesso');
+  await carregarCaches();
+  await carregarLista(entidadeAtual);
+}
+
+/* =====================================================================
+   HELPERS
+   ===================================================================== */
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+function escapeAttr(str){ return escapeHtml(str); }
+function formatarData(iso){
+  if(!iso) return '—';
+  const [ano,mes,dia] = iso.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+function rotuloStatus(s){
+  return {aberta:'Aberta', em_producao:'Em produção', concluida:'Concluída', cancelada:'Cancelada'}[s] || s;
+}
+function toast(msg, tipo){
+  const cont = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast'+(tipo?(' '+tipo):'');
+  el.textContent = msg;
+  cont.appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+</script>
+</body>
+</html>
