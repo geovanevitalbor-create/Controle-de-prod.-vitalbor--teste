@@ -901,9 +901,10 @@
   /* toast */
   #toast{
     position:fixed;left:50%;bottom:1.6rem;transform:translate(-50%,120%);
-    background:var(--text);color:#0D1A2C;padding:.85rem 1.4rem;border-radius:100px;
-    font-weight:700;font-size:.9rem;box-shadow:0 12px 28px -8px rgba(0,0,0,.5);
-    transition:transform .22s ease;z-index:80;white-space:nowrap;
+    background:var(--text);color:#0D1A2C;padding:.85rem 1.4rem;border-radius:1.2rem;
+    font-weight:700;font-size:.88rem;box-shadow:0 12px 28px -8px rgba(0,0,0,.5);
+    transition:transform .22s ease;z-index:80;
+    max-width:min(90vw,30rem);white-space:normal;text-align:center;line-height:1.4;
   }
   #toast.show{transform:translate(-50%,0);}
 
@@ -3427,7 +3428,7 @@ function abrirFormAdmin(tipo, index){
   const campos = document.getElementById('admin-form-campos');
 
   if(tipo === 'operadores'){
-    const o = index!==null ? OPERADORES[index] : {nome:'', turnoId: TURNOS[0].id, matricula:''};
+    const o = index!==null ? OPERADORES[index] : {nome:'', turnoId: TURNOS[0] ? TURNOS[0].id : null, matricula:''};
     adminOperadorTurnoId = o.turnoId;
     campos.innerHTML = `
       <label class="campo-label" for="admin-campo-nome">Nome do operador</label>
@@ -3436,7 +3437,7 @@ function abrirFormAdmin(tipo, index){
       <input type="text" class="campo-texto" id="admin-campo-matricula" placeholder="Ex: 4471" value="${o.matricula||''}">
       <label class="campo-label">Turno padrão</label>
       <div class="chips-motivo compacto" id="admin-campo-turno-chips">
-        ${TURNOS.map(t => `<button type="button" class="chip-motivo${t.id===o.turnoId?' sel':''}" data-turno-id="${t.id}">${t.nome}</button>`).join('')}
+        ${TURNOS.length ? TURNOS.map(t => `<button type="button" class="chip-motivo${t.id===o.turnoId?' sel':''}" data-turno-id="${t.id}">${t.nome}</button>`).join('') : '<div class="item-admin-sub">Nenhum turno carregado — veja o console (F12) e confira a tabela "turnos" no Supabase.</div>'}
       </div>`;
     document.querySelectorAll('#admin-campo-turno-chips [data-turno-id]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
