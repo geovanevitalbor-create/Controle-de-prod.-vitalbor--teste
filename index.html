@@ -1274,7 +1274,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         <!-- ---- TURNOS ---- -->
         <div class="admin-secao" id="admin-secao-turnos">
           <div class="admin-secao-titulo">Turnos</div>
-          <div class="admin-secao-sub">Nome e horário dos 3 turnos. Não dá pra adicionar ou remover turno, só editar os horários.</div>
+          <div class="admin-secao-sub">Nome e horário de cada turno.</div>
           <div class="lista-admin" id="lista-admin-turnos"></div>
         </div>
 
@@ -1837,6 +1837,13 @@ async function iniciarApp(){
   }
 }
 iniciarApp();
+
+// rede de segurança: qualquer erro de JavaScript não tratado em lugar nenhum do app
+// aparece aqui como um toast, em vez de falhar silenciosamente sem nenhum aviso na tela
+window.addEventListener('error', (evento)=>{
+  console.error('[Erro não tratado]', evento.error || evento.message);
+  toast('⚠ Erro: ' + (evento.message || 'veja o console (F12) pra detalhes'));
+});
 
 // ---- gravação em paralelo (dual-write): os arrays locais continuam sendo o que a
 // PRÓPRIA tela de produção usa (rápido, não depende de rede pra funcionar). Isso aqui só
@@ -2881,7 +2888,7 @@ document.querySelectorAll('.nav-admin-item').forEach(btn=>{
   btn.addEventListener('click', ()=> irParaSecaoAdmin(btn.getAttribute('data-secao')));
 });
 // só Operadores e OPs têm cadastro novo — Dashboard, Turnos e Máquinas escondem o botão flutuante
-const FAB_ALVO_POR_SECAO = { operadores:'operadores', ops:'ops' };
+const FAB_ALVO_POR_SECAO = { operadores:'operadores', ops:'ops', turnos:'turnos' };
 let maquinasRefreshHandle = null;
 function irParaSecaoAdmin(secao){
   secaoAdminAtiva = secao;
@@ -3447,10 +3454,10 @@ function abrirFormAdmin(tipo, index){
       });
     });
   } else if(tipo === 'turnos'){
-    const t = TURNOS[index];
+    const t = index!==null ? TURNOS[index] : {nome:'', horario:''};
     campos.innerHTML = `
       <label class="campo-label" for="admin-campo-nome">Nome do turno</label>
-      <input type="text" class="campo-texto" id="admin-campo-nome" placeholder="Ex: 1º Turno" value="${t.nome}">
+      <input type="text" class="campo-texto" id="admin-campo-nome" placeholder="Ex: 4º Turno" value="${t.nome}">
       <label class="campo-label" for="admin-campo-horario">Horário</label>
       <input type="text" class="campo-texto" id="admin-campo-horario" placeholder="Ex: 06:00 às 12:15" value="${t.horario}">`;
   } else if(tipo === 'ops'){
@@ -3506,8 +3513,13 @@ document.getElementById('btn-admin-form-salvar').addEventListener('click', ()=>{
     const nome = document.getElementById('admin-campo-nome').value.trim();
     const horario = document.getElementById('admin-campo-horario').value.trim();
     if(!nome || !horario){ document.getElementById('admin-form-aviso').classList.add('show'); return; }
-    TURNOS[adminEditandoIndex].nome = nome;
-    TURNOS[adminEditandoIndex].horario = horario;
+    if(adminEditandoIndex===null){
+      const novoId = TURNOS.length ? Math.max(...TURNOS.map(t=>t.id)) + 1 : 1;
+      TURNOS.push({ id: novoId, nome, horario });
+    } else {
+      TURNOS[adminEditandoIndex].nome = nome;
+      TURNOS[adminEditandoIndex].horario = horario;
+    }
   } else if(secaoAdminAtiva === 'ops'){
     const op = document.getElementById('admin-campo-op').value.trim();
     const peca = document.getElementById('admin-campo-peca').value.trim();
