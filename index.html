@@ -4307,6 +4307,10 @@ function formatarSaldo(qtd){
    ============================================================ */
 function renderTurnos(){
   const wrap = document.getElementById('lista-turnos');
+  if(!TURNOS.length){
+    wrap.innerHTML = '<div class="busca-vazio show">Nenhum turno cadastrado. Peça pro admin verificar em Configurações ou o banco de dados.</div>';
+    return;
+  }
   wrap.innerHTML = TURNOS.map(t => `
     <button class="card-turno" data-turno="${t.id}">
       <div class="num-turno num">${t.id}</div>
