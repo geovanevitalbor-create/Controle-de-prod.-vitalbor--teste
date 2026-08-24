@@ -1292,11 +1292,11 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
         <!-- ---- MÁQUINAS ---- -->
         <div class="admin-secao" id="admin-secao-maquinas">
           <div class="admin-secao-titulo">Máquinas</div>
-          <div class="admin-secao-sub">Desempenho agregado desta sessão do navegador.</div>
+          <div class="admin-secao-sub">Desempenho agregado, agora vindo do banco de dados.</div>
           <div class="aviso-escopo-sessao">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><circle cx="12" cy="16" r=".1"/></svg>
             <div>
-              <strong>Isso não é ao vivo entre tablets.</strong> Cada card soma os turnos finalizados nesta aba do navegador — não enxerga o que está rodando em outros aparelhos da fábrica agora. Monitoramento de verdade em tempo real entre máquinas depende do backend (Supabase), ainda não integrado.
+              <strong>Agora conectado ao Supabase.</strong> Cada caixa fechada grava no banco e atualiza os outros tablets automaticamente (realtime), incluindo saldo de OP entre máquinas diferentes. Isso acabou de ser ligado e não foi testado ainda com um segundo tablet de verdade — vale confirmar que está funcionando como esperado.
             </div>
           </div>
           <div class="filtro-desempenho-row">
@@ -1846,6 +1846,79 @@ async function testarConexaoSupabase(){
   }
 }
 testarConexaoSupabase();
+
+// ---- gravação em paralelo (dual-write): os arrays locais continuam sendo o que a
+// PRÓPRIA tela de produção usa (rápido, não depende de rede pra funcionar). Isso aqui só
+// ENVIA uma cópia pro Supabase, pra alimentar o painel de Máquinas entre tablets. Se der
+// erro de rede, não trava a produção — só loga no console, silenciosamente pro operador.
+async function gravarCaixaNoBanco(registro){
+  try{
+    const { error } = await db.from('historico_caixas').insert({
+      op: registro.op, maquina: registro.maquina, operador: registro.operador, peca: registro.peca,
+      material: registro.material, cavidades: registro.cavidades,
+      refugo: registro.refugo, qtd_pecas: registro.qtdPecas,
+      injetadas: registro.injetadas, meta_hora: registro.metaHora,
+      duracao_ms: registro.duracaoMs
+    });
+    if(error) console.error('[Supabase] falha ao gravar caixa:', error);
+  } catch(err){
+    console.error('[Supabase] falha ao gravar caixa (rede?):', err);
+  }
+}
+async function atualizarSaldoOpNoBanco(opNumero, novoSaldo){
+  try{
+    const { error } = await db.from('ordens_producao').update({ qtd_restante: novoSaldo }).eq('op', opNumero);
+    if(error) console.error('[Supabase] falha ao atualizar saldo da OP:', error);
+  } catch(err){
+    console.error('[Supabase] falha ao atualizar saldo da OP (rede?):', err);
+  }
+}
+
+// ---- leitura pro painel de Máquinas: busca do Supabase (não dos arrays locais) e guarda
+// num cache local só pra não rebuscar a cada re-render. Mapeio snake_case (nome de coluna
+// no banco) pra camelCase (nome que o resto do código já usa), assim não preciso reescrever
+// renderCardsMaquinas/agregarPorMaquina — só troco DE ONDE o dado vem.
+let cacheCaixasBanco = [];
+let cacheOrdensBanco = [];
+async function buscarDadosMaquinasDoBanco(){
+  try{
+    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }] = await Promise.all([
+      db.from('historico_caixas').select('*').order('fechado_em', {ascending:true}),
+      db.from('ordens_producao').select('*')
+    ]);
+    if(e1) throw e1;
+    if(e2) throw e2;
+    cacheCaixasBanco = (caixas||[]).map(c => ({
+      maquina:c.maquina, operador:c.operador, peca:c.peca, op:c.op, material:c.material,
+      cavidades:c.cavidades, refugo:c.refugo, qtdPecas:c.qtd_pecas, injetadas:c.injetadas,
+      metaHora:c.meta_hora, duracaoMs:c.duracao_ms, timestamp:new Date(c.fechado_em).getTime()
+    }));
+    cacheOrdensBanco = (ordens||[]).map(o => ({
+      op:o.op, qtdTotal:o.qtd_total, qtdRestante:o.qtd_restante, peca:o.peca,
+      materiaPrima:o.materia_prima, cavidades:o.cavidades, metaHora:o.meta_hora, status:o.status
+    }));
+    return true;
+  } catch(err){
+    console.error('[Supabase] falha ao buscar dados de máquinas:', err);
+    return false;
+  }
+}
+
+// ---- realtime: escuta o banco o tempo todo (não só quando a aba Máquinas está aberta) e,
+// se alguma caixa for fechada ou o saldo de uma OP mudar EM QUALQUER TABLET, rebusca e
+// redesenha os cards — só se a aba Máquinas for a que está visível agora, pra não gastar
+// processamento à toa redesenhando algo que ninguém está olhando.
+function iniciarRealtimeMaquinas(){
+  db.channel('maquinas-realtime')
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'historico_caixas'}, ()=>{
+      if(secaoAdminAtiva === 'maquinas') buscarDadosMaquinasDoBanco().then(()=> renderCardsMaquinas());
+    })
+    .on('postgres_changes', {event:'UPDATE', schema:'public', table:'ordens_producao'}, ()=>{
+      if(secaoAdminAtiva === 'maquinas') buscarDadosMaquinasDoBanco().then(()=> renderCardsMaquinas());
+    })
+    .subscribe((status)=> console.log('[Supabase] canal realtime de máquinas:', status));
+}
+iniciarRealtimeMaquinas();
 
 /* ============================================================
    ESTADO
@@ -2602,13 +2675,18 @@ document.getElementById('btn-fc-confirmar').addEventListener('click', ()=>{
   // da produção, na primeira caixa), usada pra calcular o desempenho daquele intervalo específico.
   const duracaoDestaCaixaMs = Date.now() - (state.ultimoFechamentoMs || state.inicioMs);
   state.ultimoFechamentoMs = Date.now();
-  HISTORICO_CAIXAS.push({
+  const registroCaixa = {
     maquina: state.maquina, operador: state.operador, peca: state.op.peca, op: state.op.op,
     material: state.op.materiaPrima, cavidades: state.cavidades,
     refugo: fcRefugoAtual, qtdPecas: state.injetadasCaixa * state.cavidades,
     injetadas: state.injetadasCaixa, metaHora: state.op.metaHora || 0,
     duracaoMs: duracaoDestaCaixaMs, timestamp: Date.now()
-  });
+  };
+  HISTORICO_CAIXAS.push(registroCaixa);
+  // grava no Supabase em paralelo — não trava o fluxo do operador se a rede falhar,
+  // o array local (usado por tudo que o operador vê) já foi atualizado de qualquer jeito
+  gravarCaixaNoBanco(registroCaixa);
+  if(opNoCadastro) atualizarSaldoOpNoBanco(state.op.op, opNoCadastro.qtdRestante);
 
   prepararEtiqueta(producao);
   state.injetadasCaixa = 0;
@@ -2919,10 +2997,16 @@ document.querySelectorAll('.filtro-desempenho-btn').forEach(btn=>{
   });
 });
 
-function renderCardsMaquinas(){
+async function renderCardsMaquinas(){
   renderFiltroMaquinaEspecifica();
   const el = document.getElementById('grid-maquinas');
-  const dados = agregarPorMaquina(HISTORICO_CAIXAS);
+  el.innerHTML = '<div class="item-admin-sub" style="padding:1rem 0">Carregando do banco...</div>';
+  const ok = await buscarDadosMaquinasDoBanco();
+  if(!ok){
+    el.innerHTML = '<div class="item-admin-sub" style="padding:1rem 0;color:var(--danger)">Não consegui buscar os dados do banco. Abra o console (F12) pra ver o erro exato.</div>';
+    return;
+  }
+  const dados = agregarPorMaquina(cacheCaixasBanco);
   const listaMaquinas = filtroMaquinasSelecionadas.size === 0 ? MAQUINAS : MAQUINAS.filter(m => filtroMaquinasSelecionadas.has(m));
 
   const cardsHtml = listaMaquinas.map(m => {
@@ -2945,7 +3029,7 @@ function renderCardsMaquinas(){
     const corBarra = zona==='verde' ? 'var(--success)' : zona==='amarelo' ? 'var(--warning)' : 'var(--danger)';
     const zonaRefugo = refugoPct >= 5 ? 'vermelho' : refugoPct >= 2 ? 'amarelo' : 'verde';
     const u = d.ultimoRegistro; // caixa mais recente fechada nessa máquina — fonte da peça/operador/material/cavidades
-    const opRef = u ? ORDENS.find(o => o.op === u.op) : null;
+    const opRef = u ? cacheOrdensBanco.find(o => o.op === u.op) : null; // busca no cache do Supabase, não no array local
     const totalTexto = opRef ? fmtInt(opRef.qtdTotal) : '—';
     const produzidoTexto = opRef ? fmtInt(Math.max(0, opRef.qtdTotal - opRef.qtdRestante)) : '—';
     const saldoTexto = opRef ? fmtInt(opRef.qtdRestante) : '—';
