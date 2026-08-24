@@ -791,26 +791,29 @@
     border:1px solid var(--border-hi);color:var(--text);font-size:.85rem;font-family:var(--font);
   }
   .heatmap-scroll{overflow-x:auto;border-radius:var(--radius-admin-sm);border:1px solid var(--border);}
-  .heatmap-tabela{border-collapse:collapse;font-size:.7rem;white-space:nowrap;width:100%;}
-  .heatmap-tabela th,.heatmap-tabela td{padding:.35rem .45rem;text-align:center;border:1px solid var(--border);}
-  .heatmap-tabela thead th{background:var(--bg-card-hi);color:var(--text-dim);font-weight:700;position:sticky;top:0;z-index:2;font-size:.68rem;}
-  .heatmap-th-maquina{position:sticky;left:0;z-index:3;background:var(--bg-card-hi);text-align:left !important;min-width:8.5rem;vertical-align:middle;}
+  .heatmap-tabela{border-collapse:collapse;font-size:.62rem;white-space:nowrap;width:100%;}
+  .heatmap-tabela th,.heatmap-tabela td{padding:.2rem .3rem;text-align:center;border:1px solid rgba(255,255,255,.05);}
+  .heatmap-tabela thead th{background:var(--bg-card-hi);color:var(--text-dim);font-weight:700;position:sticky;top:0;z-index:2;font-size:.62rem;}
+  .heatmap-th-maquina{position:sticky;left:0;z-index:3;background:var(--bg-card-hi);text-align:left !important;min-width:7rem;vertical-align:middle;}
   .heatmap-tabela thead .heatmap-th-maquina{z-index:4;}
-  .heatmap-td-maquina{position:sticky;left:0;z-index:1;background:var(--card-bg);text-align:left !important;font-weight:700;min-width:8.5rem;font-size:.68rem;}
-  .heatmap-celula{font-weight:700;color:#0A0A0A;min-width:2.4rem;cursor:pointer;}
+  .heatmap-td-maquina{position:sticky;left:0;z-index:1;background:var(--card-bg);text-align:left !important;font-weight:700;min-width:7rem;font-size:.62rem;}
+  .heatmap-celula{font-weight:700;color:#0A0A0A;min-width:1.9rem;cursor:pointer;}
   /* 4 faixas discretas — mesma classificação usada no resto do app (classificarDesempenho:
      muito-baixa/baixa/boa/muito-boa), só mapeada pra cor em vez de texto */
   .heatmap-celula.nivel-muito-baixa{background:var(--danger);}
   .heatmap-celula.nivel-baixa{background:var(--accent);}
   .heatmap-celula.nivel-boa{background:var(--warning);}
   .heatmap-celula.nivel-muito-boa{background:var(--success);}
-  .heatmap-celula.vazia{color:var(--text-faint);background:var(--bg-void) !important;font-weight:400;}
+  .heatmap-celula.vazia{color:var(--text-faint);background:transparent !important;font-weight:400;}
+  /* estado 3 do manual: apontou, mas sem meta/hora válida pra calcular desempenho — distinto
+     de "vazia" (não apontou nada) e das 4 cores de desempenho (apontamento válido) */
+  .heatmap-celula.invalida{background:repeating-linear-gradient(135deg,var(--bg-card-hi),var(--bg-card-hi) 4px,var(--bg-void) 4px,var(--bg-void) 8px) !important;color:var(--warning) !important;font-weight:800;}
   .heatmap-celula.vazia:active{background:var(--bg-card-hi) !important;}
-  .heatmap-celula.anotada{font-size:.62rem;font-weight:700;}
+  .heatmap-celula.anotada{font-size:.58rem;font-weight:700;}
   .heatmap-celula.anotada.parada{background:var(--bg-card-hi) !important;color:var(--text-dim) !important;}
   .heatmap-celula.anotada.manutencao{background:var(--azul-vitalbor) !important;color:#fff !important;}
-  .heatmap-celula.fimdesemana{background:var(--bg-navy) !important;color:var(--text-faint) !important;cursor:default;}
-  .heatmap-th-fimdesemana{color:var(--text-faint) !important;font-style:italic;vertical-align:middle;}
+  .heatmap-celula.fimdesemana{background:var(--bg-void) !important;color:var(--text-faint) !important;cursor:default;}
+  .heatmap-th-fimdesemana{color:var(--text-faint) !important;font-style:italic;vertical-align:middle;background:var(--bg-void) !important;}
   .heatmap-celula.hoje,.heatmap-tabela th.hoje{box-shadow:inset 0 0 0 2px var(--accent-hi);}
   /* resumo agora é 4 LINHAS completas (uma por dia cada), não só caixinhas de total —
      mostra a tendência dia a dia, não só a média do período inteiro */
@@ -5850,20 +5853,46 @@ async function carregarMapaCalor(){
     return;
   }
 
-  // agrega por (máquina, turno_id, dia) — soma injetadas/esperado/refugo/qtdPecas, calcula
-  // desempenho combinado (não é média de %, é real/esperado somado — igual ao resto do app)
-  const celulas = {};
+  // NÍVEL 1 — agrupa por SESSÃO: (máquina, turno, dia, OP). "OP" aqui faz o papel de
+  // "ferramenta/molde" do manual. Dentro da MESMA sessão: peças SOMAM entre registros,
+  // mas o "esperado" (meta do turno) usa o MAIOR valor visto, nunca soma — representa a
+  // meta do turno inteiro, não uma cota por linha (se somasse, um turno com 2 registros
+  // pareceria ter o DOBRO da meta real).
+  const sessoes = {};
   (turnosHist||[]).forEach(r => {
     const turnoObj = TURNOS.find(t => t.nome === r.turno);
     if(!turnoObj) return; // nome do turno não bateu com nenhum turno conhecido — pula
     const dataISO = (r.finalizado_em||'').slice(0,10);
-    const chave = `${r.maquina}|${turnoObj.id}|${dataISO}`;
-    if(!celulas[chave]) celulas[chave] = {injetadas:0, esperado:0, refugo:0, qtdPecas:0};
-    celulas[chave].injetadas += r.injetadas || 0;
-    celulas[chave].esperado += (r.meta_hora||0) * ((r.duracao_ms||0)/3600000);
-    celulas[chave].refugo += r.refugo || 0;
-    celulas[chave].qtdPecas += r.qtd_pecas || 0;
+    const chaveSessao = `${r.maquina}|${turnoObj.id}|${dataISO}|${r.op}`;
+    if(!sessoes[chaveSessao]) sessoes[chaveSessao] = {maquina:r.maquina, turnoId:turnoObj.id, dia:dataISO, injetadas:0, esperado:0, refugo:0, qtdPecas:0};
+    const s = sessoes[chaveSessao];
+    s.injetadas += r.injetadas || 0;
+    s.refugo += r.refugo || 0;
+    s.qtdPecas += r.qtd_pecas || 0;
+    const esperadoDesteRegistro = (r.meta_hora||0) * ((r.duracao_ms||0)/3600000);
+    s.esperado = Math.max(s.esperado, esperadoDesteRegistro); // MÁXIMO, nunca soma
   });
+
+  // NÍVEL 2 — agrupa sessões por CÉLULA: (máquina, turno, dia). Se uma célula teve mais
+  // de uma sessão (op/ferramenta diferente no mesmo turno), o valor da célula é a MÉDIA do
+  // desempenho de cada sessão — não peças/esperado somados entre sessões diferentes (isso
+  // reintroduziria o mesmo erro de somar "previstas" indevidamente, um nível acima).
+  // Sessão com esperado=0 é ESTADO 3 do manual: apontou, mas sem meta válida — entra como
+  // "tem apontamento" (não conta como parada), mas não participa da média/soma de desempenho.
+  const celulas = {};
+  Object.values(sessoes).forEach(s => {
+    const chaveCelula = `${s.maquina}|${s.turnoId}|${s.dia}`;
+    if(!celulas[chaveCelula]) celulas[chaveCelula] = {sessoesValidas:[], temApontamentoInvalido:false, refugoTotal:0, qtdPecasTotal:0};
+    const c = celulas[chaveCelula];
+    if(s.esperado > 0){
+      c.sessoesValidas.push(s.injetadas / s.esperado);
+      c.refugoTotal += s.refugo;
+      c.qtdPecasTotal += s.qtdPecas;
+    } else {
+      c.temApontamentoInvalido = true;
+    }
+  });
+
   const anotacoesMap = {};
   (anotacoes||[]).forEach(a => { anotacoesMap[`${a.maquina}|${a.turno_id}|${a.data}`] = a; });
 
@@ -5902,9 +5931,14 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
   let html = '<thead>' + headL1 + headL2 + '</thead><tbody>';
 
   // acumula estatísticas POR DIA (não conta domingo — não é esperado ter produção nele,
-  // contar como "parada" um dia que nem deveria rodar distorceria a eficiência)
+  // contar como "parada" um dia que nem deveria rodar distorceria a eficiência).
+  // "temApontamento" conta CÉLULAS com QUALQUER registro (válido OU estado 3 apontou-sem-
+  // meta-válida) — usado só pra "Máquinas paradas" (manual seção 9: estado 3 não é parada).
+  // "somaDesempenho/contDesempenho" conta só as células com desempenho VÁLIDO — usado pra
+  // Média (soma/quantidade que rodou) e Eficiência (soma/frota total), que são contas
+  // DIFERENTES mesmo usando a mesma soma como numerador (manual seção 8).
   const statsPorDia = {};
-  dias.forEach(d => { if(!ehDomingo(d)) statsPorDia[d] = {somaDesempenho:0, contDesempenho:0, somaRefugo:0, contRefugo:0, comDado:0}; });
+  dias.forEach(d => { if(!ehDomingo(d)) statsPorDia[d] = {somaDesempenho:0, contDesempenho:0, somaRefugo:0, contRefugo:0, temApontamento:0}; });
 
   // UMA linha por máquina — os 3 turnos ficam lado a lado dentro de cada dia, não em linhas separadas
   MAQUINAS.forEach(m => {
@@ -5919,14 +5953,22 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
         const chave = `${m}|${t.id}|${dia}`;
         const c = celulas[chave];
         const anot = anotacoesMap[chave];
-        if(c && c.esperado > 0){
-          const pct = Math.round((c.injetadas / c.esperado) * 100);
-          const refugoPct = c.qtdPecas > 0 ? (c.refugo / c.qtdPecas) * 100 : 0;
+        if(c && c.sessoesValidas.length){
+          // célula pode ter mais de uma sessão (OP diferente no mesmo turno) — o valor é a
+          // MÉDIA do desempenho de cada sessão, não peças/esperado somados entre sessões
+          const fracaoMedia = c.sessoesValidas.reduce((a,b)=>a+b,0) / c.sessoesValidas.length;
+          const pct = Math.round(fracaoMedia * 100); // sem cap — manual seção 5
+          const refugoPct = c.qtdPecasTotal > 0 ? (c.refugoTotal / c.qtdPecasTotal) * 100 : 0;
           sd.somaDesempenho += pct; sd.contDesempenho++;
           sd.somaRefugo += refugoPct; sd.contRefugo++;
-          sd.comDado++;
+          sd.temApontamento++;
           const nivel = classificarDesempenho(pct).nivel;
           html += `<td class="heatmap-celula nivel-${nivel}" data-anotar="${m}|${t.id}|${dia}">${pct}%</td>`;
+        } else if(c && c.temApontamentoInvalido){
+          // ESTADO 3 do manual: apontou, mas sem meta válida pra calcular desempenho.
+          // Conta como "tem apontamento" (não é parada), mas não entra na soma/média.
+          sd.temApontamento++;
+          html += `<td class="heatmap-celula invalida" data-anotar="${m}|${t.id}|${dia}" title="Apontamento sem meta/hora válida">!</td>`;
         } else if(anot){
           html += `<td class="heatmap-celula anotada ${anot.tipo}" data-anotar="${m}|${t.id}|${dia}" title="${anot.nota||''}">${anot.tipo==='manutencao'?'M':'Parada'}</td>`;
         } else {
@@ -5938,12 +5980,14 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
   });
 
   // 4 linhas de resumo — um valor por DIA (colspan 3 nos dias normais, igual às 3 colunas
-  // de turno daquele dia; domingo mostra só "dom", sem calcular nada)
+  // de turno daquele dia; domingo mostra só "dom", sem calcular nada).
+  // Média = só entre quem rodou. Eficiência = soma de desempenho sobre a FROTA TOTAL (parada
+  // conta como 0) — são perguntas diferentes, não a mesma conta com nome trocado (seção 8).
   const linhasResumo = [
     { classe:'media', rotulo:'Média de desempenho', calc: sd => sd.contDesempenho ? Math.round(sd.somaDesempenho/sd.contDesempenho)+'%' : '·' },
-    { classe:'eficiencia', rotulo:'Eficiência', calc: sd => totalSlotsPorDia ? Math.round((sd.comDado/totalSlotsPorDia)*100)+'%' : '·' },
+    { classe:'eficiencia', rotulo:'Eficiência', calc: sd => totalSlotsPorDia ? Math.round(sd.somaDesempenho/totalSlotsPorDia)+'%' : '·' },
     { classe:'refugo', rotulo:'Refugo', calc: sd => sd.contRefugo ? (Math.round((sd.somaRefugo/sd.contRefugo)*10)/10)+'%' : '·' },
-    { classe:'paradas', rotulo:'Máquinas paradas', calc: sd => totalSlotsPorDia - sd.comDado }
+    { classe:'paradas', rotulo:'Máquinas paradas', calc: sd => totalSlotsPorDia - sd.temApontamento }
   ];
   linhasResumo.forEach(linha => {
     html += `<tr class="heatmap-linha-resumo ${linha.classe}"><td class="heatmap-td-maquina">${linha.rotulo}</td>`;
