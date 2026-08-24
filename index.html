@@ -4206,6 +4206,61 @@ async function carregarDadosIniciais(){
 // fluxo de entrada: testa conexão, carrega tudo, só libera o botão "Iniciar" quando os
 // dados estiverem prontos. Se falhar, mostra erro e deixa tentar de novo — não trava
 // numa tela muda sem explicação.
+// Se a página recarregar (sem querer, queda de energia, travamento) no MEIO de uma
+// produção, reconstrói tudo a partir da producoes_ativas + historico_caixas, em vez de
+// mandar o operador pro início e perder o progresso da tela (os dados já fechados no banco
+// nunca se perdiam, mas a TELA voltava pro zero, obrigando reescolher tudo de novo).
+async function tentarRestaurarSessaoAtiva(){
+  let idSalvo;
+  try{ idSalvo = localStorage.getItem('vitalbor_sessao_ativa_id'); } catch(e){ return false; }
+  if(!idSalvo) return false;
+
+  const { data: sessao, error } = await db.from('producoes_ativas').select('*').eq('id', idSalvo).maybeSingle();
+  if(error || !sessao){
+    try{ localStorage.removeItem('vitalbor_sessao_ativa_id'); } catch(e){}
+    return false; // sessão não existe mais (encerrada em outro tablet, por exemplo) — não restaura
+  }
+
+  const turnoObj = TURNOS.find(t => t.id === sessao.turno_id);
+  const operadorObj = OPERADORES.find(o => o._dbId === sessao.operador_id);
+  const opObj = ORDENS.find(o => o._dbId === sessao.op_id);
+  if(!turnoObj || !operadorObj || !opObj){
+    // algum dos 3 não existe mais localmente (removido pelo admin nesse meio tempo?) —
+    // não arrisca restaurar pela metade com referência quebrada
+    try{ localStorage.removeItem('vitalbor_sessao_ativa_id'); } catch(e){}
+    return false;
+  }
+
+  state.turno = turnoObj;
+  state.operador = operadorObj.nome;
+  state.op = opObj;
+  state.cavidades = opObj.cavidades;
+  state.maquina = sessao.maquina;
+  state.loteMP = sessao.lote_mp;
+  state.loteArame = sessao.lote_arame;
+  state.inicioMs = new Date(sessao.inicio_em).getTime();
+  state.qtdRestante = opObj.qtdRestante; // saldo ATUAL da OP, já reflete tudo produzido até agora
+  state.qtdRestanteInicial = opObj.qtdTotal; // aproximação — não guardamos o saldo exato de quando a sessão começou
+
+  // reconstrói o progresso ACUMULADO consultando o que já foi fechado nesta máquina desde
+  // que a sessão começou (mesmo padrão já usado na Ao Vivo pra agregação por sessão)
+  const { data: caixasDaSessao } = await db.from('historico_caixas').select('*').eq('maquina', sessao.maquina).gte('fechado_em', sessao.inicio_em).order('fechado_em', {ascending:true});
+  state.totalProduzido = 0; state.totalRefugo = 0; state.totalInjetadas = 0; state.caixasFechadas = 0; state.caixasFechadasLog = [];
+  (caixasDaSessao||[]).forEach(c => {
+    const producaoDestaCaixa = Math.max(0, (c.qtd_pecas||0) - (c.refugo||0));
+    state.totalProduzido += producaoDestaCaixa;
+    state.totalRefugo += c.refugo || 0;
+    state.totalInjetadas += c.injetadas || 0;
+    state.caixasFechadas += 1;
+    state.caixasFechadasLog.push({ producao: producaoDestaCaixa, hora: new Date(c.fechado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) });
+  });
+  state.ultimoFechamentoMs = (caixasDaSessao && caixasDaSessao.length) ? new Date(caixasDaSessao[caixasDaSessao.length-1].fechado_em).getTime() : state.inicioMs;
+
+  iniciarProducao(true);
+  toast('Produção restaurada — você continua de onde parou.');
+  return true;
+}
+
 async function iniciarApp(){
   const badge = document.getElementById('status-conexao-db');
   const btn = document.getElementById('btn-iniciar');
@@ -4233,6 +4288,7 @@ async function iniciarApp(){
     renderTurnos();
     renderOperadores();
     renderOrdens();
+    await tentarRestaurarSessaoAtiva(); // se a página recarregou no meio de uma produção, volta pra ela em vez do início
   } catch(err){
     console.error('[Supabase] falha ao iniciar:', err);
     badge.textContent = '● Erro ao carregar dados — toque aqui pra tentar de novo';
@@ -4535,11 +4591,11 @@ document.getElementById('btn-opc-confirmar').addEventListener('click', async ()=
   const operadorRef = OPERADORES.find(o => o.nome === state.operador);
   const btn = document.getElementById('btn-opc-confirmar');
   btn.disabled = true;
-  const { error } = await db.from('producoes_ativas').insert({
+  const { data, error } = await db.from('producoes_ativas').insert({
     op_id: state.op._dbId, operador_id: operadorRef ? operadorRef._dbId : null,
     turno_id: state.turno.id, maquina: maquinaSelecionadaInicio,
     lote_mp: loteMP, lote_arame: loteArame
-  });
+  }).select().single();
   btn.disabled = false;
   if(error){
     if(error.code === '23505'){ // violação de restrição única do Postgres
@@ -4550,6 +4606,9 @@ document.getElementById('btn-opc-confirmar').addEventListener('click', async ()=
     }
     return;
   }
+  // guarda o id da sessão NESTE tablet (localStorage) — é o que permite reconstruir tudo
+  // se a página recarregar sem querer no meio da produção (ver tentarRestaurarSessaoAtiva)
+  try{ localStorage.setItem('vitalbor_sessao_ativa_id', data.id); } catch(e){ console.warn('[localStorage] não consegui salvar:', e); }
   state.loteMP = loteMP;
   state.loteArame = loteArame;
   state.maquina = maquinaSelecionadaInicio;
@@ -4559,19 +4618,23 @@ document.getElementById('btn-opc-confirmar').addEventListener('click', async ()=
 /* ============================================================
    TELA: PRODUÇÃO
    ============================================================ */
-function iniciarProducao(){
-  state.inicioMs = Date.now();
-  state.totalProduzido = 0;
-  state.totalRefugo = 0;
-  state.totalInjetadas = 0;
+function iniciarProducao(restaurando){
+  // restaurando=true pula o RESET dos totais — usado quando a página recarrega no meio de
+  // uma produção e a gente reconstrói o progresso a partir do banco, não zera do zero
+  if(!restaurando){
+    state.inicioMs = Date.now();
+    state.totalProduzido = 0;
+    state.totalRefugo = 0;
+    state.totalInjetadas = 0;
+    state.caixasFechadas = 0;
+    state.caixasFechadasLog = [];
+    state.qtdRestanteInicial = state.qtdRestante; // referência fixa pra calcular % da barra de progresso
+    state.apontamentosHora = [];
+    state.ultimoFechamentoMs = null;
+  }
   state.injetadasCaixa = 0;
   state.refugoCaixa = 0;
-  state.caixasFechadas = 0;
-  state.caixasFechadasLog = [];
   state.chamadoPendente = null;
-  state.qtdRestanteInicial = state.qtdRestante; // referência fixa pra calcular % da barra de progresso
-  state.apontamentosHora = [];
-  state.ultimoFechamentoMs = null;
   pausaInicioMs = null;
   clearInterval(pausaTimerHandle);
 
@@ -5037,6 +5100,7 @@ document.getElementById('btn-enc-confirmar').addEventListener('click', ()=>{
 });
 
 async function liberarProducaoAtiva(){
+  try{ localStorage.removeItem('vitalbor_sessao_ativa_id'); } catch(e){ console.warn('[localStorage] não consegui limpar:', e); }
   try{
     if(state.op && state.op._dbId){
       const { error } = await db.from('producoes_ativas').delete().eq('op_id', state.op._dbId);
