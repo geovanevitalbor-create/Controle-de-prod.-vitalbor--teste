@@ -1823,7 +1823,12 @@ async function iniciarApp(){
   badge.className = 'status-conexao-db';
   try{
     await carregarDadosIniciais();
-    badge.textContent = `● Banco conectado — ${OPERADORES.length} operadores, ${ORDENS.length} OPs carregadas`;
+    badge.textContent = `● Turnos:${TURNOS.length} · Operadores:${OPERADORES.length} · Máquinas:${MAQUINAS.length} · Materiais:${MATERIAIS.length} · Motivos:${MOTIVOS_CHAMADO.length+MOTIVOS_REFUGO.length+MOTIVOS_PARADA.length} · OPs:${ORDENS.length}`;
+    console.log('[Supabase] contagens carregadas:', {
+      turnos:TURNOS.length, operadores:OPERADORES.length, maquinas:MAQUINAS.length,
+      materiais:MATERIAIS.length, motivosChamado:MOTIVOS_CHAMADO.length,
+      motivosRefugo:MOTIVOS_REFUGO.length, motivosParada:MOTIVOS_PARADA.length, ordens:ORDENS.length
+    });
     badge.className = 'status-conexao-db ok';
     btn.disabled = false;
     btn.textContent = 'Iniciar';
