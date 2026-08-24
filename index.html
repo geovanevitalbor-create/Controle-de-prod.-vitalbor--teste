@@ -4295,6 +4295,12 @@ function toast(msg){
 }
 
 function fmtInt(n){ return Math.round(n).toLocaleString('pt-BR'); }
+// saldo pode ficar negativo agora (meta é alvo, não teto — a OP continua disponível pro
+// operador escolher mesmo depois de bater a meta). Essa função é só o texto amigável.
+function formatarSaldo(qtd){
+  if(qtd <= 0) return `Meta atingida${qtd < 0 ? ` (+${fmtInt(Math.abs(qtd))} além)` : ''}`;
+  return `${fmtInt(qtd)} peças restantes`;
+}
 
 /* ============================================================
    TELA: TURNO
@@ -4372,7 +4378,7 @@ function renderOrdens(){
         <span class="peca-nome">${o.peca}</span>
         <span class="fatos-op">
           <span class="fato">${ICO_MATERIA}<span>${o.materiaPrima}</span></span>
-          <span class="fato saldo">${ICO_SALDO}<span>${fmtInt(o.qtdRestante)} peças</span></span>
+          <span class="fato saldo">${ICO_SALDO}<span>${formatarSaldo(o.qtdRestante)}</span></span>
         </span>
       </span>
       <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
@@ -4406,7 +4412,7 @@ function abrirConfirmacaoOP(o){
 
   document.getElementById('opc-op-num').textContent = o.op;
   document.getElementById('opc-nome').textContent = o.peca;
-  document.getElementById('opc-restante').textContent = fmtInt(o.qtdRestante) + ' peças';
+  document.getElementById('opc-restante').textContent = formatarSaldo(o.qtdRestante);
   document.getElementById('opc-materia').textContent = o.materiaPrima;
   document.getElementById('opc-lote-mp').value = '';
   document.getElementById('opc-lote-arame').value = '';
@@ -4706,7 +4712,8 @@ document.getElementById('btn-editar-cavidade').addEventListener('click', ()=>{
 function atualizarCards(){
   document.getElementById('card-produzido').textContent = fmtInt(state.totalProduzido);
   document.getElementById('card-caixas-fechadas').textContent = fmtInt(state.caixasFechadas);
-  document.getElementById('card-restante').textContent = fmtInt(state.qtdRestante);
+  // negativo vira "+X" (peças além da meta) em vez de um número negativo confuso na tela
+  document.getElementById('card-restante').textContent = state.qtdRestante < 0 ? '+' + fmtInt(Math.abs(state.qtdRestante)) : fmtInt(state.qtdRestante);
 
   // barra de progresso do saldo (faixa própria acima do grid) + aviso quando a OP bate a meta
   const inicial = state.qtdRestanteInicial || 1;
@@ -4715,7 +4722,7 @@ function atualizarCards(){
   document.getElementById('progresso-op-pct').textContent = pctFeito + '%';
   const completo = state.qtdRestante <= 0;
   document.getElementById('status-strip').classList.toggle('completo', completo);
-  document.getElementById('card-restante-sub').textContent = completo ? 'meta batida!' : 'para bater a meta';
+  document.getElementById('card-restante-sub').textContent = completo ? (state.qtdRestante < 0 ? 'além da meta' : 'meta batida!') : 'para bater a meta';
 }
 
 // histórico das caixas já fechadas neste turno — só leitura, alimentado ao confirmar "Fechar Caixa"
@@ -5047,11 +5054,13 @@ document.getElementById('btn-fc-confirmar').addEventListener('click', ()=>{
   state.totalProduzido += producao;
   state.totalRefugo += fcRefugoAtual;
   state.totalInjetadas += state.injetadasCaixa;
-  state.qtdRestante = Math.max(0, state.qtdRestante - producao);
+  // Sem travar em zero — se passar da meta, o saldo vira negativo (representa "quanto além
+  // da meta"), a OP continua na lista pro operador escolher. Meta é alvo, não teto duro.
+  state.qtdRestante = state.qtdRestante - producao;
   // BUG corrigido: só o state local decrementava — a OP cadastrada (ORDENS) nunca refletia
   // o que já tinha sido produzido de verdade. Agora atualiza os dois juntos.
   const opNoCadastro = ORDENS.find(o => o.op === state.op.op);
-  if(opNoCadastro) opNoCadastro.qtdRestante = Math.max(0, opNoCadastro.qtdRestante - producao);
+  if(opNoCadastro) opNoCadastro.qtdRestante = opNoCadastro.qtdRestante - producao;
   state.caixasFechadas += 1;
   state.caixasFechadasLog.push({ producao, hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) });
 
@@ -5939,7 +5948,7 @@ function renderListaOps(){
     <div class="item-admin">
       <div class="item-admin-info">
         <div class="item-admin-titulo">${o.op} · ${o.peca} <span class="badge-status ${o.status||'aberta'}">${o.status||'aberta'}</span></div>
-        <div class="item-admin-sub">${fmtInt(o.qtdRestante)} peças · ${o.materiaPrima}</div>
+        <div class="item-admin-sub">${formatarSaldo(o.qtdRestante)} · ${o.materiaPrima}</div>
       </div>
       <div class="item-admin-acoes">
         <button class="btn-lapis" data-editar="${i}" aria-label="Editar">${ICO_LAPIS_ADMIN}</button>
@@ -6010,7 +6019,7 @@ function abrirFormAdmin(tipo, index){
         <div>
           <label class="campo-label" for="admin-campo-qtd">Quantidade total da OP</label>
           <input type="number" class="campo-texto" id="admin-campo-qtd" value="${o.qtdTotal}">
-          <div class="item-admin-sub" style="padding:.3rem 0 0">Saldo restante hoje: ${fmtInt(o.qtdRestante)} peças — atualiza sozinho conforme caixas são fechadas, não editável aqui.</div>
+          <div class="item-admin-sub" style="padding:.3rem 0 0">Saldo: ${formatarSaldo(o.qtdRestante)} — atualiza sozinho conforme caixas são fechadas, não editável aqui. A OP continua na lista do operador mesmo depois de bater a meta, a não ser que o status mude pra "Fechada" ou "Finalizada".</div>
         </div>
       </div>
       <label class="campo-label" for="admin-campo-meta">Meta de injetadas por hora</label>
