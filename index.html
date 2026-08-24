@@ -2079,10 +2079,14 @@ function abrirConfirmacaoOP(o){
   document.getElementById('opc-lote-arame').value = '';
   document.getElementById('opc-aviso').classList.remove('show');
   maquinaSelecionadaInicio = null;
-  renderChipsComOutro('opc-lista-maquina', MAQUINAS, null, null, (valor)=>{
-    maquinaSelecionadaInicio = valor;
-    document.getElementById('opc-aviso').classList.remove('show');
-  });
+  if(MAQUINAS.length){
+    renderChipsComOutro('opc-lista-maquina', MAQUINAS, null, null, (valor)=>{
+      maquinaSelecionadaInicio = valor;
+      document.getElementById('opc-aviso').classList.remove('show');
+    });
+  } else {
+    document.getElementById('opc-lista-maquina').innerHTML = '<div class="item-admin-sub">Nenhuma máquina cadastrada — peça pro admin cadastrar em Configurações antes de iniciar a produção.</div>';
+  }
 
   showScreen('screen-op-confirm');
 }
@@ -3078,7 +3082,10 @@ function renderConfigMaquinas(){
   wrap.querySelectorAll('[data-remover-maquina]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const i = Number(btn.getAttribute('data-remover-maquina'));
-      pedirConfirmacao(`Remover "${MAQUINAS[i]}" da lista de máquinas? Isso não apaga o histórico já registrado com ela.`, ()=>{
+      const nomeMaquina = MAQUINAS[i];
+      pedirConfirmacao(`Remover "${nomeMaquina}" da lista de máquinas? Isso não apaga o histórico já registrado com ela.`, async ()=>{
+        const { error } = await db.from('maquinas').delete().eq('nome', nomeMaquina);
+        if(error){ toast('Erro ao remover do banco: ' + error.message); console.error('[Supabase] falha ao remover máquina:', error); return; }
         MAQUINAS.splice(i,1);
         renderConfigMaquinas();
         renderCardsMaquinas(); // a grade de máquinas depende diretamente dessa lista
@@ -3086,15 +3093,18 @@ function renderConfigMaquinas(){
     });
   });
 }
-document.getElementById('btn-config-add-maquina').addEventListener('click', ()=>{
+document.getElementById('btn-config-add-maquina').addEventListener('click', async ()=>{
   const input = document.getElementById('config-nova-maquina');
   const valor = input.value.trim();
   if(!valor) return;
   if(MAQUINAS.includes(valor)){ toast('Essa máquina já está na lista.'); return; }
+  const { error } = await db.from('maquinas').insert({ nome: valor });
+  if(error){ toast('Erro ao salvar no banco: ' + error.message); console.error('[Supabase] falha ao adicionar máquina:', error); return; }
   MAQUINAS.push(valor);
   input.value = '';
   renderConfigMaquinas();
   renderCardsMaquinas();
+  toast('Máquina adicionada.');
 });
 
 function renderConfigMateriais(){
