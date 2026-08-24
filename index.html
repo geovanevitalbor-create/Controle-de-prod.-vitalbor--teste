@@ -5564,9 +5564,10 @@ async function renderCardsMaquinas(){
     const d = agregarUmaMaquina(registrosDaSessao);
 
     if(d.registros === 0){
+      const paradaManual = cacheSituacaoManual[m] === 'parada';
       return `
       <div class="card-maquina sem-dados" data-abrir-detalhe-maquina="${m}">
-        <div class="card-maquina-status ${emManutencao?'manutencao':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção':'Em produção'}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':paradaManual?'neutro':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:paradaManual?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção':paradaManual?'Parada':'Em produção'}</span></div>
         <div class="card-maquina-nome">${m}</div>
         <div class="item-admin-sub" style="padding:.3rem 0">Em produção agora — ainda sem caixa fechada nesta sessão.</div>
       </div>`;
@@ -5586,7 +5587,7 @@ async function renderCardsMaquinas(){
     const saldoTexto = opRef ? fmtInt(opRef.qtdRestante) : '—';
     return `
       <div class="card-maquina" data-abrir-detalhe-maquina="${m}">
-        <div class="card-maquina-status ${emManutencao?'manutencao':zona}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:ICO_STATUS_MAQUINA[zona]}<span>${emManutencao?'Em manutenção':LABEL_STATUS_MAQUINA[zona]}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':cacheSituacaoManual[m]==='parada'?'neutro':zona}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:cacheSituacaoManual[m]==='parada'?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA[zona]}<span>${emManutencao?'Em manutenção':cacheSituacaoManual[m]==='parada'?'Parada':LABEL_STATUS_MAQUINA[zona]}</span></div>
         <div class="card-maquina-nome">${m}</div>
         <div class="card-maquina-contexto">
           <div class="contexto-peca">${u.peca}</div>
@@ -5630,15 +5631,19 @@ async function abrirDetalheMaquina(nomeMaquina){
   document.getElementById('detalhe-maquina-historico').innerHTML = '';
   toggleModal('modal-detalhe-maquina', true);
 
-  const { data: historico, error } = await db.from('manutencoes_maquina').select('*').eq('maquina', nomeMaquina).order('iniciado_em', {ascending:false});
-  if(error){ toast('Erro ao buscar histórico: ' + error.message); console.error('[Supabase]', error); return; }
+  const [{ data: historico, error: e1 }, { data: maquinaRow, error: e2 }] = await Promise.all([
+    db.from('manutencoes_maquina').select('*').eq('maquina', nomeMaquina).order('iniciado_em', {ascending:false}),
+    db.from('maquinas').select('situacao_manual').eq('nome', nomeMaquina).single()
+  ]);
+  if(e1 || e2){ const err = e1||e2; toast('Erro ao buscar dados: ' + err.message); console.error('[Supabase]', err); return; }
 
   const manutencaoAtiva = (historico||[]).find(h => !h.finalizado_em);
-  renderStatusAtualMaquina(manutencaoAtiva);
+  const situacaoAtual = maquinaRow ? maquinaRow.situacao_manual : null;
+  renderStatusAtualMaquina(manutencaoAtiva, situacaoAtual);
   renderHistoricoMaquina(historico||[]);
 }
 
-function renderStatusAtualMaquina(manutencaoAtiva){
+function renderStatusAtualMaquina(manutencaoAtiva, situacaoAtual){
   const wrapStatus = document.getElementById('detalhe-maquina-status-atual');
   const wrapAcao = document.getElementById('detalhe-maquina-acao');
   if(manutencaoAtiva){
@@ -5654,11 +5659,35 @@ function renderStatusAtualMaquina(manutencaoAtiva){
       abrirDetalheMaquina(detalheMaquinaAtual);
       renderCardsMaquinas();
     });
+  } else if(situacaoAtual === 'parada'){
+    wrapStatus.innerHTML = `<div class="item-admin-sub">Marcada como parada manualmente.</div>`;
+    wrapAcao.innerHTML = `<button class="btn-secundario" id="btn-tirar-parada" style="width:100%;margin-top:.9rem">Tirar de parada</button>`;
+    document.getElementById('btn-tirar-parada').addEventListener('click', async ()=>{
+      const btn = document.getElementById('btn-tirar-parada');
+      btn.disabled = true;
+      const { error } = await db.from('maquinas').update({ situacao_manual: null }).eq('nome', detalheMaquinaAtual);
+      btn.disabled = false;
+      if(error){ toast('Erro ao atualizar: ' + error.message); console.error('[Supabase]', error); return; }
+      abrirDetalheMaquina(detalheMaquinaAtual);
+      renderCardsMaquinas();
+    });
   } else {
-    wrapStatus.innerHTML = `<div class="item-admin-sub">Não está em manutenção agora.</div>`;
+    wrapStatus.innerHTML = `<div class="item-admin-sub">Não está em manutenção nem marcada como parada.</div>`;
     wrapAcao.innerHTML = `
-      <textarea class="campo-texto" id="detalhe-maquina-motivo" placeholder="Motivo da manutenção" rows="2" style="resize:vertical;margin-top:.7rem"></textarea>
-      <button class="btn-confirmar" id="btn-iniciar-manutencao" style="width:100%">Marcar em manutenção</button>`;
+      <textarea class="campo-texto" id="detalhe-maquina-motivo" placeholder="Motivo (só é usado se marcar manutenção)" rows="2" style="resize:vertical;margin-top:.7rem"></textarea>
+      <div class="linha-botoes-modal">
+        <button class="btn-secundario" id="btn-marcar-parada" style="flex:1">Marcar Parada</button>
+        <button class="btn-confirmar" id="btn-iniciar-manutencao" style="flex:1">Marcar Manutenção</button>
+      </div>`;
+    document.getElementById('btn-marcar-parada').addEventListener('click', async ()=>{
+      const btn = document.getElementById('btn-marcar-parada');
+      btn.disabled = true;
+      const { error } = await db.from('maquinas').update({ situacao_manual: 'parada' }).eq('nome', detalheMaquinaAtual);
+      btn.disabled = false;
+      if(error){ toast('Erro ao atualizar: ' + error.message); console.error('[Supabase]', error); return; }
+      abrirDetalheMaquina(detalheMaquinaAtual);
+      renderCardsMaquinas();
+    });
     document.getElementById('btn-iniciar-manutencao').addEventListener('click', async ()=>{
       const motivo = document.getElementById('detalhe-maquina-motivo').value.trim();
       if(!motivo){ toast('Descreva o motivo da manutenção.'); return; }
