@@ -703,6 +703,16 @@
   .card-maquina-status.verde{background:var(--success);color:#06210F;}
   .card-maquina-status.amarelo{background:var(--warning);color:#2B1B00;}
   .card-maquina-status.vermelho{background:var(--danger);color:#2B0508;}
+  .card-maquina-status.manutencao{background:var(--azul-vitalbor);color:#fff;}
+  .indicador-operacional{font-size:.68rem;font-weight:700;flex-shrink:0;white-space:nowrap;}
+  .indicador-operacional.operando{color:var(--success);}
+  .indicador-operacional.parada{color:var(--text-faint);}
+  .btn-toggle-manutencao{
+    width:100%;margin-top:.7rem;padding:.5rem;border-radius:var(--radius-admin-sm);
+    border:1px solid var(--border-hi);background:transparent;color:var(--text-dim);
+    font-size:.74rem;font-weight:700;
+  }
+  .btn-toggle-manutencao.ativo{border-color:var(--azul-vitalbor);color:var(--azul-vitalbor-texto);}
   .card-maquina-status.neutro{background:var(--bg-card-hi);color:var(--text-dim);}
   .card-maquina-nome{font-weight:700;font-size:.9rem;margin-bottom:.5rem;}
   .card-maquina-contexto{margin-bottom:.7rem;}
@@ -1883,14 +1893,20 @@ async function atualizarSaldoOpNoBanco(opNumero, novoSaldo){
 // renderCardsMaquinas/agregarPorMaquina — só troco DE ONDE o dado vem.
 let cacheCaixasBanco = [];
 let cacheOrdensBanco = [];
+let cacheProducoesAtivas = []; // quais máquinas têm produção rodando AGORA (pra status operando/parada)
+let cacheSituacaoManual = {}; // {nomeMaquina: 'manutencao'} — override manual do admin
 async function buscarDadosMaquinasDoBanco(){
   try{
-    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }] = await Promise.all([
+    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }] = await Promise.all([
       db.from('historico_caixas').select('*').order('fechado_em', {ascending:true}),
-      db.from('ordens_producao').select('*')
+      db.from('ordens_producao').select('*'),
+      db.from('producoes_ativas').select('maquina'),
+      db.from('maquinas').select('nome,situacao_manual')
     ]);
     if(e1) throw e1;
     if(e2) throw e2;
+    if(e3) throw e3;
+    if(e4) throw e4;
     cacheCaixasBanco = (caixas||[]).map(c => ({
       maquina:c.maquina, operador:c.operador, peca:c.peca, op:c.op, material:c.material,
       cavidades:c.cavidades, refugo:c.refugo, qtdPecas:c.qtd_pecas, injetadas:c.injetadas,
@@ -1900,6 +1916,9 @@ async function buscarDadosMaquinasDoBanco(){
       op:o.op, qtdTotal:o.qtd_total, qtdRestante:o.qtd_restante, peca:o.peca,
       materiaPrima:o.materia_prima, cavidades:o.cavidades, metaHora:o.meta_hora, status:o.status
     }));
+    cacheProducoesAtivas = (ativas||[]).map(a => a.maquina);
+    cacheSituacaoManual = {};
+    (maquinasDb||[]).forEach(m => { if(m.situacao_manual) cacheSituacaoManual[m.nome] = m.situacao_manual; });
     return true;
   } catch(err){
     console.error('[Supabase] falha ao buscar dados de máquinas:', err);
@@ -1911,14 +1930,20 @@ async function buscarDadosMaquinasDoBanco(){
 // se alguma caixa for fechada ou o saldo de uma OP mudar EM QUALQUER TABLET, rebusca e
 // redesenha os cards — só se a aba Máquinas for a que está visível agora, pra não gastar
 // processamento à toa redesenhando algo que ninguém está olhando.
+// Debounce de 900ms: fechar 1 caixa dispara os DOIS eventos abaixo quase juntos (INSERT
+// na caixa + UPDATE no saldo da OP) — sem isso, cada fechamento causava DOIS redesenhos
+// em sequência, um dos motivos do piscar que você via.
+let debounceMaquinasHandle = null;
+function agendarAtualizacaoMaquinas(){
+  clearTimeout(debounceMaquinasHandle);
+  debounceMaquinasHandle = setTimeout(()=>{
+    if(secaoAdminAtiva === 'maquinas') renderCardsMaquinas();
+  }, 900);
+}
 function iniciarRealtimeMaquinas(){
   db.channel('maquinas-realtime')
-    .on('postgres_changes', {event:'INSERT', schema:'public', table:'historico_caixas'}, ()=>{
-      if(secaoAdminAtiva === 'maquinas') buscarDadosMaquinasDoBanco().then(()=> renderCardsMaquinas());
-    })
-    .on('postgres_changes', {event:'UPDATE', schema:'public', table:'ordens_producao'}, ()=>{
-      if(secaoAdminAtiva === 'maquinas') buscarDadosMaquinasDoBanco().then(()=> renderCardsMaquinas());
-    })
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'historico_caixas'}, agendarAtualizacaoMaquinas)
+    .on('postgres_changes', {event:'UPDATE', schema:'public', table:'ordens_producao'}, agendarAtualizacaoMaquinas)
     .subscribe((status)=> console.log('[Supabase] canal realtime de máquinas:', status));
 }
 iniciarRealtimeMaquinas();
@@ -2096,11 +2121,29 @@ function abrirConfirmacaoOP(o){
   showScreen('screen-op-confirm');
 }
 
-document.getElementById('btn-opc-confirmar').addEventListener('click', ()=>{
+document.getElementById('btn-opc-confirmar').addEventListener('click', async ()=>{
   const loteMP = document.getElementById('opc-lote-mp').value.trim();
   const loteArame = document.getElementById('opc-lote-arame').value.trim();
   if(!loteMP || !loteArame || !maquinaSelecionadaInicio){
     document.getElementById('opc-aviso').classList.add('show');
+    return;
+  }
+  const operadorRef = OPERADORES.find(o => o.nome === state.operador);
+  const btn = document.getElementById('btn-opc-confirmar');
+  btn.disabled = true;
+  const { error } = await db.from('producoes_ativas').insert({
+    op_id: state.op._dbId, operador_id: operadorRef ? operadorRef._dbId : null,
+    turno_id: state.turno.id, maquina: maquinaSelecionadaInicio,
+    lote_mp: loteMP, lote_arame: loteArame
+  });
+  btn.disabled = false;
+  if(error){
+    if(error.code === '23505'){ // violação de restrição única do Postgres
+      toast('Essa OP ou esse operador já está em produção em outro tablet agora.');
+    } else {
+      toast('Erro ao iniciar produção: ' + error.message);
+      console.error('[Supabase]', error);
+    }
     return;
   }
   state.loteMP = loteMP;
@@ -2581,8 +2624,36 @@ document.getElementById('btn-enc-confirmar').addEventListener('click', ()=>{
     timestamp: Date.now() // pra "última atividade" na tela de máquinas
   };
   toggleModal('modal-encerramento', false);
+  // libera a trava (deixa a OP/operador disponíveis pra outro tablet de novo) e grava o
+  // resumo permanente — não trava a tela esperando isso, o operador já vê o resumo na hora
+  liberarProducaoAtiva();
+  gravarHistoricoTurnoNoBanco(resumo);
   mostrarResumoEncerramento(resumo);
 });
+
+async function liberarProducaoAtiva(){
+  try{
+    if(state.op && state.op._dbId){
+      const { error } = await db.from('producoes_ativas').delete().eq('op_id', state.op._dbId);
+      if(error) console.error('[Supabase] falha ao liberar produção ativa:', error);
+    }
+  } catch(err){ console.error('[Supabase] falha ao liberar produção ativa (rede?):', err); }
+}
+async function gravarHistoricoTurnoNoBanco(r){
+  try{
+    const { error } = await db.from('historico_turnos').insert({
+      op: r.op, peca: r.peca, turno: r.turno, operador: r.operador, maquina: r.maquina, material: r.material,
+      injetadas: r.injetadas, refugo: r.refugo, cavidades: r.cavidades, qtd_pecas: r.qtdPecas,
+      motivo_refugo: r.motivoRefugo, motivo_refugo_detalhe: r.motivoRefugoDetalhe,
+      lote_mp: r.loteMP, lote_arame: r.loteArame, peso_mp: r.pesoMP, peso_sobra_mp: r.pesoSobraMP,
+      refugo_arame: r.refugoArame, hora_extra: r.horaExtra, hora_extra_detalhe: r.horaExtraDetalhe,
+      motivo_parada: r.motivoParada, parada_detalhe: r.paradaDetalhe,
+      liberacao1: r.liberacao1, liberacao2: r.liberacao2, meta_hora: r.metaHora,
+      duracao_ms: r.duracaoMs, total_produzido: r.totalProduzido, caixas_fechadas: r.caixasFechadas
+    });
+    if(error) console.error('[Supabase] falha ao gravar histórico de turno:', error);
+  } catch(err){ console.error('[Supabase] falha ao gravar histórico de turno (rede?):', err); }
+}
 
 function mostrarResumoEncerramento(r){
   HISTORICO_TURNOS.push(r); // guarda no histórico da sessão pro dashboard de desempenho
@@ -2909,7 +2980,7 @@ function irParaSecaoAdmin(secao){
   clearInterval(maquinasRefreshHandle);
   if(secao === 'maquinas'){
     renderCardsMaquinas();
-    maquinasRefreshHandle = setInterval(renderCardsMaquinas, 4000);
+    maquinasRefreshHandle = setInterval(renderCardsMaquinas, 25000); // rede de segurança — o realtime é quem atualiza de verdade agora
   }
   if(secao === 'configuracoes') renderConfiguracoes();
 }
@@ -2925,12 +2996,13 @@ const ICO_LIXEIRA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 // mesma lógica já usada no desempenho geral do apontamento e no refugo por máquina/operador
 function agregarPorMaquina(fonte){
   const dados = {};
-  MAQUINAS.forEach(m => { dados[m] = {refugo:0, qtdPecas:0, injetadas:0, esperado:0, registros:0, ultimaAtividade:0, ultimoRegistro:null}; });
+  MAQUINAS.forEach(m => { dados[m] = {refugo:0, qtdPecas:0, pecasBoas:0, injetadas:0, esperado:0, registros:0, ultimaAtividade:0, ultimoRegistro:null}; });
   fonte.forEach(r => {
-    if(!dados[r.maquina]) dados[r.maquina] = {refugo:0, qtdPecas:0, injetadas:0, esperado:0, registros:0, ultimaAtividade:0, ultimoRegistro:null};
+    if(!dados[r.maquina]) dados[r.maquina] = {refugo:0, qtdPecas:0, pecasBoas:0, injetadas:0, esperado:0, registros:0, ultimaAtividade:0, ultimoRegistro:null};
     const d = dados[r.maquina];
     d.refugo += r.refugo;
-    d.qtdPecas += r.qtdPecas;
+    d.qtdPecas += r.qtdPecas; // bruto — continua usado só pra calcular a TAXA de refugo (refugo/bruto), essa conta é padrão assim
+    d.pecasBoas += Math.max(0, r.qtdPecas - r.refugo); // "peças produzidas" mostrado pro usuário é isso — só peça boa, sem o refugo
     d.injetadas += r.injetadas;
     d.registros += 1;
     d.esperado += (r.metaHora || 0) * (r.duracaoMs / 3600000);
@@ -2949,7 +3021,8 @@ const ICO_STATUS_MAQUINA = {
   verde: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>',
   amarelo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 4.5L2.9 18a1.7 1.7 0 001.5 2.5h15.2a1.7 1.7 0 001.5-2.5L13.7 4.5a1.7 1.7 0 00-3.4 0z"/><path d="M12 10v4"/><circle cx="12" cy="17" r=".15" fill="currentColor"/></svg>',
   vermelho: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>',
-  neutro: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v7"/><path d="M6.3 6.3a9 9 0 1011.4 0"/></svg>'
+  neutro: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v7"/><path d="M6.3 6.3a9 9 0 1011.4 0"/></svg>',
+  manutencao: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 01-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 015.4-5.4l-3 3-2-2z"/></svg>'
 };
 const LABEL_STATUS_MAQUINA = { verde:'Desempenho bom', amarelo:'Desempenho médio', vermelho:'Desempenho baixo', neutro:'Sem atividade' };
 
@@ -3008,11 +3081,18 @@ document.querySelectorAll('.filtro-desempenho-btn').forEach(btn=>{
   });
 });
 
+let maquinasCarregouUmaVez = false;
 async function renderCardsMaquinas(){
   renderFiltroMaquinaEspecifica();
   const el = document.getElementById('grid-maquinas');
-  el.innerHTML = '<div class="item-admin-sub" style="padding:1rem 0">Carregando do banco...</div>';
+  // só mostra "carregando" na PRIMEIRA vez — nas atualizações seguintes (realtime, polling)
+  // troca o conteúdo de uma vez só quando os dados novos chegam, sem apagar e piscar o que
+  // já estava na tela a cada atualização
+  if(!maquinasCarregouUmaVez){
+    el.innerHTML = '<div class="item-admin-sub" style="padding:1rem 0">Carregando do banco...</div>';
+  }
   const ok = await buscarDadosMaquinasDoBanco();
+  maquinasCarregouUmaVez = true;
   if(!ok){
     el.innerHTML = '<div class="item-admin-sub" style="padding:1rem 0;color:var(--danger)">Não consegui buscar os dados do banco. Abra o console (F12) pra ver o erro exato.</div>';
     return;
@@ -3022,15 +3102,20 @@ async function renderCardsMaquinas(){
 
   const cardsHtml = listaMaquinas.map(m => {
     const d = dados[m];
+    const emManutencao = cacheSituacaoManual[m] === 'manutencao';
+    const operando = cacheProducoesAtivas.includes(m);
+    const indicadorOperacional = `<span class="indicador-operacional ${operando?'operando':'parada'}">${operando?'● Operando agora':'○ Parada'}</span>`;
+    const btnManutencao = `<button class="btn-toggle-manutencao${emManutencao?' ativo':''}" data-toggle-manutencao="${m}">${emManutencao?'Tirar de manutenção':'Marcar em manutenção'}</button>`;
     const semDados = d.registros === 0;
     if(semDados){
       // "sem dados" sempre aparece, independente do filtro de bom/médio/ruim — não é uma
       // faixa de desempenho, é ausência de dado, categoria diferente
       return `
       <div class="card-maquina sem-dados">
-        <div class="card-maquina-status neutro">${ICO_STATUS_MAQUINA.neutro}<span>${LABEL_STATUS_MAQUINA.neutro}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':'neutro'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:ICO_STATUS_MAQUINA.neutro}<span>${emManutencao?'Em manutenção':LABEL_STATUS_MAQUINA.neutro}</span></div>
         <div class="card-maquina-nome">${m}</div>
-        <div class="item-admin-sub" style="padding:.3rem 0">Sem caixas fechadas nesta sessão.</div>
+        <div class="item-admin-sub" style="padding:.3rem 0">Sem caixas fechadas nesta sessão. ${indicadorOperacional}</div>
+        ${btnManutencao}
       </div>`;
     }
     const refugoPct = d.qtdPecas > 0 ? Math.round((d.refugo / d.qtdPecas) * 1000) / 10 : 0;
@@ -3046,11 +3131,11 @@ async function renderCardsMaquinas(){
     const saldoTexto = opRef ? fmtInt(opRef.qtdRestante) : '—';
     return `
       <div class="card-maquina">
-        <div class="card-maquina-status ${zona}">${ICO_STATUS_MAQUINA[zona]}<span>${LABEL_STATUS_MAQUINA[zona]}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':zona}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:ICO_STATUS_MAQUINA[zona]}<span>${emManutencao?'Em manutenção':LABEL_STATUS_MAQUINA[zona]}</span></div>
         <div class="card-maquina-nome">${m}</div>
         <div class="card-maquina-contexto">
           <div class="contexto-peca">${u.peca}</div>
-          <div class="contexto-operador">${u.operador} · última caixa fechada aqui</div>
+          <div class="contexto-operador">${u.operador} · última caixa fechada aqui ${indicadorOperacional}</div>
         </div>
         <div class="card-maquina-detalhe-grid">
           <div><span class="lbl">Matéria-prima</span><span class="valor">${u.material || '—'}</span></div>
@@ -3066,14 +3151,28 @@ async function renderCardsMaquinas(){
           <div class="mini-chip neutro"><span class="num">${d.registros}</span><span class="lbl">Caixas</span></div>
         </div>
         <div class="card-maquina-barra-trilho"><div class="card-maquina-barra-fill" style="width:${Math.min(100,desempenhoPct)}%;background:${corBarra}"></div></div>
-        <div style="font-size:1.15rem;font-weight:800;margin-bottom:.2rem">${fmtInt(d.qtdPecas)} <span style="font-size:.72rem;font-weight:700;color:var(--text-faint);text-transform:uppercase">peças produzidas</span></div>
+        <div style="font-size:1.15rem;font-weight:800;margin-bottom:.2rem">${fmtInt(d.pecasBoas)} <span style="font-size:.72rem;font-weight:700;color:var(--text-faint);text-transform:uppercase">peças produzidas (boas)</span></div>
         <div class="card-maquina-rodape">Última caixa fechada nesta sessão: ${new Date(d.ultimaAtividade).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+        ${btnManutencao}
       </div>`;
   }).join('');
 
   el.innerHTML = cardsHtml.trim()
     ? cardsHtml
     : '<div class="item-admin-sub" style="padding:1rem 0">Nenhuma máquina corresponde aos filtros selecionados.</div>';
+
+  el.querySelectorAll('[data-toggle-manutencao]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const nomeMaquina = btn.getAttribute('data-toggle-manutencao');
+      const estaEmManutencao = cacheSituacaoManual[nomeMaquina] === 'manutencao';
+      const novoValor = estaEmManutencao ? null : 'manutencao';
+      btn.disabled = true;
+      const { error } = await db.from('maquinas').update({ situacao_manual: novoValor }).eq('nome', nomeMaquina);
+      btn.disabled = false;
+      if(error){ toast('Erro ao atualizar status: ' + error.message); console.error('[Supabase]', error); return; }
+      renderCardsMaquinas();
+    });
+  });
 }
 
 /* ---------- Configurações: listas editáveis (máquinas/materiais) + intervalo do apontamento ---------- */
