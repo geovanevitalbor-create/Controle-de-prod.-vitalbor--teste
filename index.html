@@ -781,6 +781,47 @@
   .kpi-card .kpi-valor{font-size:1.85rem;font-weight:700;margin-top:.4rem;line-height:1;font-variant-numeric:tabular-nums;}
 
   .card-grafico{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-admin-lg);padding:1.6rem 1.7rem;margin-bottom:1.4rem;box-shadow:var(--elev-1);}
+
+  /* mapa de calor — grade máquina×turno por dia. Cor contínua (não faixas discretas) — é
+     o que faz ser um mapa de CALOR de verdade, não só uma tabela colorida em 3 tons */
+  .heatmap-filtros{display:flex;align-items:end;gap:1rem;margin-bottom:1.1rem;flex-wrap:wrap;}
+  .heatmap-filtros label{font-size:.74rem;font-weight:700;color:var(--text-dim);display:flex;flex-direction:column;gap:.35rem;}
+  .campo-texto-sm{
+    padding:.5rem .7rem;border-radius:var(--radius-admin-sm);background:var(--bg-void);
+    border:1px solid var(--border-hi);color:var(--text);font-size:.85rem;font-family:var(--font);
+  }
+  .heatmap-scroll{overflow-x:auto;border-radius:var(--radius-admin-sm);border:1px solid var(--border);}
+  .heatmap-tabela{border-collapse:collapse;font-size:.7rem;white-space:nowrap;width:100%;}
+  .heatmap-tabela th,.heatmap-tabela td{padding:.35rem .45rem;text-align:center;border:1px solid var(--border);}
+  .heatmap-tabela thead th{background:var(--bg-card-hi);color:var(--text-dim);font-weight:700;position:sticky;top:0;z-index:2;font-size:.68rem;}
+  .heatmap-th-maquina{position:sticky;left:0;z-index:3;background:var(--bg-card-hi);text-align:left !important;min-width:8.5rem;}
+  .heatmap-tabela thead .heatmap-th-maquina{z-index:4;}
+  .heatmap-td-maquina{position:sticky;left:0;z-index:1;background:var(--card-bg);text-align:left !important;font-weight:700;min-width:8.5rem;font-size:.68rem;}
+  .heatmap-td-turno{color:var(--text-faint);font-weight:700;font-size:.65rem;}
+  .heatmap-celula{font-weight:700;color:#0A0A0A;min-width:2.4rem;cursor:pointer;}
+  /* 4 faixas discretas — mesma classificação usada no resto do app (classificarDesempenho:
+     muito-baixa/baixa/boa/muito-boa), só mapeada pra cor em vez de texto */
+  .heatmap-celula.nivel-muito-baixa{background:var(--danger);}
+  .heatmap-celula.nivel-baixa{background:var(--accent);}
+  .heatmap-celula.nivel-boa{background:var(--warning);}
+  .heatmap-celula.nivel-muito-boa{background:var(--success);}
+  .heatmap-celula.vazia{color:var(--text-faint);background:var(--bg-void) !important;font-weight:400;}
+  .heatmap-celula.vazia:active{background:var(--bg-card-hi) !important;}
+  .heatmap-celula.anotada{font-size:.62rem;font-weight:700;}
+  .heatmap-celula.anotada.parada{background:var(--bg-card-hi) !important;color:var(--text-dim) !important;}
+  .heatmap-celula.anotada.manutencao{background:var(--azul-vitalbor) !important;color:#fff !important;}
+  .heatmap-celula.fimdesemana{background:var(--bg-navy) !important;color:var(--text-faint) !important;cursor:default;}
+  .heatmap-th-fimdesemana{color:var(--text-faint) !important;font-style:italic;}
+  .heatmap-celula.hoje,.heatmap-tabela th.hoje{box-shadow:inset 0 0 0 2px var(--accent-hi);}
+  /* resumo agora é 4 LINHAS completas (uma por dia cada), não só caixinhas de total —
+     mostra a tendência dia a dia, não só a média do período inteiro */
+  .heatmap-linha-resumo .heatmap-td-maquina{font-weight:800;}
+  .heatmap-linha-resumo.media .heatmap-td-maquina{background:var(--azul-vitalbor-soft);color:var(--azul-vitalbor-texto);}
+  .heatmap-linha-resumo.eficiencia .heatmap-td-maquina{background:var(--roxo-soft);color:var(--roxo);}
+  .heatmap-linha-resumo.refugo .heatmap-td-maquina{background:rgba(255,92,104,.12);color:var(--danger);}
+  .heatmap-linha-resumo.paradas .heatmap-td-maquina{background:var(--accent-soft);color:var(--accent-hi);}
+  .heatmap-linha-resumo td:not(.heatmap-td-maquina){background:var(--bg-void);color:var(--text-dim);font-weight:700;cursor:default;}
+
   .card-grafico-titulo{font-weight:800;font-size:1.05rem;}
   .card-grafico-sub{font-size:.82rem;color:var(--text-dim);margin-top:.2rem;margin-bottom:1.3rem;}
   .lista-caixas-log{display:flex;flex-direction:column;gap:.5rem;max-height:11rem;overflow-y:auto;}
@@ -3530,7 +3571,7 @@ var qrcode = function() {
         </button>
         <button class="nav-admin-item" data-secao="maquinas">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v16M4 9h5M4 15h5"/><circle cx="15.5" cy="9.5" r="1.6"/><path d="M13 16.5l1.8-2.3 1.7 1.5 1.5-2"/></svg>
-          <span>Máquinas</span>
+          <span>Ao Vivo</span>
         </button>
         <button class="nav-admin-item" data-secao="configuracoes">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
@@ -3545,6 +3586,17 @@ var qrcode = function() {
           <div class="admin-secao-sub">Visão geral do cadastro e do desempenho desta sessão.</div>
 
           <div class="kpi-row" id="kpi-row"></div>
+
+          <div class="card-grafico">
+            <div class="card-grafico-titulo">Mapa de calor — desempenho por dia</div>
+            <div class="card-grafico-sub">Cada linha é uma máquina num turno (D/T/N); cada coluna é um dia. Baseado nos turnos finalizados no período.</div>
+            <div class="heatmap-filtros">
+              <label>De <input type="date" class="campo-texto-sm" id="heatmap-data-inicio"></label>
+              <label>Até <input type="date" class="campo-texto-sm" id="heatmap-data-fim"></label>
+              <button class="btn-config-add" id="btn-heatmap-atualizar">Atualizar</button>
+            </div>
+            <div class="heatmap-scroll"><table class="heatmap-tabela" id="heatmap-tabela"></table></div>
+          </div>
 
           <div class="grafico-par">
             <div class="card-grafico">
@@ -3611,7 +3663,7 @@ var qrcode = function() {
 
         <!-- ---- MÁQUINAS ---- -->
         <div class="admin-secao" id="admin-secao-maquinas">
-          <div class="admin-secao-titulo">Máquinas</div>
+          <div class="admin-secao-titulo">Ao Vivo</div>
           <div class="admin-secao-sub">Desempenho agregado, agora vindo do banco de dados.</div>
           <div class="aviso-escopo-sessao">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><circle cx="12" cy="16" r=".1"/></svg>
@@ -3799,6 +3851,20 @@ var qrcode = function() {
         <button class="btn-secundario" id="btn-admin-form-cancelar">Cancelar</button>
         <button class="btn-confirmar" id="btn-admin-form-salvar">Salvar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: ANOTAR CÉLULA DO MAPA DE CALOR (dia sem apontamento) ===================== -->
+  <div class="modal-overlay" id="modal-anotar-calendario">
+    <div class="modal-sheet">
+      <div class="modal-titulo">Sem apontamento</div>
+      <div class="modal-sub" id="anotar-cal-contexto">—</div>
+      <textarea class="campo-texto" id="anotar-cal-nota" placeholder="Nota (opcional)" rows="2" style="resize:vertical"></textarea>
+      <div class="linha-botoes-modal">
+        <button class="btn-secundario" id="btn-anotar-cal-parada" style="flex:1">Marcar Parada</button>
+        <button class="btn-confirmar" id="btn-anotar-cal-manutencao" style="flex:1">Marcar Manutenção</button>
+      </div>
+      <button class="btn-secundario" id="btn-anotar-cal-cancelar" style="width:100%;margin-top:.6rem">Cancelar</button>
     </div>
   </div>
 
@@ -5765,7 +5831,160 @@ document.getElementById('btn-config-salvar-senha').addEventListener('click', ()=
 });
 
 /* ---------- Dashboard: hero de status + KPIs + gráficos + desempenho da sessão ---------- */
+/* ---------- Mapa de calor — desempenho por dia/turno/máquina, com anotação manual ---------- */
+// cor contínua (não faixas discretas) — interpola entre 3 pontos de referência conforme o %
+async function carregarMapaCalor(){
+  const dataInicio = document.getElementById('heatmap-data-inicio').value;
+  const dataFim = document.getElementById('heatmap-data-fim').value;
+  if(!dataInicio || !dataFim) return;
+  const tabela = document.getElementById('heatmap-tabela');
+  tabela.innerHTML = '<tr><td style="padding:1rem;border:none">Carregando...</td></tr>';
+
+  const [{ data: turnosHist, error:e1 }, { data: anotacoes, error:e2 }] = await Promise.all([
+    db.from('historico_turnos').select('*').gte('finalizado_em', dataInicio + 'T00:00:00').lte('finalizado_em', dataFim + 'T23:59:59'),
+    db.from('anotacoes_calendario').select('*').gte('data', dataInicio).lte('data', dataFim)
+  ]);
+  if(e1 || e2){
+    const err = e1 || e2;
+    tabela.innerHTML = '<tr><td style="padding:1rem;border:none;color:var(--danger)">Erro ao carregar. Veja o console (F12).</td></tr>';
+    console.error('[Supabase] falha ao carregar mapa de calor:', err);
+    return;
+  }
+
+  // agrega por (máquina, turno_id, dia) — soma injetadas/esperado/refugo/qtdPecas, calcula
+  // desempenho combinado (não é média de %, é real/esperado somado — igual ao resto do app)
+  const celulas = {};
+  (turnosHist||[]).forEach(r => {
+    const turnoObj = TURNOS.find(t => t.nome === r.turno);
+    if(!turnoObj) return; // nome do turno não bateu com nenhum turno conhecido — pula
+    const dataISO = (r.finalizado_em||'').slice(0,10);
+    const chave = `${r.maquina}|${turnoObj.id}|${dataISO}`;
+    if(!celulas[chave]) celulas[chave] = {injetadas:0, esperado:0, refugo:0, qtdPecas:0};
+    celulas[chave].injetadas += r.injetadas || 0;
+    celulas[chave].esperado += (r.meta_hora||0) * ((r.duracao_ms||0)/3600000);
+    celulas[chave].refugo += r.refugo || 0;
+    celulas[chave].qtdPecas += r.qtd_pecas || 0;
+  });
+  const anotacoesMap = {};
+  (anotacoes||[]).forEach(a => { anotacoesMap[`${a.maquina}|${a.turno_id}|${a.data}`] = a; });
+
+  renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap);
+}
+
+const ROTULO_TURNO_CALOR = {1:'D', 2:'T', 3:'N'};
+
+function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
+  const dias = [];
+  const cursor = new Date(dataInicio + 'T12:00:00'); // meio-dia evita virar o dia errado por fuso
+  const fim = new Date(dataFim + 'T12:00:00');
+  while(cursor <= fim){ dias.push(cursor.toISOString().slice(0,10)); cursor.setDate(cursor.getDate()+1); }
+  const hojeISO = new Date().toISOString().slice(0,10);
+  const ehDomingo = dia => new Date(dia+'T12:00:00').getDay() === 0;
+  const totalSlotsPorDia = MAQUINAS.length * TURNOS.length;
+
+  let html = '<thead><tr><th class="heatmap-th-maquina">Máquina / Turno</th>';
+  dias.forEach(d => {
+    const classes = [ehDomingo(d)?'heatmap-th-fimdesemana':'', d===hojeISO?'hoje':''].filter(Boolean).join(' ');
+    html += `<th class="${classes}">${ehDomingo(d) ? 'dom' : d.slice(8,10)}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  // acumula estatísticas POR DIA (não só o total do período) — é o que alimenta as 4
+  // linhas de resumo embaixo, mostrando a tendência dia a dia, não só uma média geral
+  const statsPorDia = {};
+  dias.forEach(d => { statsPorDia[d] = {somaDesempenho:0, contDesempenho:0, somaRefugo:0, contRefugo:0, comDado:0}; });
+
+  MAQUINAS.forEach(m => {
+    TURNOS.forEach(t => {
+      const rotulo = ROTULO_TURNO_CALOR[t.id] || t.nome.charAt(0);
+      html += `<tr><td class="heatmap-td-maquina">${m} <span class="heatmap-td-turno">· ${rotulo}</span></td>`;
+      dias.forEach(dia => {
+        const chave = `${m}|${t.id}|${dia}`;
+        const c = celulas[chave];
+        const anot = anotacoesMap[chave];
+        const sd = statsPorDia[dia];
+        if(c && c.esperado > 0){
+          const pct = Math.round((c.injetadas / c.esperado) * 100);
+          const refugoPct = c.qtdPecas > 0 ? (c.refugo / c.qtdPecas) * 100 : 0;
+          sd.somaDesempenho += pct; sd.contDesempenho++;
+          sd.somaRefugo += refugoPct; sd.contRefugo++;
+          sd.comDado++;
+          const nivel = classificarDesempenho(pct).nivel;
+          html += `<td class="heatmap-celula nivel-${nivel}" data-anotar="${m}|${t.id}|${dia}">${pct}%</td>`;
+        } else if(anot){
+          html += `<td class="heatmap-celula anotada ${anot.tipo}" data-anotar="${m}|${t.id}|${dia}" title="${anot.nota||''}">${anot.tipo==='manutencao'?'M':'Parada'}</td>`;
+        } else {
+          const classeExtra = ehDomingo(dia) ? 'fimdesemana' : '';
+          html += `<td class="heatmap-celula vazia ${classeExtra}" data-anotar="${m}|${t.id}|${dia}">·</td>`;
+        }
+      });
+      html += '</tr>';
+    });
+  });
+
+  // 4 linhas de resumo — cada uma com um valor POR DIA (mesmas colunas da tabela principal),
+  // pra dar pra comparar visualmente a tendência ao longo do mês, não só o total do período
+  const linhasResumo = [
+    { classe:'media', rotulo:'Média de desempenho', calc: sd => sd.contDesempenho ? Math.round(sd.somaDesempenho/sd.contDesempenho)+'%' : '·' },
+    { classe:'eficiencia', rotulo:'Eficiência', calc: sd => totalSlotsPorDia ? Math.round((sd.comDado/totalSlotsPorDia)*100)+'%' : '·' },
+    { classe:'refugo', rotulo:'Refugo', calc: sd => sd.contRefugo ? (Math.round((sd.somaRefugo/sd.contRefugo)*10)/10)+'%' : '·' },
+    { classe:'paradas', rotulo:'Máquinas paradas', calc: sd => totalSlotsPorDia - sd.comDado }
+  ];
+  linhasResumo.forEach(linha => {
+    html += `<tr class="heatmap-linha-resumo ${linha.classe}"><td class="heatmap-td-maquina">${linha.rotulo}</td>`;
+    dias.forEach(dia => {
+      const classes = [ehDomingo(dia)?'fimdesemana':'', dia===hojeISO?'hoje':''].filter(Boolean).join(' ');
+      html += `<td class="${classes}">${linha.calc(statsPorDia[dia])}</td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody>';
+  document.getElementById('heatmap-tabela').innerHTML = html;
+
+  document.querySelectorAll('#heatmap-tabela [data-anotar]').forEach(td=>{
+    td.addEventListener('click', ()=>{
+      const [maquina, turnoId, dia] = td.getAttribute('data-anotar').split('|');
+      abrirAnotarCalendario(maquina, Number(turnoId), dia);
+    });
+  });
+}
+
+let anotarCalContexto = null;
+function abrirAnotarCalendario(maquina, turnoId, dia){
+  anotarCalContexto = {maquina, turnoId, dia};
+  const turnoNome = (TURNOS.find(t=>t.id===turnoId)||{}).nome || '';
+  document.getElementById('anotar-cal-contexto').textContent = `${maquina} · ${turnoNome} · ${new Date(dia+'T12:00:00').toLocaleDateString('pt-BR')}`;
+  document.getElementById('anotar-cal-nota').value = '';
+  toggleModal('modal-anotar-calendario', true);
+}
+async function salvarAnotacaoCalendario(tipo){
+  const nota = document.getElementById('anotar-cal-nota').value.trim();
+  const { error } = await db.from('anotacoes_calendario').upsert({
+    maquina: anotarCalContexto.maquina, turno_id: anotarCalContexto.turnoId,
+    data: anotarCalContexto.dia, tipo, nota: nota || null
+  }, { onConflict: 'maquina,data,turno_id' });
+  if(error){ toast('Erro ao salvar: ' + error.message); console.error('[Supabase]', error); return; }
+  toggleModal('modal-anotar-calendario', false);
+  carregarMapaCalor();
+}
+document.getElementById('btn-anotar-cal-parada').addEventListener('click', ()=> salvarAnotacaoCalendario('parada'));
+document.getElementById('btn-anotar-cal-manutencao').addEventListener('click', ()=> salvarAnotacaoCalendario('manutencao'));
+document.getElementById('btn-anotar-cal-cancelar').addEventListener('click', ()=> toggleModal('modal-anotar-calendario', false));
+document.getElementById('btn-heatmap-atualizar').addEventListener('click', carregarMapaCalor);
+
 function renderDashboard(){
+  // datas padrão do mapa de calor: do dia 1 do mês atual até hoje — só na primeira vez
+  // que a dashboard é aberta, não sobrescreve se o usuário já mexeu no filtro
+  const campoInicio = document.getElementById('heatmap-data-inicio');
+  if(!campoInicio.value){
+    const hoje = new Date();
+    const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    campoInicio.value = primeiroDia.toISOString().slice(0,10);
+    document.getElementById('heatmap-data-fim').value = hoje.toISOString().slice(0,10);
+  }
+  carregarMapaCalor();
+
   const totalSaldo = ORDENS.reduce((soma,o) => soma + o.qtdRestante, 0);
   const contagemStatus = {aberta:0, fechada:0, finalizada:0};
   ORDENS.forEach(o => { contagemStatus[o.status || 'aberta']++; });
