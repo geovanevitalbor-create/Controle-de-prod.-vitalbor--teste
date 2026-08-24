@@ -4145,6 +4145,15 @@ async function iniciarApp(){
     badge.className = 'status-conexao-db ok';
     btn.disabled = false;
     btn.textContent = 'Iniciar';
+    // CORREÇÃO CRÍTICA: as chamadas de renderTurnos/renderOperadores/renderOrdens que
+    // existiam soltas no fim do arquivo rodavam ANTES desses dados chegarem (essa função
+    // é assíncrona, mas o resto do script continua rodando sem esperar ela terminar) —
+    // desenhavam a lista vazia e nunca mais eram chamadas de novo, então ficava "presa"
+    // vazia pra sempre mesmo com os dados certos no banco. Agora só renderiza aqui, depois
+    // que os dados realmente chegaram.
+    renderTurnos();
+    renderOperadores();
+    renderOrdens();
   } catch(err){
     console.error('[Supabase] falha ao iniciar:', err);
     badge.textContent = '● Erro ao carregar dados — toque aqui pra tentar de novo';
@@ -6150,10 +6159,8 @@ function excluirItemAdmin(tipo, index){
    INIT
    ============================================================ */
 document.getElementById('btn-iniciar').addEventListener('click', ()=> showScreen('screen-escolha-modo'));
-
-renderTurnos();
-renderOperadores();
-renderOrdens();
+// renderTurnos/renderOperadores/renderOrdens NÃO são mais chamadas aqui — ver o comentário
+// dentro de iniciarApp() explicando por quê (rodavam cedo demais, antes dos dados chegarem).
 </script>
 </body>
 </html>
