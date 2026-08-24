@@ -4206,18 +4206,17 @@ async function atualizarSaldoOpNoBanco(opNumero, novoSaldo){
 
 // ---- leitura pro painel de Máquinas: busca do Supabase (não dos arrays locais) e guarda
 // num cache local só pra não rebuscar a cada re-render. Mapeio snake_case (nome de coluna
-// no banco) pra camelCase (nome que o resto do código já usa), assim não preciso reescrever
-// renderCardsMaquinas/agregarPorMaquina — só troco DE ONDE o dado vem.
+// no banco) pra camelCase (nome que o resto do código já usa).
 let cacheCaixasBanco = [];
 let cacheOrdensBanco = [];
-let cacheProducoesAtivas = []; // quais máquinas têm produção rodando AGORA (pra status operando/parada)
+let cacheProducoesAtivas = {}; // {nomeMaquina: timestamp de início da sessão ativa} — pra status operando/parada E pra filtrar só as caixas dessa sessão
 let cacheSituacaoManual = {}; // {nomeMaquina: 'manutencao'} — override manual do admin
 async function buscarDadosMaquinasDoBanco(){
   try{
     const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }] = await Promise.all([
       db.from('historico_caixas').select('*').order('fechado_em', {ascending:true}),
       db.from('ordens_producao').select('*'),
-      db.from('producoes_ativas').select('maquina'),
+      db.from('producoes_ativas').select('maquina, inicio_em'),
       db.from('maquinas').select('nome,situacao_manual')
     ]);
     if(e1) throw e1;
@@ -4233,7 +4232,11 @@ async function buscarDadosMaquinasDoBanco(){
       op:o.op, qtdTotal:o.qtd_total, qtdRestante:o.qtd_restante, peca:o.peca,
       materiaPrima:o.materia_prima, cavidades:o.cavidades, metaHora:o.meta_hora, status:o.status
     }));
-    cacheProducoesAtivas = (ativas||[]).map(a => a.maquina);
+    // agora guarda {maquina: timestamp de início da sessão ATIVA}, não só o nome — é esse
+    // horário que delimita "o que conta pra essa sessão", pra a máquina parada não continuar
+    // mostrando os números acumulados de uma sessão que já encerrou
+    cacheProducoesAtivas = {};
+    (ativas||[]).forEach(a => { cacheProducoesAtivas[a.maquina] = new Date(a.inicio_em).getTime(); });
     cacheSituacaoManual = {};
     (maquinasDb||[]).forEach(m => { if(m.situacao_manual) cacheSituacaoManual[m.nome] = m.situacao_manual; });
     return true;
@@ -5357,27 +5360,25 @@ const ICO_LIXEIRA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 
 // agrega HISTORICO_TURNOS por máquina — soma real sobre esperado real (não média de %),
 // mesma lógica já usada no desempenho geral do apontamento e no refugo por máquina/operador
-function agregarPorMaquina(fonte){
-  const dados = {};
-  MAQUINAS.forEach(m => { dados[m] = {refugo:0, qtdPecas:0, pecasBoas:0, injetadas:0, esperado:0, registros:0, ultimaAtividade:0, ultimoRegistro:null}; });
-  fonte.forEach(r => {
-    if(!dados[r.maquina]) dados[r.maquina] = {refugo:0, qtdPecas:0, pecasBoas:0, injetadas:0, esperado:0, registros:0, ultimaAtividade:0, ultimoRegistro:null};
-    const d = dados[r.maquina];
+// agrega um conjunto JÁ FILTRADO de registros (de uma única máquina, já recortado pra
+// só a sessão ativa dela) — quem decide QUAIS registros entram é quem chama essa função,
+// não ela mesma. Substituiu a versão antiga que somava TUDO que a máquina já fez desde
+// sempre; agora quem chama passa só os registros da sessão atual (ou nada, se parada).
+function agregarUmaMaquina(registros){
+  const d = {refugo:0, qtdPecas:0, pecasBoas:0, injetadas:0, esperado:0, registros:0, ultimaAtividade:0, ultimoRegistro:null};
+  registros.forEach(r => {
     d.refugo += r.refugo;
-    d.qtdPecas += r.qtdPecas; // bruto — continua usado só pra calcular a TAXA de refugo (refugo/bruto), essa conta é padrão assim
-    d.pecasBoas += Math.max(0, r.qtdPecas - r.refugo); // "peças produzidas" mostrado pro usuário é isso — só peça boa, sem o refugo
+    d.qtdPecas += r.qtdPecas; // bruto — usado só pra calcular a TAXA de refugo (refugo/bruto), conta padrão
+    d.pecasBoas += Math.max(0, r.qtdPecas - r.refugo);
     d.injetadas += r.injetadas;
     d.registros += 1;
     d.esperado += (r.metaHora || 0) * (r.duracaoMs / 3600000);
-    // guarda o registro MAIS RECENTE inteiro (não só a soma) — é dele que tiramos peça,
-    // operador, matéria-prima e cavidades: dados que fazem sentido "do último registro
-    // nessa máquina", não uma soma/mistura de vários registros que podem ser de OPs diferentes
     if((r.timestamp||0) >= d.ultimaAtividade){
       d.ultimaAtividade = r.timestamp || 0;
       d.ultimoRegistro = r;
     }
   });
-  return dados;
+  return d;
 }
 
 const ICO_STATUS_MAQUINA = {
@@ -5461,27 +5462,39 @@ async function renderCardsMaquinas(){
     el.innerHTML = '<div class="item-admin-sub" style="padding:1rem 0;color:var(--danger)">Não consegui buscar os dados do banco. Abra o console (F12) pra ver o erro exato.</div>';
     return;
   }
-  const dados = agregarPorMaquina(cacheCaixasBanco);
   const listaMaquinas = filtroMaquinasSelecionadas.size === 0 ? MAQUINAS : MAQUINAS.filter(m => filtroMaquinasSelecionadas.has(m));
 
   const cardsHtml = listaMaquinas.map(m => {
-    const d = dados[m];
     const emManutencao = cacheSituacaoManual[m] === 'manutencao';
-    const operando = cacheProducoesAtivas.includes(m);
+    const inicioSessao = cacheProducoesAtivas[m]; // timestamp de início, ou undefined se não tem sessão ativa
+    const operando = inicioSessao !== undefined;
     const indicadorOperacional = `<span class="indicador-operacional ${operando?'operando':'parada'}">${operando?'● Operando agora':'○ Parada'}</span>`;
-    const semDados = d.registros === 0;
-    if(semDados){
-      // "sem dados" sempre aparece, independente do filtro de bom/médio/ruim — não é uma
-      // faixa de desempenho, é ausência de dado, categoria diferente. Mas dentro dela ainda
-      // dá pra distinguir "em produção, só não fechou caixa ainda" de "realmente parada".
-      const statusSemDados = emManutencao ? 'manutencao' : operando ? 'operando' : 'neutro';
-      const iconeSemDados = emManutencao ? ICO_STATUS_MAQUINA.manutencao : operando ? ICO_STATUS_MAQUINA.operando : ICO_STATUS_MAQUINA.neutro;
-      const labelSemDados = emManutencao ? 'Em manutenção' : operando ? 'Em produção' : LABEL_STATUS_MAQUINA.neutro;
+
+    if(!operando){
+      // PARADA — sem sessão ativa. Não mostra estatísticas acumuladas de uma sessão que já
+      // terminou (é exatamente isso que causava a confusão de 2 máquinas parecendo "com a
+      // mesma OP aberta" quando na real uma já tinha sido encerrada). Mostra a máquina como
+      // livre, com só uma referência histórica mínima de quando foi a última vez que rodou.
+      const ultimaHistorica = cacheCaixasBanco.filter(c => c.maquina === m).sort((a,b)=>b.timestamp-a.timestamp)[0];
       return `
       <div class="card-maquina sem-dados" data-abrir-detalhe-maquina="${m}">
-        <div class="card-maquina-status ${statusSemDados}">${iconeSemDados}<span>${labelSemDados}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':'neutro'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:ICO_STATUS_MAQUINA.neutro}<span>${emManutencao?'Em manutenção':'Parada'}</span></div>
         <div class="card-maquina-nome">${m}</div>
-        <div class="item-admin-sub" style="padding:.3rem 0">${operando ? 'Em produção agora — ainda sem caixa fechada nesta sessão.' : 'Sem caixas fechadas nesta sessão.'}</div>
+        <div class="item-admin-sub" style="padding:.3rem 0">Livre pra nova produção.${ultimaHistorica ? ` Última: ${ultimaHistorica.peca} (${ultimaHistorica.operador}), ${new Date(ultimaHistorica.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}.` : ' Sem histórico registrado ainda.'}</div>
+      </div>`;
+    }
+
+    // OPERANDO — agrega só as caixas fechadas DENTRO desta sessão (desde que ela começou),
+    // não o histórico inteiro da máquina desde sempre
+    const registrosDaSessao = cacheCaixasBanco.filter(c => c.maquina === m && c.timestamp >= inicioSessao);
+    const d = agregarUmaMaquina(registrosDaSessao);
+
+    if(d.registros === 0){
+      return `
+      <div class="card-maquina sem-dados" data-abrir-detalhe-maquina="${m}">
+        <div class="card-maquina-status ${emManutencao?'manutencao':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção':'Em produção'}</span></div>
+        <div class="card-maquina-nome">${m}</div>
+        <div class="item-admin-sub" style="padding:.3rem 0">Em produção agora — ainda sem caixa fechada nesta sessão.</div>
       </div>`;
     }
     const refugoPct = d.qtdPecas > 0 ? Math.round((d.refugo / d.qtdPecas) * 1000) / 10 : 0;
@@ -5490,8 +5503,10 @@ async function renderCardsMaquinas(){
     if(!filtroMaquinasZonas.has(zona)) return ''; // escondida pelo filtro de desempenho
     const corBarra = zona==='verde' ? 'var(--success)' : zona==='amarelo' ? 'var(--warning)' : 'var(--danger)';
     const zonaRefugo = refugoPct >= 5 ? 'vermelho' : refugoPct >= 2 ? 'amarelo' : 'verde';
-    const u = d.ultimoRegistro; // caixa mais recente fechada nessa máquina — fonte da peça/operador/material/cavidades
-    const opRef = u ? cacheOrdensBanco.find(o => o.op === u.op) : null; // busca no cache do Supabase, não no array local
+    const u = d.ultimoRegistro; // caixa mais recente fechada NESTA sessão
+    // essa máquina está operando, então mostra os números da OP normalmente — não precisa
+    // mais checar "operando" aqui, isso já filtrou lá em cima
+    const opRef = cacheOrdensBanco.find(o => o.op === u.op);
     const totalTexto = opRef ? fmtInt(opRef.qtdTotal) : '—';
     const produzidoTexto = opRef ? fmtInt(Math.max(0, opRef.qtdTotal - opRef.qtdRestante)) : '—';
     const saldoTexto = opRef ? fmtInt(opRef.qtdRestante) : '—';
