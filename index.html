@@ -791,13 +791,13 @@
     border:1px solid var(--border-hi);color:var(--text);font-size:.85rem;font-family:var(--font);
   }
   .heatmap-scroll{overflow-x:auto;border-radius:var(--radius-admin-sm);border:1px solid var(--border);}
-  .heatmap-tabela{border-collapse:collapse;font-size:.62rem;white-space:nowrap;width:100%;}
-  .heatmap-tabela th,.heatmap-tabela td{padding:.2rem .3rem;text-align:center;border:1px solid rgba(255,255,255,.05);}
-  .heatmap-tabela thead th{background:var(--bg-card-hi);color:var(--text-dim);font-weight:700;position:sticky;top:0;z-index:2;font-size:.62rem;}
-  .heatmap-th-maquina{position:sticky;left:0;z-index:3;background:var(--bg-card-hi);text-align:left !important;min-width:7rem;vertical-align:middle;}
+  .heatmap-tabela{border-collapse:collapse;font-size:.78rem;white-space:nowrap;width:100%;}
+  .heatmap-tabela th,.heatmap-tabela td{padding:.42rem .55rem;text-align:center;border:1px solid rgba(255,255,255,.05);}
+  .heatmap-tabela thead th{background:var(--bg-card-hi);color:var(--text-dim);font-weight:700;position:sticky;top:0;z-index:2;font-size:.72rem;}
+  .heatmap-th-maquina{position:sticky;left:0;z-index:3;background:var(--bg-card-hi);text-align:left !important;min-width:9rem;vertical-align:middle;}
   .heatmap-tabela thead .heatmap-th-maquina{z-index:4;}
-  .heatmap-td-maquina{position:sticky;left:0;z-index:1;background:var(--card-bg);text-align:left !important;font-weight:700;min-width:7rem;font-size:.62rem;}
-  .heatmap-celula{font-weight:700;color:#0A0A0A;min-width:1.9rem;cursor:pointer;}
+  .heatmap-td-maquina{position:sticky;left:0;z-index:1;background:var(--card-bg);text-align:left !important;font-weight:700;min-width:9rem;font-size:.74rem;cursor:pointer;}
+  .heatmap-celula{font-weight:700;color:#0A0A0A;min-width:2.6rem;cursor:pointer;}
   /* 4 faixas discretas — mesma classificação usada no resto do app (classificarDesempenho:
      muito-baixa/baixa/boa/muito-boa), só mapeada pra cor em vez de texto */
   .heatmap-celula.nivel-muito-baixa{background:var(--danger);}
@@ -823,6 +823,12 @@
   .heatmap-linha-resumo.refugo .heatmap-td-maquina{background:rgba(255,92,104,.12);color:var(--danger);}
   .heatmap-linha-resumo.paradas .heatmap-td-maquina{background:var(--accent-soft);color:var(--accent-hi);}
   .heatmap-linha-resumo td:not(.heatmap-td-maquina){background:var(--bg-void);color:var(--text-dim);font-weight:700;cursor:default;}
+  /* destaque de coluna (hover) e linha (clique na máquina) — outline/borda, não troca o
+     fundo por cima, pra não esconder a cor de desempenho que já está na célula */
+  .heatmap-tabela .coluna-destacada{box-shadow:inset 0 0 0 2px var(--azul-vitalbor-texto);}
+  .heatmap-tabela th.coluna-destacada{background:var(--azul-vitalbor-soft) !important;}
+  tr.heatmap-linha-selecionada .heatmap-td-maquina{background:var(--accent) !important;color:#150C05 !important;}
+  tr.heatmap-linha-selecionada td:not(.heatmap-td-maquina){box-shadow:inset 0 0 0 2px var(--accent-hi);}
 
   .card-grafico-titulo{font-weight:800;font-size:1.05rem;}
   .card-grafico-sub{font-size:.82rem;color:var(--text-dim);margin-top:.2rem;margin-bottom:1.3rem;}
@@ -5919,11 +5925,11 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
     const dom = ehDomingo(d);
     const classes = [dom?'heatmap-th-fimdesemana':'', d===hojeISO?'hoje':''].filter(Boolean).join(' ');
     if(dom){
-      headL1 += `<th class="${classes}" rowspan="2">dom</th>`;
+      headL1 += `<th class="${classes}" rowspan="2" data-dia="${d}">dom</th>`;
     } else {
-      headL1 += `<th class="${classes}" colspan="${TURNOS.length}">${d.slice(8,10)}</th>`;
+      headL1 += `<th class="${classes}" colspan="${TURNOS.length}" data-dia="${d}">${d.slice(8,10)}</th>`;
       TURNOS.forEach(t => {
-        headL2 += `<th class="${d===hojeISO?'hoje':''}">${ROTULO_TURNO_CALOR[t.id] || t.nome.charAt(0)}</th>`;
+        headL2 += `<th class="${d===hojeISO?'hoje':''}" data-dia="${d}">${ROTULO_TURNO_CALOR[t.id] || t.nome.charAt(0)}</th>`;
       });
     }
   });
@@ -5942,10 +5948,10 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
 
   // UMA linha por máquina — os 3 turnos ficam lado a lado dentro de cada dia, não em linhas separadas
   MAQUINAS.forEach(m => {
-    html += `<tr><td class="heatmap-td-maquina">${m}</td>`;
+    html += `<tr><td class="heatmap-td-maquina" data-selecionar-maquina="${m}">${m}</td>`;
     dias.forEach(dia => {
       if(ehDomingo(dia)){
-        html += `<td class="heatmap-celula vazia fimdesemana">·</td>`;
+        html += `<td class="heatmap-celula vazia fimdesemana" data-dia="${dia}">·</td>`;
         return;
       }
       const sd = statsPorDia[dia];
@@ -5963,16 +5969,16 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
           sd.somaRefugo += refugoPct; sd.contRefugo++;
           sd.temApontamento++;
           const nivel = classificarDesempenho(pct).nivel;
-          html += `<td class="heatmap-celula nivel-${nivel}" data-anotar="${m}|${t.id}|${dia}" title="Refugo: ${Math.round(refugoPct*10)/10}% · ${c.sessoesValidas.length>1?c.sessoesValidas.length+' sessões (OPs) neste turno':'1 sessão'}">${pct}%</td>`;
+          html += `<td class="heatmap-celula nivel-${nivel}" data-anotar="${m}|${t.id}|${dia}" data-dia="${dia}" title="Refugo: ${Math.round(refugoPct*10)/10}% · ${c.sessoesValidas.length>1?c.sessoesValidas.length+' sessões (OPs) neste turno':'1 sessão'}">${pct}%</td>`;
         } else if(c && c.temApontamentoInvalido){
           // ESTADO 3 do manual: apontou, mas sem meta válida pra calcular desempenho.
           // Conta como "tem apontamento" (não é parada), mas não entra na soma/média.
           sd.temApontamento++;
-          html += `<td class="heatmap-celula invalida" data-anotar="${m}|${t.id}|${dia}" title="Apontamento sem meta/hora válida">!</td>`;
+          html += `<td class="heatmap-celula invalida" data-anotar="${m}|${t.id}|${dia}" data-dia="${dia}" title="Apontamento sem meta/hora válida">!</td>`;
         } else if(anot){
-          html += `<td class="heatmap-celula anotada ${anot.tipo}" data-anotar="${m}|${t.id}|${dia}" title="${anot.nota||''}">${anot.tipo==='manutencao'?'M':'Parada'}</td>`;
+          html += `<td class="heatmap-celula anotada ${anot.tipo}" data-anotar="${m}|${t.id}|${dia}" data-dia="${dia}" title="${anot.nota||''}">${anot.tipo==='manutencao'?'M':'Parada'}</td>`;
         } else {
-          html += `<td class="heatmap-celula vazia" data-anotar="${m}|${t.id}|${dia}" title="Clique pra marcar Parada ou Manutenção">·</td>`;
+          html += `<td class="heatmap-celula vazia" data-anotar="${m}|${t.id}|${dia}" data-dia="${dia}" title="Clique pra marcar Parada ou Manutenção">·</td>`;
         }
       });
     });
@@ -5995,9 +6001,9 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
       const dom = ehDomingo(dia);
       const classes = [dom?'fimdesemana':'', dia===hojeISO?'hoje':''].filter(Boolean).join(' ');
       if(dom){
-        html += `<td class="${classes}">dom</td>`;
+        html += `<td class="${classes}" data-dia="${dia}">dom</td>`;
       } else {
-        html += `<td class="${classes}" colspan="${TURNOS.length}">${linha.calc(statsPorDia[dia])}</td>`;
+        html += `<td class="${classes}" colspan="${TURNOS.length}" data-dia="${dia}">${linha.calc(statsPorDia[dia])}</td>`;
       }
     });
     html += '</tr>';
@@ -6010,6 +6016,29 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
     td.addEventListener('click', ()=>{
       const [maquina, turnoId, dia] = td.getAttribute('data-anotar').split('|');
       abrirAnotarCalendario(maquina, Number(turnoId), dia);
+    });
+  });
+
+  // passar o mouse destaca a coluna INTEIRA daquele dia (todas as linhas) — pega todo
+  // elemento marcado com o mesmo data-dia, seja célula de máquina, cabeçalho ou resumo
+  document.querySelectorAll('#heatmap-tabela [data-dia]').forEach(el=>{
+    const dia = el.getAttribute('data-dia');
+    el.addEventListener('mouseenter', ()=>{
+      document.querySelectorAll(`#heatmap-tabela [data-dia="${dia}"]`).forEach(c=> c.classList.add('coluna-destacada'));
+    });
+    el.addEventListener('mouseleave', ()=>{
+      document.querySelectorAll(`#heatmap-tabela [data-dia="${dia}"]`).forEach(c=> c.classList.remove('coluna-destacada'));
+    });
+  });
+
+  // clicar no nome da máquina seleciona a linha inteira (fica marcada até clicar de novo
+  // nela ou selecionar outra) — só uma linha selecionada por vez
+  document.querySelectorAll('#heatmap-tabela [data-selecionar-maquina]').forEach(td=>{
+    td.addEventListener('click', ()=>{
+      const tr = td.closest('tr');
+      const jaSelecionada = tr.classList.contains('heatmap-linha-selecionada');
+      document.querySelectorAll('#heatmap-tabela .heatmap-linha-selecionada').forEach(r=> r.classList.remove('heatmap-linha-selecionada'));
+      if(!jaSelecionada) tr.classList.add('heatmap-linha-selecionada');
     });
   });
 }
