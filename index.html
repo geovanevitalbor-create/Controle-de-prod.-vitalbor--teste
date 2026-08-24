@@ -794,10 +794,9 @@
   .heatmap-tabela{border-collapse:collapse;font-size:.7rem;white-space:nowrap;width:100%;}
   .heatmap-tabela th,.heatmap-tabela td{padding:.35rem .45rem;text-align:center;border:1px solid var(--border);}
   .heatmap-tabela thead th{background:var(--bg-card-hi);color:var(--text-dim);font-weight:700;position:sticky;top:0;z-index:2;font-size:.68rem;}
-  .heatmap-th-maquina{position:sticky;left:0;z-index:3;background:var(--bg-card-hi);text-align:left !important;min-width:8.5rem;}
+  .heatmap-th-maquina{position:sticky;left:0;z-index:3;background:var(--bg-card-hi);text-align:left !important;min-width:8.5rem;vertical-align:middle;}
   .heatmap-tabela thead .heatmap-th-maquina{z-index:4;}
   .heatmap-td-maquina{position:sticky;left:0;z-index:1;background:var(--card-bg);text-align:left !important;font-weight:700;min-width:8.5rem;font-size:.68rem;}
-  .heatmap-td-turno{color:var(--text-faint);font-weight:700;font-size:.65rem;}
   .heatmap-celula{font-weight:700;color:#0A0A0A;min-width:2.4rem;cursor:pointer;}
   /* 4 faixas discretas — mesma classificação usada no resto do app (classificarDesempenho:
      muito-baixa/baixa/boa/muito-boa), só mapeada pra cor em vez de texto */
@@ -811,7 +810,7 @@
   .heatmap-celula.anotada.parada{background:var(--bg-card-hi) !important;color:var(--text-dim) !important;}
   .heatmap-celula.anotada.manutencao{background:var(--azul-vitalbor) !important;color:#fff !important;}
   .heatmap-celula.fimdesemana{background:var(--bg-navy) !important;color:var(--text-faint) !important;cursor:default;}
-  .heatmap-th-fimdesemana{color:var(--text-faint) !important;font-style:italic;}
+  .heatmap-th-fimdesemana{color:var(--text-faint) !important;font-style:italic;vertical-align:middle;}
   .heatmap-celula.hoje,.heatmap-tabela th.hoje{box-shadow:inset 0 0 0 2px var(--accent-hi);}
   /* resumo agora é 4 LINHAS completas (uma por dia cada), não só caixinhas de total —
      mostra a tendência dia a dia, não só a média do período inteiro */
@@ -5882,27 +5881,44 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
   const ehDomingo = dia => new Date(dia+'T12:00:00').getDay() === 0;
   const totalSlotsPorDia = MAQUINAS.length * TURNOS.length;
 
-  let html = '<thead><tr><th class="heatmap-th-maquina">Máquina / Turno</th>';
+  // cabeçalho em DUAS linhas: a de cima tem o número do dia (ocupando as 3 colunas dos
+  // turnos daquele dia, lado a lado); a de baixo tem D/T/N sob cada dia. Domingo não abre
+  // em 3 colunas — vira uma coluna só, mais estreita (rowspan cobre as duas linhas do cabeçalho)
+  let headL1 = '<tr><th class="heatmap-th-maquina" rowspan="2">Máquina</th>';
+  let headL2 = '<tr>';
   dias.forEach(d => {
-    const classes = [ehDomingo(d)?'heatmap-th-fimdesemana':'', d===hojeISO?'hoje':''].filter(Boolean).join(' ');
-    html += `<th class="${classes}">${ehDomingo(d) ? 'dom' : d.slice(8,10)}</th>`;
+    const dom = ehDomingo(d);
+    const classes = [dom?'heatmap-th-fimdesemana':'', d===hojeISO?'hoje':''].filter(Boolean).join(' ');
+    if(dom){
+      headL1 += `<th class="${classes}" rowspan="2">dom</th>`;
+    } else {
+      headL1 += `<th class="${classes}" colspan="${TURNOS.length}">${d.slice(8,10)}</th>`;
+      TURNOS.forEach(t => {
+        headL2 += `<th class="${d===hojeISO?'hoje':''}">${ROTULO_TURNO_CALOR[t.id] || t.nome.charAt(0)}</th>`;
+      });
+    }
   });
-  html += '</tr></thead><tbody>';
+  headL1 += '</tr>'; headL2 += '</tr>';
+  let html = '<thead>' + headL1 + headL2 + '</thead><tbody>';
 
-  // acumula estatísticas POR DIA (não só o total do período) — é o que alimenta as 4
-  // linhas de resumo embaixo, mostrando a tendência dia a dia, não só uma média geral
+  // acumula estatísticas POR DIA (não conta domingo — não é esperado ter produção nele,
+  // contar como "parada" um dia que nem deveria rodar distorceria a eficiência)
   const statsPorDia = {};
-  dias.forEach(d => { statsPorDia[d] = {somaDesempenho:0, contDesempenho:0, somaRefugo:0, contRefugo:0, comDado:0}; });
+  dias.forEach(d => { if(!ehDomingo(d)) statsPorDia[d] = {somaDesempenho:0, contDesempenho:0, somaRefugo:0, contRefugo:0, comDado:0}; });
 
+  // UMA linha por máquina — os 3 turnos ficam lado a lado dentro de cada dia, não em linhas separadas
   MAQUINAS.forEach(m => {
-    TURNOS.forEach(t => {
-      const rotulo = ROTULO_TURNO_CALOR[t.id] || t.nome.charAt(0);
-      html += `<tr><td class="heatmap-td-maquina">${m} <span class="heatmap-td-turno">· ${rotulo}</span></td>`;
-      dias.forEach(dia => {
+    html += `<tr><td class="heatmap-td-maquina">${m}</td>`;
+    dias.forEach(dia => {
+      if(ehDomingo(dia)){
+        html += `<td class="heatmap-celula vazia fimdesemana">·</td>`;
+        return;
+      }
+      const sd = statsPorDia[dia];
+      TURNOS.forEach(t => {
         const chave = `${m}|${t.id}|${dia}`;
         const c = celulas[chave];
         const anot = anotacoesMap[chave];
-        const sd = statsPorDia[dia];
         if(c && c.esperado > 0){
           const pct = Math.round((c.injetadas / c.esperado) * 100);
           const refugoPct = c.qtdPecas > 0 ? (c.refugo / c.qtdPecas) * 100 : 0;
@@ -5914,16 +5930,15 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
         } else if(anot){
           html += `<td class="heatmap-celula anotada ${anot.tipo}" data-anotar="${m}|${t.id}|${dia}" title="${anot.nota||''}">${anot.tipo==='manutencao'?'M':'Parada'}</td>`;
         } else {
-          const classeExtra = ehDomingo(dia) ? 'fimdesemana' : '';
-          html += `<td class="heatmap-celula vazia ${classeExtra}" data-anotar="${m}|${t.id}|${dia}">·</td>`;
+          html += `<td class="heatmap-celula vazia" data-anotar="${m}|${t.id}|${dia}">·</td>`;
         }
       });
-      html += '</tr>';
     });
+    html += '</tr>';
   });
 
-  // 4 linhas de resumo — cada uma com um valor POR DIA (mesmas colunas da tabela principal),
-  // pra dar pra comparar visualmente a tendência ao longo do mês, não só o total do período
+  // 4 linhas de resumo — um valor por DIA (colspan 3 nos dias normais, igual às 3 colunas
+  // de turno daquele dia; domingo mostra só "dom", sem calcular nada)
   const linhasResumo = [
     { classe:'media', rotulo:'Média de desempenho', calc: sd => sd.contDesempenho ? Math.round(sd.somaDesempenho/sd.contDesempenho)+'%' : '·' },
     { classe:'eficiencia', rotulo:'Eficiência', calc: sd => totalSlotsPorDia ? Math.round((sd.comDado/totalSlotsPorDia)*100)+'%' : '·' },
@@ -5933,8 +5948,13 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
   linhasResumo.forEach(linha => {
     html += `<tr class="heatmap-linha-resumo ${linha.classe}"><td class="heatmap-td-maquina">${linha.rotulo}</td>`;
     dias.forEach(dia => {
-      const classes = [ehDomingo(dia)?'fimdesemana':'', dia===hojeISO?'hoje':''].filter(Boolean).join(' ');
-      html += `<td class="${classes}">${linha.calc(statsPorDia[dia])}</td>`;
+      const dom = ehDomingo(dia);
+      const classes = [dom?'fimdesemana':'', dia===hojeISO?'hoje':''].filter(Boolean).join(' ');
+      if(dom){
+        html += `<td class="${classes}">dom</td>`;
+      } else {
+        html += `<td class="${classes}" colspan="${TURNOS.length}">${linha.calc(statsPorDia[dia])}</td>`;
+      }
     });
     html += '</tr>';
   });
