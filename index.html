@@ -1725,86 +1725,23 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
    matéria-prima associada, cavidades-padrão e meta/h continuam
    inventados até existir cadastro/integração real.
    ============================================================ */
-const TURNOS = [
-  { id:1, nome:'1º Turno', horario:'06:00 às 12:15' },
-  { id:2, nome:'2º Turno', horario:'12:00 às 21:48' },
-  { id:3, nome:'3º Turno', horario:'21:30 às 06:18' }
-];
-
-// cada operador agora tem um turno padrão associado (turnoId) — usado pra filtrar a lista
-// na abertura do turno. Distribuição inicial é só um chute razoável; corrija pelo admin.
-const OPERADORES = [
-  {nome:'ANDRESSA ALVES PEREIRA', turnoId:1, matricula:'PROV-001'}, {nome:'ALEX GABRIEL DOS SANTOS', turnoId:1, matricula:'PROV-002'}, {nome:'ELIANE DE OLIVEIRA', turnoId:1, matricula:'PROV-003'},
-  {nome:'GEOVANE MILANI', turnoId:1, matricula:'PROV-004'}, {nome:'ISAAC MOURA', turnoId:1, matricula:'PROV-005'}, {nome:'MAURICIO PORFIRIO', turnoId:1, matricula:'PROV-006'},
-  {nome:'MOISES OLEGARIO JUNIOR', turnoId:1, matricula:'PROV-007'}, {nome:'WANDERLEY GRADE', turnoId:1, matricula:'PROV-008'}, {nome:'HENRIQUE GREGUI', turnoId:1, matricula:'PROV-009'},
-  {nome:'RAYSSA EDUARDA PAULINO', turnoId:1, matricula:'PROV-010'},
-  {nome:'WILLIAN SOUSA', turnoId:2, matricula:'PROV-011'}, {nome:'FRANCIELY SILVA SANTANA', turnoId:2, matricula:'PROV-012'}, {nome:'LEONARDO TRAVASSO', turnoId:2, matricula:'PROV-013'},
-  {nome:'RODRIGO EDUARDO', turnoId:2, matricula:'PROV-014'}, {nome:'ALISSON GALDINO', turnoId:2, matricula:'PROV-015'}, {nome:'GUILHERME FERRETI', turnoId:2, matricula:'PROV-016'},
-  {nome:'MARCIA DE MELO', turnoId:2, matricula:'PROV-017'}, {nome:'HORÁCIO GUSTAVO', turnoId:2, matricula:'PROV-018'}, {nome:'ANDREIA FELICIANO', turnoId:2, matricula:'PROV-019'},
-  {nome:'JESSICA NUNES', turnoId:3, matricula:'PROV-020'}, {nome:'DJENIFER AUGUSTO', turnoId:3, matricula:'PROV-021'}, {nome:'GABRIELY OLIVEIRA', turnoId:3, matricula:'PROV-022'},
-  {nome:'MAICON FELIX', turnoId:3, matricula:'PROV-023'}, {nome:'IGOR FELIPE', turnoId:3, matricula:'PROV-024'}, {nome:'GIOVANA CUMPIAN', turnoId:3, matricula:'PROV-025'},
-  {nome:'DULCE MARIA', turnoId:3, matricula:'PROV-026'}, {nome:'JENIFER VITORIA', turnoId:3, matricula:'PROV-027'}, {nome:'BRUNO MATHEUS', turnoId:3, matricula:'PROV-028'}
-];
-
-let MAQUINAS = ['INJETORA-01','INJETORA-02','INJETORA-03','INJETORA-04','INJETORA-05','INJETORA - HORIZONTAL']; // editável em Configurações
-
-let MATERIAIS = ['EPDM','NBR','SBR','SIL. VERDE']; // editável em Configurações
-
-const ORDENS = [
-  { op:'OP-45210', codigo:'PBA-50 (16 cavidade)', peca:'PBA-50 (16 cavidade)', qtdTotal:3000, qtdRestante:1240, materiaPrima:'NBR', cavidades:16, metaHora:90, status:'aberta' },
-  { op:'OP-45318', codigo:'COLETOR-150', peca:'COLETOR-150', qtdTotal:1500, qtdRestante:860, materiaPrima:'EPDM', cavidades:4, metaHora:60, status:'aberta' },
-  { op:'OP-45402', codigo:'DEFOFO-200', peca:'DEFOFO-200', qtdTotal:5200, qtdRestante:3400, materiaPrima:'SBR', cavidades:8, metaHora:120, status:'aberta' },
-  { op:'OP-45455', codigo:"Anel O'Ring - 304,87", peca:"Anel O'Ring - 304,87", qtdTotal:900, qtdRestante:520, materiaPrima:'SIL. VERDE', cavidades:2, metaHora:40, status:'fechada' }
-];
+const TURNOS = [];
+const OPERADORES = [];
+let MAQUINAS = []; // editável em Configurações
+let MATERIAIS = []; // editável em Configurações
+const ORDENS = [];
 const STATUS_OP = ['aberta','fechada','finalizada']; // só "aberta" aparece pro operador escolher
-
-let MOTIVOS_CHAMADO = [
-  'Falta de matéria-prima','Problema de qualidade','Manutenção / quebra','Preciso me ausentar','Outro'
-];
-
-let MOTIVOS_REFUGO = [
-  'Sem Refugo','Sem Padrão','Arame visível','Furo na Peça','Bolha','Peça Rasgada','Peça Girando','Problema na Vulcanização','Sujeira na peça','Outro'
-];
-
-let MOTIVOS_PARADA = [
-  'Não houve parada','Troca de Ferramenta','Falta de Arame','Problema de Máquina','Falta de Operador','Falta de Energia','Manutenção','Ajuste de Setup Máquina','Problema na Peça','Outro'
-];
+let MOTIVOS_CHAMADO = [];
+let MOTIVOS_REFUGO = [];
+let MOTIVOS_PARADA = [];
 
 const OPCOES_LIBERACAO = [
   { val:'ok', label:'Realizada — defeito não encontrado' },
   { val:'defeito', label:'Defeito encontrado' }
 ];
 
-// histórico de turnos finalizados NESTA sessão do navegador — usado só pro dashboard
-// de desempenho do admin; não persiste (some ao atualizar a página), igual o resto do app.
-// dados de EXEMPLO só pra visualizar a aba Máquinas com conteúdo — números fabricados,
-// não são produção real. REMOVER antes de qualquer uso em produção de verdade.
-// INJETORA-05 fica de propósito sem nenhum registro, pra mostrar o estado "sem atividade".
-const HISTORICO_TURNOS = [
-  {op:'OP-45210', peca:'PBA-50 (16 cavidade)', turno:'1º Turno', operador:'ANDRESSA ALVES PEREIRA', injetadas:792, refugo:76, cavidades:8, maquina:'INJETORA-01', qtdPecas:6336, metaHora:90, duracaoMs:8*3600000, totalProduzido:6260, caixasFechadas:20, timestamp:Date.now()-6*3600000},
-  {op:'OP-45210', peca:'PBA-50 (16 cavidade)', turno:'2º Turno', operador:'WILLIAN SOUSA', injetadas:662, refugo:79, cavidades:8, maquina:'INJETORA-01', qtdPecas:5296, metaHora:90, duracaoMs:7*3600000, totalProduzido:5217, caixasFechadas:17, timestamp:Date.now()-2*3600000},
-  {op:'OP-45318', peca:'COLETOR-150', turno:'1º Turno', operador:'GEOVANE MILANI', injetadas:374, refugo:105, cavidades:8, maquina:'INJETORA-02', qtdPecas:2992, metaHora:60, duracaoMs:8*3600000, totalProduzido:2887, caixasFechadas:12, timestamp:Date.now()-5*3600000},
-  {op:'OP-45455', peca:"Anel O'Ring - 304,87", turno:'3º Turno', operador:'JESSICA NUNES', injetadas:132, refugo:74, cavidades:8, maquina:'INJETORA-03', qtdPecas:1056, metaHora:40, duracaoMs:6*3600000, totalProduzido:982, caixasFechadas:5, timestamp:Date.now()-9*3600000},
-  {op:'OP-45455', peca:"Anel O'Ring - 304,87", turno:'1º Turno', operador:'ISAAC MOURA', injetadas:192, refugo:100, cavidades:8, maquina:'INJETORA-03', qtdPecas:1536, metaHora:40, duracaoMs:8*3600000, totalProduzido:1436, caixasFechadas:7, timestamp:Date.now()-4*3600000},
-  {op:'OP-45402', peca:'DEFOFO-200', turno:'2º Turno', operador:'LEONARDO TRAVASSO', injetadas:1104, refugo:71, cavidades:8, maquina:'INJETORA-04', qtdPecas:8832, metaHora:120, duracaoMs:8*3600000, totalProduzido:8761, caixasFechadas:28, timestamp:Date.now()-3*3600000},
-  {op:'OP-45402', peca:'DEFOFO-200', turno:'3º Turno', operador:'DJENIFER AUGUSTO', injetadas:246, refugo:55, cavidades:8, maquina:'INJETORA - HORIZONTAL', qtdPecas:1968, metaHora:50, duracaoMs:6*3600000, totalProduzido:1913, caixasFechadas:8, timestamp:Date.now()-7*3600000}
-];
-
-// histórico POR CAIXA FECHADA (não por turno inteiro) — alimenta especificamente a aba
-// Máquinas, que agora atualiza a cada fechamento de caixa, não só no fim do turno.
-// Também são dados de EXEMPLO fabricados — REMOVER antes de produção real.
-const HISTORICO_CAIXAS = [
-  {maquina:'INJETORA-01', operador:'ANDRESSA ALVES PEREIRA', peca:'PBA-50 (16 cavidade)', op:'OP-45210', material:'NBR', cavidades:8, injetadas:74, refugo:6, qtdPecas:592, metaHora:90, duracaoMs:2700000, timestamp:Date.now()-3*3600000},
-  {maquina:'INJETORA-01', operador:'ANDRESSA ALVES PEREIRA', peca:'PBA-50 (16 cavidade)', op:'OP-45210', material:'NBR', cavidades:8, injetadas:81, refugo:9, qtdPecas:648, metaHora:90, duracaoMs:3000000, timestamp:Date.now()-2*3600000},
-  {maquina:'INJETORA-01', operador:'WILLIAN SOUSA', peca:'PBA-50 (16 cavidade)', op:'OP-45210', material:'NBR', cavidades:8, injetadas:67, refugo:4, qtdPecas:536, metaHora:90, duracaoMs:2400000, timestamp:Date.now()-40*60000},
-  {maquina:'INJETORA-02', operador:'GEOVANE MILANI', peca:'COLETOR-150', op:'OP-45318', material:'EPDM', cavidades:8, injetadas:44, refugo:11, qtdPecas:352, metaHora:60, duracaoMs:3300000, timestamp:Date.now()-2.5*3600000},
-  {maquina:'INJETORA-02', operador:'GEOVANE MILANI', peca:'COLETOR-150', op:'OP-45318', material:'EPDM', cavidades:8, injetadas:36, refugo:11, qtdPecas:288, metaHora:60, duracaoMs:2880000, timestamp:Date.now()-55*60000},
-  {maquina:'INJETORA-03', operador:'JESSICA NUNES', peca:"Anel O'Ring - 304,87", op:'OP-45455', material:'SIL. VERDE', cavidades:8, injetadas:22, refugo:13, qtdPecas:176, metaHora:40, duracaoMs:3600000, timestamp:Date.now()-4*3600000},
-  {maquina:'INJETORA-03', operador:'ISAAC MOURA', peca:"Anel O'Ring - 304,87", op:'OP-45455', material:'SIL. VERDE', cavidades:8, injetadas:25, refugo:14, qtdPecas:200, metaHora:40, duracaoMs:3900000, timestamp:Date.now()-30*60000},
-  {maquina:'INJETORA-04', operador:'LEONARDO TRAVASSO', peca:'DEFOFO-200', op:'OP-45402', material:'SBR', cavidades:8, injetadas:97, refugo:5, qtdPecas:776, metaHora:120, duracaoMs:2520000, timestamp:Date.now()-1.5*3600000},
-  {maquina:'INJETORA-04', operador:'LEONARDO TRAVASSO', peca:'DEFOFO-200', op:'OP-45402', material:'SBR', cavidades:8, injetadas:90, refugo:6, qtdPecas:720, metaHora:120, duracaoMs:2280000, timestamp:Date.now()-20*60000},
-  {maquina:'INJETORA - HORIZONTAL', operador:'DJENIFER AUGUSTO', peca:'DEFOFO-200', op:'OP-45402', material:'SBR', cavidades:8, injetadas:36, refugo:7, qtdPecas:288, metaHora:50, duracaoMs:3120000, timestamp:Date.now()-70*60000}
-];
+const HISTORICO_TURNOS = [];
+const HISTORICO_CAIXAS = []; // só escrita local agora — a aba Máquinas lê direto do banco (cacheCaixasBanco)
 
 // ============================================================
 // APONTAMENTO PERIÓDICO — pede injetadas/refugo/motivo em intervalos
@@ -1816,36 +1753,89 @@ let apontamentoTimerHandle = null;
 let aptInjetadasAtual = 0, aptRefugoAtual = 0;
 
 /* ============================================================
-   SUPABASE — conexão com o banco. A partir daqui o app começa a
-   migrar de "tudo em memória" pra "dado de verdade, persistente,
-   compartilhado entre tablets". Migração incremental: por enquanto
-   só a CONEXÃO está pronta e testada — os dados (OPERADORES, ORDENS
-   etc.) continuam em memória até serem migrados um de cada vez.
+   SUPABASE — conexão com o banco. Todo dado que antes vinha fixo no
+   código (operadores, OPs, máquinas, materiais, motivos, histórico)
+   agora vem daqui — nada de "pré-cadastrado" sobrou no HTML. Se uma
+   tabela estiver vazia no banco, o app mostra vazio de verdade (não
+   inventa dado de exemplo pra preencher).
    ============================================================ */
 const SUPABASE_URL = 'https://qxtrgakjzfbpmmuhidrj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4dHJnYWtqemZicG1tdWhpZHJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1NTg5NjAsImV4cCI6MjEwMzEzNDk2MH0.XLxuERKaHf2k1BwjEKduH5UVPuyElHaeUFHrXKROzwE';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// teste de conexão ao carregar — mostra um selo discreto na tela inicial. Existe só PRA
-// VOCÊ CONFIRMAR que a conexão funciona de verdade: eu não consigo testar isso daqui,
-// meu ambiente não alcança o Supabase. Depois de confirmar que está tudo certo, esse
-// selo pode sair — é só uma ferramenta de diagnóstico deste momento da migração.
-async function testarConexaoSupabase(){
+// busca as 7 tabelas em paralelo e PREENCHE os arrays já declarados acima (via .push,
+// não reatribuição — assim qualquer referência já existente ao array continua valendo).
+// Mapeio snake_case (banco) pra camelCase (o que o resto do código já espera), então não
+// precisei reescrever nenhum dos 80+ lugares que já leem essas variáveis.
+async function carregarDadosIniciais(){
+  const [
+    { data: turnos, error: e1 }, { data: operadores, error: e2 },
+    { data: maquinas, error: e3 }, { data: materiais, error: e4 },
+    { data: motivos, error: e5 }, { data: ordens, error: e6 },
+    { data: historicoTurnos, error: e7 }
+  ] = await Promise.all([
+    db.from('turnos').select('*').order('id'),
+    db.from('operadores').select('*').order('nome'),
+    db.from('maquinas').select('*').order('nome'),
+    db.from('materiais').select('*').order('nome'),
+    db.from('motivos').select('*').order('ordem'),
+    db.from('ordens_producao').select('*').order('op'),
+    db.from('historico_turnos').select('*').order('finalizado_em', {ascending:false})
+  ]);
+  const erros = [e1,e2,e3,e4,e5,e6,e7].filter(Boolean);
+  if(erros.length){ console.error('[Supabase] erros ao carregar dados iniciais:', erros); throw erros[0]; }
+
+  TURNOS.push(...(turnos||[]).map(t => ({id:t.id, nome:t.nome, horario:t.horario})));
+  OPERADORES.push(...(operadores||[]).map(o => ({nome:o.nome, turnoId:o.turno_id, matricula:o.matricula})));
+  MAQUINAS.push(...(maquinas||[]).map(m => m.nome));
+  MATERIAIS.push(...(materiais||[]).map(m => m.nome));
+  (motivos||[]).filter(m => m.categoria==='chamado').forEach(m => MOTIVOS_CHAMADO.push(m.texto));
+  (motivos||[]).filter(m => m.categoria==='refugo').forEach(m => MOTIVOS_REFUGO.push(m.texto));
+  (motivos||[]).filter(m => m.categoria==='parada').forEach(m => MOTIVOS_PARADA.push(m.texto));
+  ORDENS.push(...(ordens||[]).map(o => ({
+    op:o.op, codigo:o.codigo, peca:o.peca, materiaPrima:o.materia_prima,
+    cavidades:o.cavidades, metaHora:o.meta_hora, qtdTotal:o.qtd_total,
+    qtdRestante:o.qtd_restante, status:o.status
+  })));
+  HISTORICO_TURNOS.push(...(historicoTurnos||[]).map(h => ({
+    op:h.op, peca:h.peca, turno:h.turno, operador:h.operador, maquina:h.maquina, material:h.material,
+    injetadas:h.injetadas, refugo:h.refugo, cavidades:h.cavidades, qtdPecas:h.qtd_pecas,
+    motivoRefugo:h.motivo_refugo, motivoRefugoDetalhe:h.motivo_refugo_detalhe,
+    loteMP:h.lote_mp, loteArame:h.lote_arame, pesoMP:h.peso_mp, pesoSobraMP:h.peso_sobra_mp,
+    refugoArame:h.refugo_arame, horaExtra:h.hora_extra, horaExtraDetalhe:h.hora_extra_detalhe,
+    motivoParada:h.motivo_parada, paradaDetalhe:h.parada_detalhe,
+    liberacao1:h.liberacao1, liberacao2:h.liberacao2, metaHora:h.meta_hora,
+    duracaoMs:h.duracao_ms, totalProduzido:h.total_produzido, caixasFechadas:h.caixas_fechadas,
+    timestamp:h.finalizado_em ? new Date(h.finalizado_em).getTime() : Date.now()
+  })));
+}
+
+// fluxo de entrada: testa conexão, carrega tudo, só libera o botão "Iniciar" quando os
+// dados estiverem prontos. Se falhar, mostra erro e deixa tentar de novo — não trava
+// numa tela muda sem explicação.
+async function iniciarApp(){
   const badge = document.getElementById('status-conexao-db');
-  if(!badge) return;
+  const btn = document.getElementById('btn-iniciar');
+  btn.disabled = true;
+  btn.textContent = 'Carregando...';
+  badge.textContent = '● Carregando dados do banco...';
+  badge.className = 'status-conexao-db';
   try{
-    const { data, error } = await db.from('turnos').select('id').limit(1);
-    if(error) throw error;
-    badge.textContent = '● Banco conectado';
+    await carregarDadosIniciais();
+    badge.textContent = `● Banco conectado — ${OPERADORES.length} operadores, ${ORDENS.length} OPs carregadas`;
     badge.className = 'status-conexao-db ok';
-    console.log('[Supabase] conexão OK, retorno de teste:', data);
+    btn.disabled = false;
+    btn.textContent = 'Iniciar';
   } catch(err){
-    badge.textContent = '● Erro de conexão com o banco (veja o console)';
+    console.error('[Supabase] falha ao iniciar:', err);
+    badge.textContent = '● Erro ao carregar dados — toque aqui pra tentar de novo';
     badge.className = 'status-conexao-db erro';
-    console.error('[Supabase] falha na conexão:', err);
+    badge.style.cursor = 'pointer';
+    badge.onclick = () => { badge.style.cursor=''; badge.onclick=null; iniciarApp(); };
+    btn.textContent = 'Erro ao carregar';
   }
 }
-testarConexaoSupabase();
+iniciarApp();
 
 // ---- gravação em paralelo (dual-write): os arrays locais continuam sendo o que a
 // PRÓPRIA tela de produção usa (rápido, não depende de rede pra funcionar). Isso aqui só
@@ -1995,6 +1985,10 @@ function renderTurnos(){
    ============================================================ */
 function renderOperadores(){
   const wrap = document.getElementById('lista-operadores');
+  if(!OPERADORES.length){
+    wrap.innerHTML = '<div class="busca-vazio show">Nenhum operador cadastrado ainda. Peça pro admin cadastrar em Configurações.</div>';
+    return;
+  }
   wrap.innerHTML = OPERADORES.map(o => `
     <button class="item-lista" data-operador="${o.nome}">
       <span class="avatar">${o.nome.charAt(0)}</span>
