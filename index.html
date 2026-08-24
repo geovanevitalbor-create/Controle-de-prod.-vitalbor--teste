@@ -1787,14 +1787,14 @@ async function carregarDadosIniciais(){
   if(erros.length){ console.error('[Supabase] erros ao carregar dados iniciais:', erros); throw erros[0]; }
 
   TURNOS.push(...(turnos||[]).map(t => ({id:t.id, nome:t.nome, horario:t.horario})));
-  OPERADORES.push(...(operadores||[]).map(o => ({nome:o.nome, turnoId:o.turno_id, matricula:o.matricula})));
+  OPERADORES.push(...(operadores||[]).map(o => ({_dbId:o.id, nome:o.nome, turnoId:o.turno_id, matricula:o.matricula})));
   MAQUINAS.push(...(maquinas||[]).map(m => m.nome));
   MATERIAIS.push(...(materiais||[]).map(m => m.nome));
   (motivos||[]).filter(m => m.categoria==='chamado').forEach(m => MOTIVOS_CHAMADO.push(m.texto));
   (motivos||[]).filter(m => m.categoria==='refugo').forEach(m => MOTIVOS_REFUGO.push(m.texto));
   (motivos||[]).filter(m => m.categoria==='parada').forEach(m => MOTIVOS_PARADA.push(m.texto));
   ORDENS.push(...(ordens||[]).map(o => ({
-    op:o.op, codigo:o.codigo, peca:o.peca, materiaPrima:o.materia_prima,
+    _dbId:o.id, op:o.op, codigo:o.codigo, peca:o.peca, materiaPrima:o.materia_prima,
     cavidades:o.cavidades, metaHora:o.meta_hora, qtdTotal:o.qtd_total,
     qtdRestante:o.qtd_restante, status:o.status
   })));
@@ -3117,21 +3117,27 @@ function renderConfigMateriais(){
   wrap.querySelectorAll('[data-remover-material]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const i = Number(btn.getAttribute('data-remover-material'));
-      pedirConfirmacao(`Remover "${MATERIAIS[i]}" da lista de materiais?`, ()=>{
+      const nomeMaterial = MATERIAIS[i];
+      pedirConfirmacao(`Remover "${nomeMaterial}" da lista de materiais?`, async ()=>{
+        const { error } = await db.from('materiais').delete().eq('nome', nomeMaterial);
+        if(error){ toast('Erro ao remover do banco: ' + error.message); console.error('[Supabase]', error); return; }
         MATERIAIS.splice(i,1);
         renderConfigMateriais();
       });
     });
   });
 }
-document.getElementById('btn-config-add-material').addEventListener('click', ()=>{
+document.getElementById('btn-config-add-material').addEventListener('click', async ()=>{
   const input = document.getElementById('config-novo-material');
   const valor = input.value.trim();
   if(!valor) return;
   if(MATERIAIS.includes(valor)){ toast('Esse material já está na lista.'); return; }
+  const { error } = await db.from('materiais').insert({ nome: valor });
+  if(error){ toast('Erro ao salvar no banco: ' + error.message); console.error('[Supabase]', error); return; }
   MATERIAIS.push(valor);
   input.value = '';
   renderConfigMateriais();
+  toast('Material adicionado.');
 });
 
 document.getElementById('btn-config-salvar-intervalo').addEventListener('click', ()=>{
@@ -3144,9 +3150,9 @@ document.getElementById('btn-config-salvar-intervalo').addEventListener('click',
 function renderConfiguracoes(){
   renderConfigMaquinas();
   renderConfigMateriais();
-  renderConfigListaGenerica(MOTIVOS_CHAMADO, 'config-lista-motivo-chamado');
-  renderConfigListaGenerica(MOTIVOS_REFUGO, 'config-lista-motivo-refugo');
-  renderConfigListaGenerica(MOTIVOS_PARADA, 'config-lista-motivo-parada');
+  renderConfigListaGenerica(MOTIVOS_CHAMADO, 'config-lista-motivo-chamado', 'chamado');
+  renderConfigListaGenerica(MOTIVOS_REFUGO, 'config-lista-motivo-refugo', 'refugo');
+  renderConfigListaGenerica(MOTIVOS_PARADA, 'config-lista-motivo-parada', 'parada');
   document.getElementById('config-intervalo-apontamento').value = INTERVALO_APONTAMENTO_MIN;
 }
 document.querySelectorAll('.config-subtab').forEach(btn=>{
@@ -3160,7 +3166,7 @@ document.querySelectorAll('.config-subtab').forEach(btn=>{
 // função genérica reaproveitável pras 3 listas de motivo — evita repetir o mesmo código 3 vezes.
 // "Outro" nunca aparece removível: é o gatilho que libera o campo de texto livre nos formulários
 // que usam essas listas, removê-lo quebraria esse mecanismo em vários lugares do app.
-function renderConfigListaGenerica(array, wrapId){
+function renderConfigListaGenerica(array, wrapId, categoria){
   const wrap = document.getElementById(wrapId);
   wrap.innerHTML = array.map((item,i) => `
     <div class="item-config">
@@ -3172,27 +3178,39 @@ function renderConfigListaGenerica(array, wrapId){
   wrap.querySelectorAll('[data-remover-idx]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const i = Number(btn.getAttribute('data-remover-idx'));
-      pedirConfirmacao(`Remover "${array[i]}" da lista?`, ()=>{
+      const texto = array[i];
+      pedirConfirmacao(`Remover "${texto}" da lista?`, async ()=>{
+        const { error } = await db.from('motivos').delete().eq('categoria', categoria).eq('texto', texto);
+        if(error){ toast('Erro ao remover do banco: ' + error.message); console.error('[Supabase]', error); return; }
         array.splice(i,1);
-        renderConfigListaGenerica(array, wrapId);
+        renderConfigListaGenerica(array, wrapId, categoria);
       });
     });
   });
 }
-function wireConfigAddGenerica(array, inputId, btnId, wrapId){
-  document.getElementById(btnId).addEventListener('click', ()=>{
+function wireConfigAddGenerica(array, inputId, btnId, wrapId, categoria){
+  document.getElementById(btnId).addEventListener('click', async ()=>{
     const input = document.getElementById(inputId);
     const valor = input.value.trim();
     if(!valor) return;
     if(array.includes(valor)){ toast('Esse item já está na lista.'); return; }
+    // "Outro" precisa continuar sendo o de MAIOR ordem — busco o ordem dele agora, uso esse
+    // valor pro item novo, e empurro o Outro pra ordem+1 (garante a ordem certa mesmo depois
+    // de recarregar a página, não só nesta sessão em memória)
+    const { data: outroAtual, error: e1 } = await db.from('motivos').select('id,ordem').eq('categoria',categoria).eq('texto','Outro').single();
+    if(e1){ toast('Erro ao consultar o banco: ' + e1.message); console.error('[Supabase]', e1); return; }
+    const { error: e2 } = await db.from('motivos').insert({ categoria, texto: valor, ordem: outroAtual.ordem, fixo:false });
+    if(e2){ toast('Erro ao salvar no banco: ' + e2.message); console.error('[Supabase]', e2); return; }
+    await db.from('motivos').update({ ordem: outroAtual.ordem + 1 }).eq('id', outroAtual.id);
     array.splice(array.length - 1, 0, valor); // entra sempre ANTES do "Outro", que fica fixo no fim
     input.value = '';
-    renderConfigListaGenerica(array, wrapId);
+    renderConfigListaGenerica(array, wrapId, categoria);
+    toast('Motivo adicionado.');
   });
 }
-wireConfigAddGenerica(MOTIVOS_CHAMADO, 'config-novo-motivo-chamado', 'btn-config-add-motivo-chamado', 'config-lista-motivo-chamado');
-wireConfigAddGenerica(MOTIVOS_REFUGO, 'config-novo-motivo-refugo', 'btn-config-add-motivo-refugo', 'config-lista-motivo-refugo');
-wireConfigAddGenerica(MOTIVOS_PARADA, 'config-novo-motivo-parada', 'btn-config-add-motivo-parada', 'config-lista-motivo-parada');
+wireConfigAddGenerica(MOTIVOS_CHAMADO, 'config-novo-motivo-chamado', 'btn-config-add-motivo-chamado', 'config-lista-motivo-chamado', 'chamado');
+wireConfigAddGenerica(MOTIVOS_REFUGO, 'config-novo-motivo-refugo', 'btn-config-add-motivo-refugo', 'config-lista-motivo-refugo', 'refugo');
+wireConfigAddGenerica(MOTIVOS_PARADA, 'config-novo-motivo-parada', 'btn-config-add-motivo-parada', 'config-lista-motivo-parada', 'parada');
 
 document.getElementById('btn-config-salvar-senha').addEventListener('click', ()=>{
   const valor = document.getElementById('config-nova-senha').value.trim();
@@ -3513,22 +3531,42 @@ function abrirFormAdmin(tipo, index){
 
 document.getElementById('btn-admin-form-cancelar').addEventListener('click', ()=> toggleModal('modal-admin-form', false));
 
-document.getElementById('btn-admin-form-salvar').addEventListener('click', ()=>{
+document.getElementById('btn-admin-form-salvar').addEventListener('click', async ()=>{
+  const btnSalvar = document.getElementById('btn-admin-form-salvar');
   if(secaoAdminAtiva === 'operadores'){
     const nome = document.getElementById('admin-campo-nome').value.trim();
     if(!nome){ document.getElementById('admin-form-aviso').classList.add('show'); return; }
-    const dadosOperador = { nome, turnoId: adminOperadorTurnoId, matricula: document.getElementById('admin-campo-matricula').value.trim() };
-    if(adminEditandoIndex===null) OPERADORES.push(dadosOperador); else OPERADORES[adminEditandoIndex] = dadosOperador;
+    const matricula = document.getElementById('admin-campo-matricula').value.trim();
+    btnSalvar.disabled = true;
+    if(adminEditandoIndex===null){
+      const { data, error } = await db.from('operadores').insert({ nome, turno_id: adminOperadorTurnoId, matricula: matricula || null }).select().single();
+      btnSalvar.disabled = false;
+      if(error){ toast('Erro ao salvar operador: ' + error.message); console.error('[Supabase]', error); return; }
+      OPERADORES.push({ _dbId:data.id, nome, turnoId: adminOperadorTurnoId, matricula });
+    } else {
+      const alvo = OPERADORES[adminEditandoIndex];
+      const { error } = await db.from('operadores').update({ nome, turno_id: adminOperadorTurnoId, matricula: matricula || null }).eq('id', alvo._dbId);
+      btnSalvar.disabled = false;
+      if(error){ toast('Erro ao salvar operador: ' + error.message); console.error('[Supabase]', error); return; }
+      alvo.nome = nome; alvo.turnoId = adminOperadorTurnoId; alvo.matricula = matricula;
+    }
   } else if(secaoAdminAtiva === 'turnos'){
     const nome = document.getElementById('admin-campo-nome').value.trim();
     const horario = document.getElementById('admin-campo-horario').value.trim();
     if(!nome || !horario){ document.getElementById('admin-form-aviso').classList.add('show'); return; }
+    btnSalvar.disabled = true;
     if(adminEditandoIndex===null){
       const novoId = TURNOS.length ? Math.max(...TURNOS.map(t=>t.id)) + 1 : 1;
+      const { error } = await db.from('turnos').insert({ id: novoId, nome, horario });
+      btnSalvar.disabled = false;
+      if(error){ toast('Erro ao salvar turno: ' + error.message); console.error('[Supabase]', error); return; }
       TURNOS.push({ id: novoId, nome, horario });
     } else {
-      TURNOS[adminEditandoIndex].nome = nome;
-      TURNOS[adminEditandoIndex].horario = horario;
+      const alvo = TURNOS[adminEditandoIndex];
+      const { error } = await db.from('turnos').update({ nome, horario }).eq('id', alvo.id);
+      btnSalvar.disabled = false;
+      if(error){ toast('Erro ao salvar turno: ' + error.message); console.error('[Supabase]', error); return; }
+      alvo.nome = nome; alvo.horario = horario;
     }
   } else if(secaoAdminAtiva === 'ops'){
     const op = document.getElementById('admin-campo-op').value.trim();
@@ -3539,16 +3577,27 @@ document.getElementById('btn-admin-form-salvar').addEventListener('click', ()=>{
     // saldo real que já vinha decrementando com as caixas fechadas — mudar o total cadastrado
     // não deve zerar o progresso que já rolou.
     const qtdRestanteAtual = adminEditandoIndex!==null ? ORDENS[adminEditandoIndex].qtdRestante : qtdTotal;
-    const dados = {
-      op, peca,
-      codigo: document.getElementById('admin-campo-codigo').value.trim(),
-      materiaPrima: document.getElementById('admin-campo-materia').value.trim(),
-      cavidades: parseInt(document.getElementById('admin-campo-cavidades').value, 10) || 1,
-      qtdTotal, qtdRestante: qtdRestanteAtual,
-      metaHora: parseInt(document.getElementById('admin-campo-meta').value, 10) || 0,
-      status: adminOpStatus
+    const codigo = document.getElementById('admin-campo-codigo').value.trim();
+    const materiaPrima = document.getElementById('admin-campo-materia').value.trim();
+    const cavidades = parseInt(document.getElementById('admin-campo-cavidades').value, 10) || 1;
+    const metaHora = parseInt(document.getElementById('admin-campo-meta').value, 10) || 0;
+    const linhaBanco = {
+      op, codigo, peca, materia_prima: materiaPrima, cavidades,
+      qtd_total: qtdTotal, qtd_restante: qtdRestanteAtual, meta_hora: metaHora, status: adminOpStatus
     };
-    if(adminEditandoIndex===null) ORDENS.push(dados); else ORDENS[adminEditandoIndex] = dados;
+    btnSalvar.disabled = true;
+    if(adminEditandoIndex===null){
+      const { data, error } = await db.from('ordens_producao').insert(linhaBanco).select().single();
+      btnSalvar.disabled = false;
+      if(error){ toast('Erro ao salvar OP: ' + error.message); console.error('[Supabase]', error); return; }
+      ORDENS.push({ _dbId:data.id, op, codigo, peca, materiaPrima, cavidades, qtdTotal, qtdRestante:qtdRestanteAtual, metaHora, status:adminOpStatus });
+    } else {
+      const alvo = ORDENS[adminEditandoIndex];
+      const { error } = await db.from('ordens_producao').update(linhaBanco).eq('id', alvo._dbId);
+      btnSalvar.disabled = false;
+      if(error){ toast('Erro ao salvar OP: ' + error.message); console.error('[Supabase]', error); return; }
+      Object.assign(alvo, { op, codigo, peca, materiaPrima, cavidades, qtdTotal, qtdRestante:qtdRestanteAtual, metaHora, status:adminOpStatus });
+    }
   }
   toggleModal('modal-admin-form', false);
   renderListaOperadores();
@@ -3562,9 +3611,18 @@ document.getElementById('btn-admin-form-salvar').addEventListener('click', ()=>{
 
 function excluirItemAdmin(tipo, index){
   const nomeItem = tipo === 'operadores' ? OPERADORES[index].nome : (ORDENS[index].op + ' · ' + ORDENS[index].peca);
-  pedirConfirmacao(`Excluir "${nomeItem}"? Isso não pode ser desfeito.`, ()=>{
-    if(tipo === 'operadores') OPERADORES.splice(index, 1);
-    else if(tipo === 'ops') ORDENS.splice(index, 1);
+  pedirConfirmacao(`Excluir "${nomeItem}"? Isso não pode ser desfeito.`, async ()=>{
+    if(tipo === 'operadores'){
+      const alvo = OPERADORES[index];
+      const { error } = await db.from('operadores').delete().eq('id', alvo._dbId);
+      if(error){ toast('Erro ao excluir: ' + error.message); console.error('[Supabase]', error); return; }
+      OPERADORES.splice(index, 1);
+    } else if(tipo === 'ops'){
+      const alvo = ORDENS[index];
+      const { error } = await db.from('ordens_producao').delete().eq('id', alvo._dbId);
+      if(error){ toast('Erro ao excluir: ' + error.message); console.error('[Supabase]', error); return; }
+      ORDENS.splice(index, 1);
+    }
     renderListaOperadores();
     renderListaOps();
     renderDashboard();
