@@ -5963,7 +5963,7 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
           sd.somaRefugo += refugoPct; sd.contRefugo++;
           sd.temApontamento++;
           const nivel = classificarDesempenho(pct).nivel;
-          html += `<td class="heatmap-celula nivel-${nivel}" data-anotar="${m}|${t.id}|${dia}">${pct}%</td>`;
+          html += `<td class="heatmap-celula nivel-${nivel}" data-anotar="${m}|${t.id}|${dia}" title="Refugo: ${Math.round(refugoPct*10)/10}% · ${c.sessoesValidas.length>1?c.sessoesValidas.length+' sessões (OPs) neste turno':'1 sessão'}">${pct}%</td>`;
         } else if(c && c.temApontamentoInvalido){
           // ESTADO 3 do manual: apontou, mas sem meta válida pra calcular desempenho.
           // Conta como "tem apontamento" (não é parada), mas não entra na soma/média.
@@ -5972,7 +5972,7 @@ function renderizarMapaCalor(dataInicio, dataFim, celulas, anotacoesMap){
         } else if(anot){
           html += `<td class="heatmap-celula anotada ${anot.tipo}" data-anotar="${m}|${t.id}|${dia}" title="${anot.nota||''}">${anot.tipo==='manutencao'?'M':'Parada'}</td>`;
         } else {
-          html += `<td class="heatmap-celula vazia" data-anotar="${m}|${t.id}|${dia}">·</td>`;
+          html += `<td class="heatmap-celula vazia" data-anotar="${m}|${t.id}|${dia}" title="Clique pra marcar Parada ou Manutenção">·</td>`;
         }
       });
     });
