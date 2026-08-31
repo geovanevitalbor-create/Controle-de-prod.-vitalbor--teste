@@ -2,7 +2,11 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#020817">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Terminal de Produção — Vitalbor</title>
 <!--
   TERMINAL DE PRODUÇÃO — VITALBOR
@@ -99,7 +103,12 @@
   input,textarea{font-family:inherit;color:inherit;}
   .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
 
-  .app{position:relative;width:100%;height:100vh;overflow:hidden;}
+  .app{position:relative;width:100%;height:100vh;height:100dvh;overflow:hidden;}
+  /* 100dvh acima descarta 100vh em navegador que suporta (a maioria hoje) — no tablet
+     fixo isso evita a barra de endereço do Chrome cortar um pedaço da tela ou sobrar
+     scroll fantasma. Fully Kiosk / PWA standalone escondem a barra por completo; isso
+     aqui garante que funcione bem mesmo se rodar num Chrome comum enquanto isso não é
+     configurado. */
 
   /* ---------- Screen system ---------- */
   .screen{
@@ -1023,8 +1032,32 @@
     .grid-modo{grid-template-columns:1fr;}
     #screen-op-confirm .conteudo{flex-direction:column;}
     .imagem-peca{width:100%;height:9rem;}
-    .cards-row{grid-template-columns:1fr;}
-    .acoes-row{grid-template-columns:1fr;}
+    .prod-body{padding:1.1rem 1.1rem 1.4rem;gap:1.1rem;}
+    .enc-scroll{padding:0 1.1rem 1rem;}
+    .enc-screen-pad .back-row{padding:1.2rem 1.1rem .8rem;}
+    .secao-card{padding:1rem 1.1rem;margin-bottom:.9rem;}
+    .cards-row{grid-template-columns:1fr;gap:.7rem;}
+    .card-metric{padding:1rem 1.1rem;}
+    .card-grafico{padding:1.1rem 1.2rem;}
+    #screen-producao .card-grafico{margin-bottom:0;}
+    /* Os 3 botões de ação foram desenhados como cartão largo (ícone + título + descrição)
+       pensando numa tela ampla, onde cada um divide a linha com os outros dois. Num tablet
+       estreito e vertical, empilhar os 3 cartões inteiros (like era antes) cobre mais da
+       metade da tela só de botão — o operador teria que rolar pra achar "Encerrar Turno".
+       Aqui eles continuam em LINHA (3 colunas), só que compactos: sem a descrição, ícone
+       menor, texto centralizado. Ainda ≥44px de alvo de toque (WCAG), com folga real pra
+       dedo com luva. */
+    .acoes-row{grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin-top:0;}
+    .btn-acao{
+      padding:.85rem .5rem;align-items:center;text-align:center;gap:.4rem;
+      min-height:5.6rem;justify-content:center;
+    }
+    .btn-acao .icone{width:2.3rem;height:2.3rem;border-radius:.65rem;}
+    .btn-acao .icone svg{width:1.2rem;height:1.2rem;}
+    .btn-acao .rotulo{font-size:.86rem;line-height:1.15;}
+    .btn-acao .desc{display:none;}
+    .badge-pendente{top:.4rem;right:.4rem;padding:.15rem .4rem;font-size:.6rem;}
+    .btn-encerrar-full{padding:.9rem;font-size:.95rem;}
     #cronometro{font-size:2.3rem;}
     .prod-header{grid-template-columns:1fr;padding:1.2rem 1.3rem;gap:1.4rem;}
     .prod-peca{text-align:center;padding-bottom:.2rem;border-bottom:1px solid var(--border);}
