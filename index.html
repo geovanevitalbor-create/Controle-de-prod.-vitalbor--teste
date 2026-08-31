@@ -494,6 +494,15 @@
   .modal-sheet-largo{max-width:min(96vw,64rem);border-radius:1.6rem;margin-top:auto;margin-bottom:auto;max-height:94vh;}
   .modal-sheet-largo .grade-2col{display:grid;grid-template-columns:1fr 1fr;gap:0 2.2rem;}
   @media (max-width:900px){ .modal-sheet-largo .grade-2col{grid-template-columns:1fr;} }
+  /* tela de encerramento (não é mais modal — usa a viewport inteira, igual as outras telas
+     do fluxo). Cabeçalho fixo, meio rolável, botões fixos embaixo — sempre visíveis, sem
+     precisar rolar até o fim pra encontrar "Encerrar turno". */
+  .enc-screen-pad{padding:0;display:flex;flex-direction:column;height:100%;}
+  .enc-screen-pad .back-row{padding:1.8rem 2.4rem 1rem;flex-shrink:0;}
+  .enc-scroll{flex:1;overflow-y:auto;padding:0 2.4rem 1.2rem;}
+  .enc-scroll .grade-2col{display:grid;grid-template-columns:1fr 1fr;gap:0 2.2rem;}
+  @media (max-width:900px){ .enc-scroll .grade-2col{grid-template-columns:1fr;} }
+  .enc-botoes-fixos{flex-shrink:0;padding:1.1rem 2.4rem;background:var(--card-bg-navy);border-top:1px solid var(--border);margin:0;}
   /* modal de pausa pro jantar pisca azul o tempo todo que estiver aberto (reforça visualmente a pausa) */
   #modal-pausa-jantar .modal-sheet{animation:subir .18s ease, piscar-azul 2.2s ease-in-out infinite;}
   @keyframes subir{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
@@ -4011,11 +4020,16 @@ var qrcode = function() {
   </div>
 
   <!-- ===================== MODAL: FINALIZAR PRODUÇÃO (ENCERRAR TURNO) ===================== -->
-  <div class="modal-overlay" id="modal-encerramento">
-    <div class="modal-sheet modal-sheet-largo">
-      <div class="modal-titulo">Finalizar produção</div>
-      <div class="modal-sub">Mesmas perguntas do formulário Controle de Produção — confira antes de encerrar.</div>
-
+  <section class="screen" id="screen-encerramento">
+    <div class="screen-pad enc-screen-pad">
+      <div class="back-row">
+        <button class="btn-back" id="btn-enc-voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <div>
+          <div class="eyebrow">Finalizar produção</div>
+          <div class="title-lg">Confira antes de encerrar</div>
+        </div>
+      </div>
+      <div class="enc-scroll">
       <div class="grade-2col">
         <div>
           <div class="secao-card">
@@ -4099,14 +4113,14 @@ var qrcode = function() {
           </div>
         </div>
       </div>
-
       <div class="aviso-inline" id="enc-aviso">Preencha todos os campos obrigatórios (*) antes de encerrar.</div>
-      <div class="linha-botoes-modal">
+      </div>
+      <div class="linha-botoes-modal enc-botoes-fixos">
         <button class="btn-secundario" id="btn-enc-cancelar">Cancelar</button>
         <button class="btn-confirmar" id="btn-enc-confirmar">Encerrar turno</button>
       </div>
     </div>
-  </div>
+  </section>
 
   <!-- ===================== MODAL: RESUMO DO TURNO ===================== -->
   <div class="modal-overlay" id="modal-resumo-turno">
@@ -5022,7 +5036,7 @@ function abrirFormularioEncerramento(){
   renderToggle2('toggle-liberacao1', OPCOES_LIBERACAO, null, (v)=>{ liberacao1Valor = v; document.getElementById('enc-aviso').classList.remove('show'); });
   renderToggle2('toggle-liberacao2', OPCOES_LIBERACAO, null, (v)=>{ liberacao2Valor = v; document.getElementById('enc-aviso').classList.remove('show'); });
 
-  toggleModal('modal-encerramento', true);
+  showScreen('screen-encerramento');
 }
 
 function atualizarQtdPecasCalc(){
@@ -5126,7 +5140,8 @@ document.getElementById('enc-campo-refugo-arame').addEventListener('click', ()=>
   });
 });
 
-document.getElementById('btn-enc-cancelar').addEventListener('click', ()=> toggleModal('modal-encerramento', false));
+document.getElementById('btn-enc-cancelar').addEventListener('click', ()=> showScreen('screen-producao'));
+document.getElementById('btn-enc-voltar').addEventListener('click', ()=> showScreen('screen-producao'));
 
 document.getElementById('btn-enc-confirmar').addEventListener('click', ()=>{
   // valida TUDO que é obrigatório, e diz especificamente qual campo falta — não só um
@@ -5160,7 +5175,6 @@ document.getElementById('btn-enc-confirmar').addEventListener('click', ()=>{
     duracaoMs: Date.now() - state.inicioMs, totalProduzido: state.totalProduzido, caixasFechadas: state.caixasFechadas,
     timestamp: Date.now() // pra "última atividade" na tela de máquinas
   };
-  toggleModal('modal-encerramento', false);
   // libera a trava (deixa a OP/operador disponíveis pra outro tablet de novo) e grava o
   // resumo permanente — não trava a tela esperando isso, o operador já vê o resumo na hora
   liberarProducaoAtiva();
