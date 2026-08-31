@@ -384,19 +384,19 @@
   .cards-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;}
   .card-metric{
     background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-lg);
-    padding:1.2rem 1.4rem;box-shadow:var(--elev-1);
+    padding:1.2rem 1.4rem;box-shadow:var(--elev-1);min-width:0;
   }
   .card-metric .lbl{font-size:.85rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);}
-  .card-metric .valor{font-size:2.3rem;font-weight:800;margin-top:.4rem;}
+  .card-metric .valor{font-size:clamp(1.5rem,7vw,2.3rem);font-weight:800;margin-top:.4rem;white-space:nowrap;}
   .card-metric.destaque .valor{color:var(--accent-hi);}
   .card-metric .sub{font-size:.92rem;color:var(--text-dim);margin-top:.25rem;}
 
   .btn-lapis{
-    width:2.1rem;height:2.1rem;border-radius:var(--radius-admin-sm);flex-shrink:0;
+    width:3rem;height:3rem;min-width:48px;min-height:48px;border-radius:var(--radius-admin-sm);flex-shrink:0;
     display:flex;align-items:center;justify-content:center;
     background:transparent;border:1px solid var(--border-hi);color:var(--text-dim);
   }
-  .btn-lapis svg{width:.95rem;height:.95rem;}
+  .btn-lapis svg{width:1.1rem;height:1.1rem;}
   .btn-lapis:active{background:var(--accent-soft);color:var(--accent-hi);border-color:var(--accent);}
 
   .acoes-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.1rem;margin-top:auto;}
@@ -915,7 +915,7 @@
   .campo-texto::placeholder{color:var(--text-faint);}
   .chips-motivo{display:flex;flex-direction:column;gap:.6rem;margin-bottom:1rem;}
   .chips-motivo.compacto{flex-direction:row;flex-wrap:wrap;gap:.55rem;}
-  .chips-motivo.compacto .chip-motivo{padding:.7rem 1.05rem;font-size:1rem;}
+  .chips-motivo.compacto .chip-motivo{padding:.7rem 1.05rem;font-size:1rem;min-height:48px;}
   .chips-motivo.compacto .chip-motivo .marca{display:none;}
   .chip-motivo{
     text-align:left;padding:1.05rem 1.15rem;border-radius:var(--radius-md);font-size:1.05rem;
@@ -955,7 +955,7 @@
   .tecla:active{background:var(--bg-card-hi);}
   .tecla.apagar{color:var(--danger);}
   .keypad-modo-toggle{display:flex;gap:.5rem;margin-bottom:.8rem;}
-  .keypad-modo-btn{flex:1;padding:.6rem 0;border-radius:var(--radius-md);background:var(--bg-card);border:1px solid var(--border);color:var(--text-dim);font-weight:700;font-size:.95rem;}
+  .keypad-modo-btn{flex:1;min-height:48px;padding:.6rem 0;border-radius:var(--radius-md);background:var(--bg-card);border:1px solid var(--border);color:var(--text-dim);font-weight:700;font-size:.95rem;}
   .keypad-modo-btn.ativo{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-hi);}
   .keypad-grid-letras{display:grid;grid-template-columns:repeat(6,1fr);gap:.5rem;margin-bottom:1rem;}
   .keypad-grid-letras .tecla{padding:.85rem 0;font-size:1.2rem;}
@@ -3515,10 +3515,10 @@ var qrcode = function() {
 
     <div class="status-strip" id="status-strip">
       <div class="status-strip-linha1">
-        <span><b id="status-turno">—</b></span>
+        <span style="overflow:hidden"><b id="status-turno" style="white-space:nowrap">—</b></span>
         <span class="sep"></span>
-        <span><b id="status-operador">—</b></span>
-        <span class="status-strip-pct" id="progresso-op-pct">0%</span>
+        <span style="overflow:hidden;min-width:0"><b id="status-operador" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">—</b></span>
+        <span class="status-strip-pct" id="progresso-op-pct" style="flex-shrink:0">0%</span>
       </div>
       <div class="barra-progresso-trilho"><div class="barra-progresso-fill" id="barra-progresso-saldo" style="width:0%"></div></div>
     </div>
