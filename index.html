@@ -83,7 +83,7 @@
     --card-bg-navy:linear-gradient(160deg,#152742,var(--bg-navy));
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;}
-  html{font-size:17px;height:100%;}
+  html{font-size:18.5px;height:100%;}
   body{
     height:100%;
     background:
@@ -189,45 +189,45 @@
   .tile-modo-sub{font-size:.85rem;color:var(--text-dim);}
   .card-turno{
     background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-lg);
-    padding:2rem 1.4rem;text-align:left;transition:border-color .12s ease, background .12s ease, box-shadow .12s ease;
+    padding:2.1rem 1.5rem;text-align:left;transition:border-color .12s ease, background .12s ease, box-shadow .12s ease;
     box-shadow:var(--elev-1);
   }
   .card-turno:active{background:var(--bg-card-hi);border-color:var(--border-hi);box-shadow:none;}
   .card-turno .num-turno{font-size:2.6rem;font-weight:800;color:var(--accent);}
-  .card-turno .nome-turno{font-size:1.05rem;font-weight:700;margin-top:.3rem;}
-  .card-turno .horario-turno{font-size:.85rem;color:var(--text-dim);margin-top:.25rem;}
+  .card-turno .nome-turno{font-size:1.3rem;font-weight:700;margin-top:.35rem;}
+  .card-turno .horario-turno{font-size:1.05rem;color:var(--text-dim);margin-top:.3rem;}
 
-  .lista{display:flex;flex-direction:column;gap:.7rem;overflow-y:auto;flex:1;padding-bottom:1rem;}
+  .lista{display:flex;flex-direction:column;gap:.8rem;overflow-y:auto;flex:1;padding-bottom:1rem;}
   .campo-busca{position:relative;display:flex;align-items:center;margin-bottom:1rem;flex-shrink:0;}
-  .campo-busca svg{position:absolute;left:1rem;width:1.1rem;height:1.1rem;color:var(--text-faint);pointer-events:none;}
+  .campo-busca svg{position:absolute;left:1rem;width:1.2rem;height:1.2rem;color:var(--text-faint);pointer-events:none;}
   .campo-busca input{
-    width:100%;padding:.95rem 1rem .95rem 2.8rem;border-radius:var(--radius-md);
-    background:var(--bg-card);border:1px solid var(--border);color:var(--text);font-size:1rem;
+    width:100%;padding:1.1rem 1rem 1.1rem 2.9rem;border-radius:var(--radius-md);
+    background:var(--bg-card);border:1px solid var(--border);color:var(--text);font-size:1.15rem;
     -webkit-appearance:none;
   }
   .campo-busca input::-webkit-search-cancel-button{-webkit-appearance:none;}
   .campo-busca input:focus{outline:none;border-color:var(--accent);}
   .campo-busca input::placeholder{color:var(--text-faint);}
-  .busca-vazio{display:none;color:var(--text-dim);text-align:center;padding:2.2rem 0;font-size:.92rem;}
+  .busca-vazio{display:none;color:var(--text-dim);text-align:center;padding:2.2rem 0;font-size:1.05rem;}
   .busca-vazio.show{display:block;}
   .item-lista{
     display:flex;align-items:center;justify-content:space-between;gap:1rem;
     background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-md);
-    padding:1.15rem 1.4rem;text-align:left;box-shadow:var(--elev-1);
+    padding:1.35rem 1.5rem;text-align:left;box-shadow:var(--elev-1);
   }
   .item-lista:active{background:var(--bg-card-hi);border-color:var(--border-hi);}
   .item-lista .avatar{
-    width:2.6rem;height:2.6rem;border-radius:50%;background:var(--accent-soft);color:var(--accent-hi);
-    display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;
+    width:3rem;height:3rem;border-radius:50%;background:var(--accent-soft);color:var(--accent-hi);
+    display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;font-size:1.1rem;
   }
-  .item-lista .nome-op{font-weight:700;font-size:1.05rem;}
+  .item-lista .nome-op{font-weight:700;font-size:1.22rem;}
   .item-lista .chev{color:var(--text-faint);flex-shrink:0;}
-  .item-lista .chev svg{width:1.1rem;height:1.1rem;}
+  .item-lista .chev svg{width:1.3rem;height:1.3rem;}
 
-  .item-op{display:flex;flex-direction:column;flex:1;gap:.55rem;min-width:0;}
+  .item-op{display:flex;flex-direction:column;flex:1;gap:.6rem;min-width:0;}
   .item-op .linha1{display:flex;align-items:center;gap:.6rem;}
   .tag-op{
-    font-size:1.05rem;font-weight:800;letter-spacing:.03em;color:var(--accent-hi);
+    font-size:1.2rem;font-weight:800;letter-spacing:.03em;color:var(--accent-hi);
     background:var(--accent-soft);padding:.35rem .7rem;border-radius:8px;
   }
   .item-op .peca-nome{font-weight:800;font-size:1.14rem;line-height:1.25;}
@@ -264,8 +264,8 @@
   .stat-op.destaque .stat-val{color:var(--accent-hi);font-size:1.7rem;}
 
   .btn-primario{
-    padding:1.05rem 1.6rem;border-radius:var(--radius-md);
-    background:linear-gradient(155deg,var(--accent-hi),var(--accent));color:#150C05;font-size:1.05rem;font-weight:800;
+    padding:1.25rem 1.6rem;border-radius:var(--radius-md);
+    background:linear-gradient(155deg,var(--accent-hi),var(--accent));color:#150C05;font-size:1.2rem;font-weight:800;
     display:flex;align-items:center;justify-content:center;gap:.5rem;
     box-shadow:0 10px 24px -8px rgba(255,122,46,.5);
     transition:transform .1s ease, box-shadow .1s ease;
@@ -349,23 +349,23 @@
     padding:.7rem 2.4rem .85rem;background:var(--bg-navy);border-bottom:1px solid var(--border);
     display:flex;flex-direction:column;gap:.5rem;
   }
-  .status-strip-linha1{display:flex;align-items:center;gap:1.4rem;font-size:.85rem;color:var(--text-dim);}
+  .status-strip-linha1{display:flex;align-items:center;gap:1.4rem;font-size:1rem;color:var(--text-dim);}
   .status-strip b{color:var(--text);font-weight:700;}
   .status-strip .sep{width:3px;height:3px;border-radius:50%;background:var(--text-faint);}
-  .status-strip-pct{margin-left:auto;font-weight:800;color:var(--accent-hi);font-size:.95rem;}
-  .cronometro-wrap{display:flex;flex-direction:column;align-items:center;gap:.2rem;justify-self:center;}
+  .status-strip-pct{margin-left:auto;font-weight:800;color:var(--accent-hi);font-size:1.1rem;}
+  .cronometro-wrap{display:flex;flex-direction:column;align-items:center;gap:.25rem;justify-self:center;}
   .cronometro-wrap .lbl{
-    font-size:.68rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--text-faint);
-    display:flex;align-items:center;gap:.35rem;
+    font-size:.8rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-faint);
+    display:flex;align-items:center;gap:.4rem;
   }
   .badge-desempenho{
-    display:inline-flex;align-items:center;gap:.45rem;
-    padding:.3rem .75rem;border-radius:100px;font-size:.78rem;font-weight:700;
+    display:inline-flex;align-items:center;gap:.5rem;
+    padding:.4rem .9rem;border-radius:100px;font-size:.95rem;font-weight:700;
     background:var(--bg-card);border:1px solid var(--border);color:var(--text-dim);
     transition:background .3s ease,border-color .3s ease,color .3s ease;
-    margin-top:.35rem;
+    margin-top:.4rem;
   }
-  .badge-desempenho-dot{width:.45rem;height:.45rem;border-radius:50%;background:var(--text-faint);flex-shrink:0;}
+  .badge-desempenho-dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--text-faint);flex-shrink:0;}
   .badge-desempenho.vermelho{background:rgba(255,77,94,.1);border-color:var(--danger);color:var(--danger);}
   .badge-desempenho.vermelho .badge-desempenho-dot{background:var(--danger);}
   .badge-desempenho.amarelo{background:var(--warning-soft);border-color:var(--warning);color:var(--warning);}
@@ -386,10 +386,10 @@
     background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-lg);
     padding:1.2rem 1.4rem;box-shadow:var(--elev-1);
   }
-  .card-metric .lbl{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);}
-  .card-metric .valor{font-size:2rem;font-weight:800;margin-top:.35rem;}
+  .card-metric .lbl{font-size:.85rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);}
+  .card-metric .valor{font-size:2.3rem;font-weight:800;margin-top:.4rem;}
   .card-metric.destaque .valor{color:var(--accent-hi);}
-  .card-metric .sub{font-size:.78rem;color:var(--text-dim);margin-top:.2rem;}
+  .card-metric .sub{font-size:.92rem;color:var(--text-dim);margin-top:.25rem;}
 
   .btn-lapis{
     width:2.1rem;height:2.1rem;border-radius:var(--radius-admin-sm);flex-shrink:0;
@@ -403,18 +403,18 @@
   .btn-acao{
     position:relative;
     border-radius:var(--radius-lg);
-    padding:1.5rem 1.2rem;
+    padding:1.7rem 1.3rem;
     display:flex;flex-direction:column;align-items:flex-start;gap:.7rem;
     text-align:left;box-shadow:var(--elev-1);
     transition:transform .1s ease, box-shadow .1s ease;
   }
   .btn-acao:active{transform:scale(.98);box-shadow:none;}
   .btn-acao .icone{
-    width:2.6rem;height:2.6rem;border-radius:.8rem;display:flex;align-items:center;justify-content:center;
+    width:3.1rem;height:3.1rem;border-radius:.8rem;display:flex;align-items:center;justify-content:center;
   }
-  .btn-acao .icone svg{width:1.35rem;height:1.35rem;}
-  .btn-acao .rotulo{font-size:1.08rem;font-weight:800;}
-  .btn-acao .desc{font-size:.78rem;color:var(--text-dim);font-weight:500;}
+  .btn-acao .icone svg{width:1.6rem;height:1.6rem;}
+  .btn-acao .rotulo{font-size:1.28rem;font-weight:800;}
+  .btn-acao .desc{font-size:.92rem;color:var(--text-dim);font-weight:500;}
   .btn-fechar-caixa{background:var(--card-bg);border:1px solid var(--border);}
   .btn-fechar-caixa .icone{background:var(--success-soft);color:var(--success);}
   .btn-chamar{background:var(--card-bg);border:1px solid var(--border);}
@@ -539,10 +539,10 @@
 
   .campo-numero-grande{
     background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);
-    padding:1rem 1.2rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;
+    padding:1.15rem 1.3rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;
   }
-  .campo-numero-grande .lbl{font-size:.82rem;font-weight:700;color:var(--text-dim);}
-  .campo-numero-grande .valor{font-size:1.6rem;font-weight:800;}
+  .campo-numero-grande .lbl{font-size:.98rem;font-weight:700;color:var(--text-dim);}
+  .campo-numero-grande .valor{font-size:1.9rem;font-weight:800;}
   .campo-numero-grande.tocavel{border-color:var(--border-hi);}
   .campo-numero-grande.injetadas{background:var(--success-soft);border-color:var(--success);}
   .campo-numero-grande.injetadas .lbl{color:var(--success);opacity:.85;}
@@ -569,12 +569,12 @@
   }
   .link-cancelar-central:active{color:var(--text-dim);}
   .btn-secundario{
-    padding:1rem;border-radius:var(--radius-md);background:var(--bg-card);border:1px solid var(--border);
-    font-weight:700;color:var(--text-dim);
+    padding:1.15rem;border-radius:var(--radius-md);background:var(--bg-card);border:1px solid var(--border);
+    font-weight:700;font-size:1.05rem;color:var(--text-dim);
   }
   .btn-secundario:active{background:var(--bg-card-hi);}
   .btn-confirmar{
-    padding:1rem;border-radius:var(--radius-md);background:linear-gradient(155deg,var(--accent-hi),var(--accent));color:#150C05;font-weight:800;
+    padding:1.15rem;border-radius:var(--radius-md);background:linear-gradient(155deg,var(--accent-hi),var(--accent));color:#150C05;font-weight:800;font-size:1.05rem;
     box-shadow:0 8px 20px -8px rgba(255,122,46,.5);transition:transform .1s ease;
   }
   .btn-confirmar:active{transform:scale(.98);}
@@ -868,7 +868,7 @@
   .barra-meta-fill{height:100%;border-radius:0;background:var(--accent);}
   .barra-meta-marcador{position:absolute;top:-.2rem;bottom:-.2rem;width:2px;background:var(--text);}
 
-  .campo-label{display:block;font-size:.78rem;font-weight:700;color:var(--text-dim);margin-bottom:.4rem;}
+  .campo-label{display:block;font-size:.92rem;font-weight:700;color:var(--text-dim);margin-bottom:.45rem;}
 
   .lista-admin{display:flex;flex-direction:column;gap:.7rem;}
   .item-admin{
@@ -897,23 +897,23 @@
   }
   .secao-titulo:first-of-type{padding-top:0;border-top:none;}
   .campo-texto{
-    width:100%;padding:.95rem 1.1rem;border-radius:var(--radius-md);
-    background:var(--bg-card);border:1px solid var(--border);color:var(--text);font-size:1rem;
+    width:100%;padding:1.05rem 1.15rem;border-radius:var(--radius-md);
+    background:var(--bg-card);border:1px solid var(--border);color:var(--text);font-size:1.1rem;
     margin-bottom:.9rem;
   }
   .campo-texto:focus{outline:none;border-color:var(--accent);}
   .campo-texto::placeholder{color:var(--text-faint);}
   .chips-motivo{display:flex;flex-direction:column;gap:.6rem;margin-bottom:1rem;}
   .chips-motivo.compacto{flex-direction:row;flex-wrap:wrap;gap:.55rem;}
-  .chips-motivo.compacto .chip-motivo{padding:.6rem .95rem;font-size:.85rem;}
+  .chips-motivo.compacto .chip-motivo{padding:.7rem 1.05rem;font-size:1rem;}
   .chips-motivo.compacto .chip-motivo .marca{display:none;}
   .chip-motivo{
-    text-align:left;padding:.95rem 1.1rem;border-radius:var(--radius-md);
+    text-align:left;padding:1.05rem 1.15rem;border-radius:var(--radius-md);font-size:1.05rem;
     background:var(--bg-card);border:1px solid var(--border);font-weight:600;
     display:flex;align-items:center;justify-content:space-between;
   }
   .chip-motivo.sel{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-hi);}
-  .chip-motivo .marca{width:1.2rem;height:1.2rem;border-radius:50%;border:2px solid var(--border-hi);flex-shrink:0;}
+  .chip-motivo .marca{width:1.3rem;height:1.3rem;border-radius:50%;border:2px solid var(--border-hi);flex-shrink:0;}
   .chip-motivo.sel .marca{border-color:var(--accent);background:var(--accent);}
   /* status da OP: cor própria por estado, independente da cor de seleção padrão (laranja) */
   .chip-motivo.status-aberta.sel{border-color:var(--success);background:var(--success-soft);color:var(--success);}
@@ -932,15 +932,15 @@
   }
   textarea.campo-outro.show{display:block;}
 
-  /* teclado numérico */
+  /* teclado numérico — aumentado pra facilitar acerto de quem tem menos precisão no toque */
   .keypad-display{
-    text-align:center;font-size:3rem;font-weight:800;padding:1.2rem 0;margin-bottom:1rem;
+    text-align:center;font-size:3.2rem;font-weight:800;padding:1.3rem 0;margin-bottom:1rem;
     background:var(--bg-card);border-radius:var(--radius-md);border:1px solid var(--border);
   }
-  .keypad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;margin-bottom:1rem;}
+  .keypad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;margin-bottom:1rem;}
   .tecla{
-    padding:1.1rem 0;border-radius:var(--radius-md);background:var(--bg-card);border:1px solid var(--border);
-    font-size:1.4rem;font-weight:700;
+    padding:1.8rem 0;border-radius:var(--radius-md);background:var(--bg-card);border:1px solid var(--border);
+    font-size:2.1rem;font-weight:700;
   }
   .tecla:active{background:var(--bg-card-hi);}
   .tecla.apagar{color:var(--danger);}
@@ -3995,11 +3995,11 @@ var qrcode = function() {
       <div class="secao-titulo">Produção</div>
       <div class="linha-refugo-injetadas">
         <button class="campo-numero-grande injetadas tocavel" id="enc-campo-injetadas">
-          <span class="lbl">Injetadas (total)</span>
+          <span class="lbl">Injetadas (total) *</span>
           <span class="valor num" id="enc-injetadas-valor">0</span>
         </button>
         <button class="campo-numero-grande tocavel" id="enc-campo-cavidades">
-          <span class="lbl">Nº de cavidades</span>
+          <span class="lbl">Nº de cavidades *</span>
           <span class="valor num" id="enc-cavidades-valor">0</span>
         </button>
       </div>
@@ -4008,15 +4008,15 @@ var qrcode = function() {
         <span class="valor num" id="enc-qtdpecas-calc">0</span>
       </div>
       <button class="campo-numero-grande refugo tocavel" id="enc-campo-refugo" style="width:100%;margin-bottom:.9rem">
-        <span class="lbl">Refugo (total)</span>
+        <span class="lbl">Refugo (total) *</span>
         <span class="valor num" id="enc-refugo-valor">0</span>
       </button>
-      <div class="eyebrow" style="margin-bottom:.6rem">Motivo do refugo</div>
+      <div class="eyebrow" style="margin-bottom:.6rem">Motivo do refugo *</div>
       <div class="chips-motivo compacto" id="lista-motivo-refugo"></div>
       <textarea class="campo-outro" id="enc-motivo-refugo-outro" placeholder="Descreva o motivo..."></textarea>
 
       <div class="secao-titulo">Matéria-prima</div>
-      <div class="eyebrow" style="margin-bottom:.6rem">Material</div>
+      <div class="eyebrow" style="margin-bottom:.6rem">Material *</div>
       <div class="chips-motivo compacto" id="lista-material"></div>
       <div class="linha-refugo-injetadas">
         <div class="campo-numero-grande">
@@ -4030,41 +4030,38 @@ var qrcode = function() {
       </div>
       <div class="linha-refugo-injetadas">
         <button class="campo-numero-grande tocavel" id="enc-campo-peso-mp">
-          <span class="lbl">Peso M.P. utilizada (kg)</span>
+          <span class="lbl">Peso M.P. utilizada (kg) *</span>
           <span class="valor num" id="enc-peso-mp-valor">0</span>
         </button>
         <button class="campo-numero-grande tocavel" id="enc-campo-peso-sobra">
-          <span class="lbl">Peso sobra M.P. (kg)</span>
+          <span class="lbl">Peso sobra M.P. (kg) *</span>
           <span class="valor num" id="enc-peso-sobra-valor">0</span>
         </button>
       </div>
       <button class="campo-numero-grande refugo tocavel" id="enc-campo-refugo-arame" style="width:100%;margin-bottom:.5rem">
-        <span class="lbl">Refugo de arame</span>
+        <span class="lbl">Refugo de arame *</span>
         <span class="valor num" id="enc-refugo-arame-valor">0</span>
       </button>
 
       <div class="secao-titulo">Turno e qualidade</div>
-      <div class="eyebrow" style="margin-bottom:.6rem">Máquina</div>
-      <div class="campo-numero-grande" style="margin-bottom:1.1rem">
-        <span class="lbl">Escolhida no início da produção</span>
-        <span class="valor" id="enc-maquina-display">—</span>
-      </div>
+      <div class="eyebrow" style="margin-bottom:.6rem">Máquina *</div>
+      <div class="chips-motivo compacto" id="enc-lista-maquina"></div>
 
-      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Houve hora extra?</div>
+      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Houve hora extra? *</div>
       <div class="toggle-simnao" id="toggle-hora-extra"></div>
       <textarea class="campo-outro" id="enc-hora-extra-detalhe" placeholder="Quanto tempo de hora extra?"></textarea>
 
-      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Houve parada de máquina?</div>
+      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Houve parada de máquina? *</div>
       <div class="chips-motivo compacto" id="lista-motivo-parada"></div>
       <textarea class="campo-outro" id="enc-parada-detalhe" placeholder="Descreva o motivo..."></textarea>
 
-      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Liberação 1 — início de turno</div>
+      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Liberação 1 — início de turno *</div>
       <div class="toggle-simnao empilhado" id="toggle-liberacao1"></div>
 
-      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Liberação 2 — fim de turno</div>
+      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Liberação 2 — fim de turno *</div>
       <div class="toggle-simnao empilhado" id="toggle-liberacao2"></div>
 
-      <div class="aviso-inline" id="enc-aviso">Preencha as duas liberações antes de encerrar.</div>
+      <div class="aviso-inline" id="enc-aviso">Preencha todos os campos obrigatórios (*) antes de encerrar.</div>
       <div class="linha-botoes-modal">
         <button class="btn-secundario" id="btn-enc-cancelar">Cancelar</button>
         <button class="btn-confirmar" id="btn-enc-confirmar">Encerrar turno</button>
@@ -4421,6 +4418,7 @@ let finalizarAposFecharCaixa = false; // true quando "Encerrar Turno" abriu o fe
 let encInjetadas = 0, encRefugo = 0, encCavidades = 0;
 let materialSelecionado = null, motivoRefugoSelecionado = 'Sem Refugo', motivoParadaSelecionado = 'Não houve parada';
 let liberacao1Valor = null, liberacao2Valor = null;
+let encMaquinaSelecionada = null;
 let pesoMP = 0, pesoSobraMP = 0, refugoArame = 0;
 
 /* ============================================================
@@ -4956,9 +4954,16 @@ function abrirFormularioEncerramento(){
   document.getElementById('enc-refugo-arame-valor').textContent = '0';
   document.getElementById('enc-lote-mp-display').textContent = state.loteMP || '—';
   document.getElementById('enc-lote-arame-display').textContent = state.loteArame || '—';
-  document.getElementById('enc-maquina-display').textContent = state.maquina || '—';
   document.getElementById('enc-aviso').classList.remove('show');
   atualizarQtdPecasCalc();
+
+  // máquina agora é editável aqui — pode ter mudado desde o início da produção. Vem
+  // pré-selecionada com a que estava sendo usada, mas o operador pode trocar se precisar.
+  encMaquinaSelecionada = state.maquina;
+  renderChipsComOutro('enc-lista-maquina', MAQUINAS, null, encMaquinaSelecionada, (v)=>{
+    encMaquinaSelecionada = v;
+    document.getElementById('enc-aviso').classList.remove('show');
+  });
 
   renderMaterial();
   renderMotivoRefugo();
@@ -5080,13 +5085,28 @@ document.getElementById('enc-campo-refugo-arame').addEventListener('click', ()=>
 document.getElementById('btn-enc-cancelar').addEventListener('click', ()=> toggleModal('modal-encerramento', false));
 
 document.getElementById('btn-enc-confirmar').addEventListener('click', ()=>{
-  if(!liberacao1Valor || !liberacao2Valor){
-    document.getElementById('enc-aviso').classList.add('show');
+  // valida TUDO que é obrigatório, e diz especificamente qual campo falta — não só um
+  // aviso genérico. Refugo/Peso sobra/Refugo de arame podem legitimamente ficar em 0
+  // (turno sem problema é bom), então não exijo valor > 0 neles — só que a máquina, o
+  // motivo do refugo (se teve refugo) e o resto realmente preenchido estejam corretos.
+  const aviso = document.getElementById('enc-aviso');
+  let faltando = null;
+  if(encInjetadas <= 0) faltando = 'Informe a quantidade de injetadas.';
+  else if(encCavidades <= 0) faltando = 'Informe o número de cavidades.';
+  else if(!materialSelecionado) faltando = 'Selecione o material.';
+  else if(encRefugo > 0 && motivoRefugoSelecionado === 'Sem Refugo') faltando = 'Teve refugo — selecione o motivo do refugo.';
+  else if(pesoMP <= 0) faltando = 'Informe o peso de matéria-prima utilizada.';
+  else if(!encMaquinaSelecionada) faltando = 'Selecione a máquina.';
+  else if(!liberacao1Valor) faltando = 'Preencha a Liberação 1.';
+  else if(!liberacao2Valor) faltando = 'Preencha a Liberação 2.';
+  if(faltando){
+    aviso.textContent = faltando;
+    aviso.classList.add('show');
     return;
   }
   const resumo = {
     op: state.op.op, peca: state.op.peca, turno: state.turno.nome, operador: state.operador,
-    injetadas: encInjetadas, refugo: encRefugo, cavidades: encCavidades, maquina: state.maquina,
+    injetadas: encInjetadas, refugo: encRefugo, cavidades: encCavidades, maquina: encMaquinaSelecionada,
     qtdPecas: encInjetadas * encCavidades, motivoRefugo: motivoRefugoSelecionado,
     motivoRefugoDetalhe: document.getElementById('enc-motivo-refugo-outro').value.trim(),
     material: materialSelecionado, loteMP: state.loteMP, loteArame: state.loteArame, pesoMP, pesoSobraMP, refugoArame,
