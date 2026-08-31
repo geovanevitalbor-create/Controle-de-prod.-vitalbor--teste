@@ -488,6 +488,12 @@
     animation:subir .18s ease;
   }
   .modal-sheet.centro{border-radius:1.6rem;margin-bottom:auto;margin-top:auto;}
+  /* variante larga — só pro formulário de encerramento, que tem campo demais pra caber
+     numa coluna estreita sem ficar uma rolagem infinita. Usa quase a tela toda, com os
+     campos organizados em 2 colunas lado a lado em vez de empilhados. */
+  .modal-sheet-largo{max-width:min(96vw,64rem);border-radius:1.6rem;margin-top:auto;margin-bottom:auto;max-height:94vh;}
+  .modal-sheet-largo .grade-2col{display:grid;grid-template-columns:1fr 1fr;gap:0 2.2rem;}
+  @media (max-width:900px){ .modal-sheet-largo .grade-2col{grid-template-columns:1fr;} }
   /* modal de pausa pro jantar pisca azul o tempo todo que estiver aberto (reforça visualmente a pausa) */
   #modal-pausa-jantar .modal-sheet{animation:subir .18s ease, piscar-azul 2.2s ease-in-out infinite;}
   @keyframes subir{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
@@ -896,6 +902,10 @@
     padding-top:1.3rem;margin-bottom:1rem;border-top:1px solid var(--border);
   }
   .secao-titulo:first-of-type{padding-top:0;border-top:none;}
+  /* cada seção do formulário de encerramento vira um cartão próprio, ao invés de só um
+     título com linha em cima — ajuda a separar visualmente num formulário com bastante campo */
+  .secao-card{background:var(--bg-navy);border:1px solid var(--border);border-radius:var(--radius-md);padding:1.3rem 1.4rem;margin-bottom:1.3rem;}
+  .secao-card .secao-titulo{border-top:none;padding-top:0;}
   .campo-texto{
     width:100%;padding:1.05rem 1.15rem;border-radius:var(--radius-md);
     background:var(--bg-card);border:1px solid var(--border);color:var(--text);font-size:1.1rem;
@@ -944,6 +954,13 @@
   }
   .tecla:active{background:var(--bg-card-hi);}
   .tecla.apagar{color:var(--danger);}
+  .keypad-modo-toggle{display:flex;gap:.5rem;margin-bottom:.8rem;}
+  .keypad-modo-btn{flex:1;padding:.6rem 0;border-radius:var(--radius-md);background:var(--bg-card);border:1px solid var(--border);color:var(--text-dim);font-weight:700;font-size:.95rem;}
+  .keypad-modo-btn.ativo{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-hi);}
+  .keypad-grid-letras{display:grid;grid-template-columns:repeat(6,1fr);gap:.5rem;margin-bottom:1rem;}
+  .keypad-grid-letras .tecla{padding:.85rem 0;font-size:1.2rem;}
+  .keypad-grid-letras .tecla.espaco{grid-column:span 3;}
+  .keypad-grid-letras .tecla.apagar-letra{grid-column:span 3;color:var(--danger);}
 
   /* etiqueta — reproduz o modelo físico do cliente: fundo branco, texto preto, negrito,
      2 colunas, linhas em branco pra preenchimento manual (LIMP/QTDE), QR de verdade.
@@ -3803,10 +3820,16 @@ var qrcode = function() {
         <span class="lbl">Produção da caixa</span>
         <span class="valor num" id="fc-producao-calc">0</span>
       </div>
-      <label class="campo-label" for="fc-lote-mp">Lote da borracha (M.P.)</label>
-      <input type="text" class="campo-texto" id="fc-lote-mp" placeholder="Nº do lote" autocomplete="off">
-      <label class="campo-label" for="fc-lote-arame">Lote do arame</label>
-      <input type="text" class="campo-texto" id="fc-lote-arame" placeholder="Nº do lote (se aplicável)" autocomplete="off">
+      <label class="campo-label">Lote da borracha (M.P.)</label>
+      <button class="campo-numero-grande tocavel" id="fc-campo-lote-mp" style="width:100%;margin-bottom:.9rem">
+        <span class="lbl">Toque pra informar</span>
+        <span class="valor" id="fc-lote-mp-valor">—</span>
+      </button>
+      <label class="campo-label">Lote do arame</label>
+      <button class="campo-numero-grande tocavel" id="fc-campo-lote-arame" style="width:100%;margin-bottom:.9rem">
+        <span class="lbl">Toque pra informar (se aplicável)</span>
+        <span class="valor" id="fc-lote-arame-valor">—</span>
+      </button>
       <div class="aviso-inline" id="fc-aviso">Informe ao menos 1 injetada antes de fechar a caixa.</div>
       <div class="linha-botoes-modal">
         <button class="btn-secundario" id="btn-fc-cancelar">Cancelar</button>
@@ -3988,78 +4011,93 @@ var qrcode = function() {
 
   <!-- ===================== MODAL: FINALIZAR PRODUÇÃO (ENCERRAR TURNO) ===================== -->
   <div class="modal-overlay" id="modal-encerramento">
-    <div class="modal-sheet">
+    <div class="modal-sheet modal-sheet-largo">
       <div class="modal-titulo">Finalizar produção</div>
       <div class="modal-sub">Mesmas perguntas do formulário Controle de Produção — confira antes de encerrar.</div>
 
-      <div class="secao-titulo">Produção</div>
-      <div class="linha-refugo-injetadas">
-        <button class="campo-numero-grande injetadas tocavel" id="enc-campo-injetadas">
-          <span class="lbl">Injetadas (total) *</span>
-          <span class="valor num" id="enc-injetadas-valor">0</span>
-        </button>
-        <button class="campo-numero-grande tocavel" id="enc-campo-cavidades">
-          <span class="lbl">Nº de cavidades *</span>
-          <span class="valor num" id="enc-cavidades-valor">0</span>
-        </button>
-      </div>
-      <div class="resultado-calc" style="margin:0 0 .9rem">
-        <span class="lbl">Qtd. de peças (injetadas × cavidades)</span>
-        <span class="valor num" id="enc-qtdpecas-calc">0</span>
-      </div>
-      <button class="campo-numero-grande refugo tocavel" id="enc-campo-refugo" style="width:100%;margin-bottom:.9rem">
-        <span class="lbl">Refugo (total) *</span>
-        <span class="valor num" id="enc-refugo-valor">0</span>
-      </button>
-      <div class="eyebrow" style="margin-bottom:.6rem">Motivo do refugo *</div>
-      <div class="chips-motivo compacto" id="lista-motivo-refugo"></div>
-      <textarea class="campo-outro" id="enc-motivo-refugo-outro" placeholder="Descreva o motivo..."></textarea>
+      <div class="grade-2col">
+        <div>
+          <div class="secao-card">
+            <div class="secao-titulo">Produção</div>
+            <div class="linha-refugo-injetadas">
+              <button class="campo-numero-grande injetadas tocavel" id="enc-campo-injetadas">
+                <span class="lbl">Injetadas (total) *</span>
+                <span class="valor num" id="enc-injetadas-valor">0</span>
+              </button>
+              <button class="campo-numero-grande tocavel" id="enc-campo-cavidades">
+                <span class="lbl">Nº de cavidades *</span>
+                <span class="valor num" id="enc-cavidades-valor">0</span>
+              </button>
+            </div>
+            <div class="resultado-calc" style="margin:0 0 .9rem">
+              <span class="lbl">Qtd. de peças (injetadas × cavidades)</span>
+              <span class="valor num" id="enc-qtdpecas-calc">0</span>
+            </div>
+            <button class="campo-numero-grande refugo tocavel" id="enc-campo-refugo" style="width:100%;margin-bottom:.9rem">
+              <span class="lbl">Refugo (total) *</span>
+              <span class="valor num" id="enc-refugo-valor">0</span>
+            </button>
+            <div class="eyebrow" style="margin-bottom:.6rem">Motivo do refugo *</div>
+            <div class="chips-motivo compacto" id="lista-motivo-refugo"></div>
+            <textarea class="campo-outro" id="enc-motivo-refugo-outro" placeholder="Descreva o motivo..."></textarea>
+          </div>
 
-      <div class="secao-titulo">Matéria-prima</div>
-      <div class="eyebrow" style="margin-bottom:.6rem">Material *</div>
-      <div class="chips-motivo compacto" id="lista-material"></div>
-      <div class="linha-refugo-injetadas">
-        <div class="campo-numero-grande">
-          <span class="lbl">Lote M.P.</span>
-          <span class="valor" id="enc-lote-mp-display">—</span>
+          <div class="secao-card">
+            <div class="secao-titulo">Matéria-prima</div>
+            <div class="eyebrow" style="margin-bottom:.6rem">Material *</div>
+            <div class="chips-motivo compacto" id="lista-material"></div>
+            <div class="linha-refugo-injetadas">
+              <div class="campo-numero-grande">
+                <span class="lbl">Lote M.P.</span>
+                <span class="valor" id="enc-lote-mp-display">—</span>
+              </div>
+              <div class="campo-numero-grande">
+                <span class="lbl">Lote arame</span>
+                <span class="valor" id="enc-lote-arame-display">—</span>
+              </div>
+            </div>
+            <div class="linha-refugo-injetadas">
+              <button class="campo-numero-grande tocavel" id="enc-campo-peso-mp">
+                <span class="lbl">Peso M.P. utilizada (kg) *</span>
+                <span class="valor num" id="enc-peso-mp-valor">0</span>
+              </button>
+              <button class="campo-numero-grande tocavel" id="enc-campo-peso-sobra">
+                <span class="lbl">Peso sobra M.P. (kg) *</span>
+                <span class="valor num" id="enc-peso-sobra-valor">0</span>
+              </button>
+            </div>
+            <button class="campo-numero-grande refugo tocavel" id="enc-campo-refugo-arame" style="width:100%;margin-bottom:0">
+              <span class="lbl">Refugo de arame *</span>
+              <span class="valor num" id="enc-refugo-arame-valor">0</span>
+            </button>
+          </div>
         </div>
-        <div class="campo-numero-grande">
-          <span class="lbl">Lote arame</span>
-          <span class="valor" id="enc-lote-arame-display">—</span>
+
+        <div>
+          <div class="secao-card">
+            <div class="secao-titulo">Turno e qualidade</div>
+            <div class="eyebrow" style="margin-bottom:.6rem">Máquina *</div>
+            <div class="chips-motivo compacto" id="enc-lista-maquina"></div>
+
+            <div class="eyebrow" style="margin:1.1rem 0 .6rem">Houve hora extra? *</div>
+            <div class="toggle-simnao" id="toggle-hora-extra"></div>
+            <textarea class="campo-outro" id="enc-hora-extra-detalhe" placeholder="Quanto tempo de hora extra?"></textarea>
+
+            <div class="eyebrow" style="margin:1.1rem 0 .6rem">Houve parada de máquina? *</div>
+            <div class="chips-motivo compacto" id="lista-motivo-parada"></div>
+            <textarea class="campo-outro" id="enc-parada-detalhe" placeholder="Descreva o motivo..."></textarea>
+          </div>
+
+          <div class="secao-card">
+            <div class="secao-titulo">Liberações</div>
+            <div class="eyebrow" style="margin-bottom:.6rem">Liberação 1 — início de turno *</div>
+            <div class="toggle-simnao empilhado" id="toggle-liberacao1"></div>
+
+            <div class="eyebrow" style="margin:1.1rem 0 .6rem">Liberação 2 — fim de turno *</div>
+            <div class="toggle-simnao empilhado" id="toggle-liberacao2"></div>
+          </div>
         </div>
       </div>
-      <div class="linha-refugo-injetadas">
-        <button class="campo-numero-grande tocavel" id="enc-campo-peso-mp">
-          <span class="lbl">Peso M.P. utilizada (kg) *</span>
-          <span class="valor num" id="enc-peso-mp-valor">0</span>
-        </button>
-        <button class="campo-numero-grande tocavel" id="enc-campo-peso-sobra">
-          <span class="lbl">Peso sobra M.P. (kg) *</span>
-          <span class="valor num" id="enc-peso-sobra-valor">0</span>
-        </button>
-      </div>
-      <button class="campo-numero-grande refugo tocavel" id="enc-campo-refugo-arame" style="width:100%;margin-bottom:.5rem">
-        <span class="lbl">Refugo de arame *</span>
-        <span class="valor num" id="enc-refugo-arame-valor">0</span>
-      </button>
-
-      <div class="secao-titulo">Turno e qualidade</div>
-      <div class="eyebrow" style="margin-bottom:.6rem">Máquina *</div>
-      <div class="chips-motivo compacto" id="enc-lista-maquina"></div>
-
-      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Houve hora extra? *</div>
-      <div class="toggle-simnao" id="toggle-hora-extra"></div>
-      <textarea class="campo-outro" id="enc-hora-extra-detalhe" placeholder="Quanto tempo de hora extra?"></textarea>
-
-      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Houve parada de máquina? *</div>
-      <div class="chips-motivo compacto" id="lista-motivo-parada"></div>
-      <textarea class="campo-outro" id="enc-parada-detalhe" placeholder="Descreva o motivo..."></textarea>
-
-      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Liberação 1 — início de turno *</div>
-      <div class="toggle-simnao empilhado" id="toggle-liberacao1"></div>
-
-      <div class="eyebrow" style="margin:1.1rem 0 .6rem">Liberação 2 — fim de turno *</div>
-      <div class="toggle-simnao empilhado" id="toggle-liberacao2"></div>
 
       <div class="aviso-inline" id="enc-aviso">Preencha todos os campos obrigatórios (*) antes de encerrar.</div>
       <div class="linha-botoes-modal">
@@ -4083,7 +4121,11 @@ var qrcode = function() {
     <div class="modal-sheet centro">
       <div class="modal-titulo" id="keypad-titulo">Informar valor</div>
       <div class="keypad-display num" id="keypad-display">0</div>
-      <div class="keypad-grid">
+      <div class="keypad-modo-toggle" id="keypad-modo-toggle" style="display:none">
+        <button class="keypad-modo-btn ativo" data-modo="numeros">123</button>
+        <button class="keypad-modo-btn" data-modo="letras">ABC</button>
+      </div>
+      <div class="keypad-grid" id="keypad-grid-numeros">
         <button class="tecla" data-digito="1">1</button>
         <button class="tecla" data-digito="2">2</button>
         <button class="tecla" data-digito="3">3</button>
@@ -4097,6 +4139,7 @@ var qrcode = function() {
         <button class="tecla" data-digito="0">0</button>
         <button class="tecla apagar" id="btn-keypad-apagar">⌫</button>
       </div>
+      <div class="keypad-grid-letras" id="keypad-grid-letras" style="display:none"></div>
       <div class="linha-botoes-modal">
         <button class="btn-secundario" id="btn-keypad-cancelar">Cancelar</button>
         <button class="btn-confirmar" id="btn-keypad-confirmar">Confirmar</button>
@@ -5186,13 +5229,16 @@ document.getElementById('btn-resumo-ok').addEventListener('click', ()=>{
    FECHAR CAIXA
    ============================================================ */
 let fcRefugoAtual = 0;
+let fcLoteMP = '', fcLoteArame = '';
 
 document.getElementById('btn-fechar-caixa').addEventListener('click', ()=>{
   fcRefugoAtual = state.refugoCaixa; // pré-preenche com a soma do refugo já registrado nos lançamentos
   document.getElementById('fc-injetadas-valor').textContent = fmtInt(state.injetadasCaixa);
   document.getElementById('fc-refugo-valor').textContent = fmtInt(fcRefugoAtual);
-  document.getElementById('fc-lote-mp').value = state.loteMP || '';
-  document.getElementById('fc-lote-arame').value = state.loteArame || '';
+  fcLoteMP = state.loteMP || '';
+  fcLoteArame = state.loteArame || '';
+  document.getElementById('fc-lote-mp-valor').textContent = fcLoteMP || '—';
+  document.getElementById('fc-lote-arame-valor').textContent = fcLoteArame || '—';
   document.getElementById('fc-aviso').classList.remove('show');
   recalcularFechamento();
   toggleModal('modal-fechar-caixa', true);
@@ -5211,6 +5257,18 @@ document.getElementById('fc-campo-refugo').addEventListener('click', ()=>{
     document.getElementById('fc-refugo-valor').textContent = fmtInt(v);
     recalcularFechamento();
   });
+});
+document.getElementById('fc-campo-lote-mp').addEventListener('click', ()=>{
+  abrirKeypad('Lote da borracha (M.P.)', fcLoteMP, 0, (v)=>{
+    fcLoteMP = v;
+    document.getElementById('fc-lote-mp-valor').textContent = v || '—';
+  }, false, true, 'letras'); // permite letras, e já abre nesse modo (lote costuma ser alfanumérico)
+});
+document.getElementById('fc-campo-lote-arame').addEventListener('click', ()=>{
+  abrirKeypad('Lote do arame', fcLoteArame, 0, (v)=>{
+    fcLoteArame = v;
+    document.getElementById('fc-lote-arame-valor').textContent = v || '—';
+  }, false, true, 'letras');
 });
 
 function recalcularFechamento(){
@@ -5231,8 +5289,8 @@ document.getElementById('btn-fc-confirmar').addEventListener('click', ()=>{
   }
   // lote pode ter sido trocado nesta caixa (troca de bobina/rolo no meio do turno) — atualiza o
   // valor "corrente", que passa a valer pras próximas caixas até trocar de novo
-  state.loteMP = document.getElementById('fc-lote-mp').value.trim();
-  state.loteArame = document.getElementById('fc-lote-arame').value.trim();
+  state.loteMP = fcLoteMP.trim();
+  state.loteArame = fcLoteArame.trim();
 
   const producao = recalcularFechamento();
   state.totalProduzido += producao;
@@ -5415,12 +5473,19 @@ document.getElementById('btn-chamar-responsavel').addEventListener('contextmenu'
 /* ============================================================
    TECLADO NUMÉRICO (genérico) — permiteDecimal habilita a vírgula
    ============================================================ */
-function abrirKeypad(titulo, valorInicial, minimo, onConfirm, permiteDecimal){
-  const inicial = permiteDecimal ? String(valorInicial).replace('.', ',') : String(Math.round(valorInicial));
-  keypad = { valor:inicial, min:minimo, onConfirm, decimal:!!permiteDecimal, primeiroToque:true };
+function abrirKeypad(titulo, valorInicial, minimo, onConfirm, permiteDecimal, permiteLetras, modoInicial){
+  // valorInicial pode ser string (campo de letra, tipo lote) ou número (campo numérico normal)
+  const inicial = permiteDecimal ? String(valorInicial).replace('.', ',')
+    : (typeof valorInicial === 'string' ? valorInicial : String(Math.round(valorInicial)));
+  const modo = (permiteLetras && modoInicial === 'letras') ? 'letras' : 'numeros';
+  keypad = { valor:inicial, min:minimo, onConfirm, decimal:!!permiteDecimal, primeiroToque:true, modo };
   document.getElementById('keypad-titulo').textContent = titulo;
   document.getElementById('keypad-display').textContent = keypad.valor;
   document.getElementById('btn-keypad-virgula').style.opacity = keypad.decimal ? '1' : '.3';
+  document.getElementById('keypad-modo-toggle').style.display = permiteLetras ? 'flex' : 'none';
+  document.querySelectorAll('.keypad-modo-btn').forEach(b=> b.classList.toggle('ativo', b.getAttribute('data-modo')===modo));
+  document.getElementById('keypad-grid-numeros').style.display = modo==='numeros' ? 'grid' : 'none';
+  document.getElementById('keypad-grid-letras').style.display = modo==='letras' ? 'grid' : 'none';
   toggleModal('modal-keypad', true);
 }
 document.querySelectorAll('.tecla[data-digito]').forEach(btn=>{
@@ -5429,7 +5494,7 @@ document.querySelectorAll('.tecla[data-digito]').forEach(btn=>{
     // primeiro toque sempre substitui o valor pré-preenchido, em vez de grudar dígito nele
     keypad.valor = (keypad.primeiroToque || keypad.valor === '0') ? d : (keypad.valor + d);
     keypad.primeiroToque = false;
-    if(keypad.valor.length > 7) keypad.valor = keypad.valor.slice(0,7);
+    if(keypad.valor.length > 12) keypad.valor = keypad.valor.slice(0,12);
     document.getElementById('keypad-display').textContent = keypad.valor;
   });
 });
@@ -5446,10 +5511,54 @@ document.getElementById('btn-keypad-apagar').addEventListener('click', ()=>{
 });
 document.getElementById('btn-keypad-cancelar').addEventListener('click', ()=> toggleModal('modal-keypad', false));
 document.getElementById('btn-keypad-confirmar').addEventListener('click', ()=>{
+  if(keypad.modo === 'letras'){
+    if(typeof keypad.onConfirm === 'function') keypad.onConfirm(keypad.valor);
+    toggleModal('modal-keypad', false);
+    return;
+  }
   let v = keypad.decimal ? parseFloat(keypad.valor.replace(',', '.')) : parseInt(keypad.valor, 10);
   if(isNaN(v) || v < keypad.min) v = keypad.min;
   if(typeof keypad.onConfirm === 'function') keypad.onConfirm(v);
   toggleModal('modal-keypad', false);
+});
+
+// modo letras — grade alfabética (não QWERTY: mais fácil de achar a letra pra quem não
+// tem costume de teclado) gerada uma vez só, reaproveitada em todo campo que permite letra
+(function montarGradeLetras(){
+  const grade = document.getElementById('keypad-grid-letras');
+  const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  let html = letras.map(l => `<button class="tecla" data-letra="${l}">${l}</button>`).join('');
+  html += `<button class="tecla espaco" id="btn-keypad-espaco">espaço</button>`;
+  html += `<button class="tecla apagar apagar-letra" id="btn-keypad-apagar-letra">⌫ apagar</button>`;
+  grade.innerHTML = html;
+  grade.querySelectorAll('[data-letra]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const l = btn.getAttribute('data-letra');
+      keypad.valor = (keypad.primeiroToque || keypad.valor === '0') ? l : (keypad.valor + l);
+      keypad.primeiroToque = false;
+      if(keypad.valor.length > 20) keypad.valor = keypad.valor.slice(0,20);
+      document.getElementById('keypad-display').textContent = keypad.valor;
+    });
+  });
+  document.getElementById('btn-keypad-espaco').addEventListener('click', ()=>{
+    keypad.valor = (keypad.primeiroToque || keypad.valor === '0') ? ' ' : (keypad.valor + ' ');
+    keypad.primeiroToque = false;
+    document.getElementById('keypad-display').textContent = keypad.valor;
+  });
+  document.getElementById('btn-keypad-apagar-letra').addEventListener('click', ()=>{
+    keypad.valor = keypad.valor.slice(0,-1) || '';
+    keypad.primeiroToque = false;
+    document.getElementById('keypad-display').textContent = keypad.valor;
+  });
+})();
+document.querySelectorAll('.keypad-modo-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const modo = btn.getAttribute('data-modo');
+    keypad.modo = modo;
+    document.querySelectorAll('.keypad-modo-btn').forEach(b=> b.classList.toggle('ativo', b===btn));
+    document.getElementById('keypad-grid-numeros').style.display = modo==='numeros' ? 'grid' : 'none';
+    document.getElementById('keypad-grid-letras').style.display = modo==='letras' ? 'grid' : 'none';
+  });
 });
 
 /* ============================================================
