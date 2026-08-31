@@ -278,9 +278,9 @@
     background:linear-gradient(180deg,var(--bg-card-hi),var(--bg-navy));
     border-bottom:1px solid var(--border);
     padding:1.6rem 2.4rem 1.4rem;
-    display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:1.6rem;
+    display:grid;grid-template-columns:minmax(8rem,1fr) auto minmax(8rem,1fr);align-items:center;gap:1.6rem;
   }
-  .prod-peca{min-width:0;}
+  .prod-peca{min-width:0;overflow:hidden;}
   .prod-peca .tag-op{margin-bottom:.4rem;display:inline-block;}
   .prod-peca .nome{font-size:1.35rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
@@ -324,7 +324,7 @@
   }
 
   /* cavidades (editável) + meta/h (informativa) lado a lado, à direita do header */
-  .chips-direita{display:flex;align-items:stretch;gap:.7rem;justify-self:end;}
+  .chips-direita{display:flex;align-items:stretch;gap:.7rem;justify-self:end;flex-wrap:wrap;justify-content:flex-end;}
   .chip-metrica{
     display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:.3rem;
     border-radius:var(--radius-md);padding:.75rem 1.05rem;min-width:5.2rem;
