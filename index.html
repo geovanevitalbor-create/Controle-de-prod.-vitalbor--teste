@@ -6128,9 +6128,22 @@ function wireConfigAddGenerica(array, inputId, btnId, wrapId, categoria){
     if(array.includes(valor)){ toast('Esse item já está na lista.'); return; }
     // "Outro" precisa continuar sendo o de MAIOR ordem — busco o ordem dele agora, uso esse
     // valor pro item novo, e empurro o Outro pra ordem+1 (garante a ordem certa mesmo depois
-    // de recarregar a página, não só nesta sessão em memória)
-    const { data: outroAtual, error: e1 } = await db.from('motivos').select('id,ordem').eq('categoria',categoria).eq('texto','Outro').single();
+    // de recarregar a página, não só nesta sessão em memória).
+    // maybeSingle (não single): se essa categoria nunca foi semeada com "Outro" no banco,
+    // single() reprovava com "Cannot coerce the result to a single JSON object" e travava
+    // TODO cadastro pra sempre, sem explicação nenhuma pro usuário — agora cria o "Outro"
+    // que estava faltando e segue em frente.
+    const { data: outroBusca, error: e1 } = await db.from('motivos').select('id,ordem').eq('categoria',categoria).eq('texto','Outro').maybeSingle();
     if(e1){ toast('Erro ao consultar o banco: ' + e1.message); console.error('[Supabase]', e1); return; }
+    let outroAtual = outroBusca;
+    if(!outroAtual){
+      const ordemInicial = array.length; // sem "Outro" ainda: isso é a contagem dos itens reais já existentes
+      const { data: outroCriado, error: eCriar } = await db.from('motivos')
+        .insert({ categoria, texto:'Outro', ordem: ordemInicial, fixo:true }).select('id,ordem').single();
+      if(eCriar){ toast('Erro ao preparar categoria: ' + eCriar.message); console.error('[Supabase]', eCriar); return; }
+      outroAtual = outroCriado;
+      array.push('Outro');
+    }
     const { error: e2 } = await db.from('motivos').insert({ categoria, texto: valor, ordem: outroAtual.ordem, fixo:false });
     if(e2){ toast('Erro ao salvar no banco: ' + e2.message); console.error('[Supabase]', e2); return; }
     await db.from('motivos').update({ ordem: outroAtual.ordem + 1 }).eq('id', outroAtual.id);
