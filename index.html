@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#020817">
+<meta name="theme-color" content="#121212">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -38,35 +38,44 @@
     font-display:swap;
   }
   :root{
-    /* paleta atualizada pra bater com o manual de design system oficial da Vitalbor */
-    --bg-void:#020817;
-    --bg-navy:#07111F;
-    --bg-card:#0B1628;
-    --bg-card-hi:#0F1B31;
-    --border:#213652;
-    --border-hi:#31527C;
-    --accent:#FF8A24;
-    --accent-hi:#FF9F43;
-    --accent-soft:rgba(255,138,36,.14);
-    --success:#20D6A0;
-    --success-soft:rgba(32,214,160,.14);
-    --danger:#FF5C68;
-    --danger-soft:rgba(255,92,104,.16);
-    --warning:#FFB547;
-    --warning-soft:rgba(255,181,71,.14);
+    /* paleta oficial da Juntas Universal (cliente) aplicada como "pele" — o Vitalbor
+       continua sendo o produto por baixo; a marca índigo original foi preservada de
+       propósito (ver --azul-vitalbor* abaixo e a tela inicial). Contrastes recalculados
+       manualmente com a fórmula WCAG oficial — o cartão de marca da Juntas Universal
+       errou a conta em 2 dos 3 números de acessibilidade que anuncia, então não usei
+       os valores dele de olho fechado. */
+    --bg-void:#121212; /* mesmo fundo que a Juntas Universal usou pra testar contraste */
+    --bg-navy:#181818;
+    --bg-card:#202020;
+    --bg-card-hi:#2B2B2B; /* = "Cinza Escuro" oficial da paleta */
+    --border:#363636;
+    --border-hi:#4A4A4A;
+    --accent:#00833E; /* Verde Principal oficial */
+    --accent-hi:#26A65B; /* tom 400 da escala oficial deles — passo mais claro pra hover/degradê */
+    --accent-soft:rgba(0,131,62,.14);
+    --success:#16A34A; /* Sucesso oficial — ΔE 15.4 do Verde Principal, dá pra diferenciar lado a lado */
+    --success-soft:rgba(22,163,74,.14);
+    --danger:#DC2626; /* Erro oficial */
+    --danger-soft:rgba(220,38,38,.16);
+    --warning:#FBBF24; /* Aviso oficial */
+    --warning-soft:rgba(251,191,36,.14);
     --roxo:#A78BFA;
     --roxo-soft:rgba(167,139,250,.16);
-    --azul:#4C9AFF;
-    --azul-soft:rgba(76,154,255,.16);
+    --azul:#2563EB; /* "Informação" oficial */
+    --azul-soft:rgba(37,99,235,.16);
     /* "Azul Vitalbor" — cor de marca própria (vem do degradê real da logo, índigo/roxo-azulado),
-       diferente do --azul funcional acima (que é o tom "info" mais claro/genérico) */
+       diferente do --azul funcional acima (que é o tom "info" mais claro/genérico). Mantida por
+       decisão explícita: o Vitalbor continua existindo por baixo da pele verde do cliente. Ainda
+       é reaproveitada como cor funcional em 2 lugares que não são "marca" de fato (status de
+       manutenção da máquina, linha "média" do heatmap) — não mexi nisso porque trocar é decisão
+       de arquitetura da informação, não de paleta visual. */
     --azul-vitalbor:#5B57D9;
     --azul-vitalbor-hi:#6366F1; /* stop do degradê — só pra FUNDO (com texto claro por cima), não pra texto */
     --azul-vitalbor-texto:#8985F7; /* variante clara seguramente usável como texto/ícone (6.1:1 sobre bg-navy) */
     --azul-vitalbor-soft:rgba(91,87,217,.16);
-    --text:#F3F7FC;
-    --text-dim:#8CA2C4;
-    --text-faint:#7691B8; /* era #4C6284 — reprovava contraste WCAG AA (2.6:1); agora ~5:1 */
+    --text:#F5F5F5;
+    --text-dim:#B8B8B8;
+    --text-faint:#8A8A8A; /* 5.4:1 sobre #121212 — mesma margem de segurança que o tom anterior (~5:1) */
     --radius-lg:22px;
     --radius-md:14px;
     --radius-sm:10px;
@@ -83,15 +92,15 @@
     --elev-1:0 2px 8px -2px rgba(0,0,0,.45);
     --elev-2:0 10px 24px -6px rgba(0,0,0,.5);
     --elev-3:0 20px 45px -10px rgba(0,0,0,.55);
-    --card-bg:linear-gradient(160deg,#162942,var(--bg-card)); /* stop claro calibrado (não o --bg-card-hi cheio) pra não furar contraste de 4.5:1 do text-faint nos rótulos */
-    --card-bg-navy:linear-gradient(160deg,#152742,var(--bg-navy));
+    --card-bg:linear-gradient(160deg,#242424,var(--bg-card)); /* stop claro calibrado (não o --bg-card-hi cheio) pra não furar contraste de 4.5:1 do text-faint nos rótulos */
+    --card-bg-navy:linear-gradient(160deg,#202020,var(--bg-navy));
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;}
   html{font-size:18.5px;height:100%;}
   body{
     height:100%;
     background:
-      radial-gradient(1200px 600px at 15% -10%, rgba(255,122,46,.08), transparent 60%),
+      radial-gradient(1200px 600px at 15% -10%, rgba(0,131,62,.08), transparent 60%),
       radial-gradient(900px 500px at 110% 10%, rgba(46,150,213,.07), transparent 55%),
       var(--bg-void);
     color:var(--text);
@@ -165,8 +174,8 @@
   .brandmark .sub{font-size:2.1rem;font-weight:800;letter-spacing:-.01em;}
   .btn-iniciar{
     padding:1.35rem 5rem;border-radius:100px;
-    background:var(--accent);color:#150C05;font-size:1.35rem;font-weight:800;letter-spacing:.02em;
-    box-shadow:0 16px 34px -10px rgba(255,122,46,.55);
+    background:var(--accent);color:#FFFFFF;font-size:1.35rem;font-weight:800;letter-spacing:.02em;
+    box-shadow:0 16px 34px -10px rgba(0,131,62,.55);
     transition:transform .12s ease;
   }
   .btn-iniciar:active{transform:scale(.97);}
@@ -274,12 +283,12 @@
 
   .btn-primario{
     padding:1.25rem 1.6rem;border-radius:var(--radius-md);
-    background:linear-gradient(155deg,var(--accent-hi),var(--accent));color:#150C05;font-size:1.2rem;font-weight:800;
+    background:linear-gradient(155deg,var(--accent-hi),var(--accent));color:#FFFFFF;font-size:1.2rem;font-weight:800;
     display:flex;align-items:center;justify-content:center;gap:.5rem;
-    box-shadow:0 10px 24px -8px rgba(255,122,46,.5);
+    box-shadow:0 10px 24px -8px rgba(0,131,62,.5);
     transition:transform .1s ease, box-shadow .1s ease;
   }
-  .btn-primario:active{transform:scale(.98);box-shadow:0 4px 12px -6px rgba(255,122,46,.4);}
+  .btn-primario:active{transform:scale(.98);box-shadow:0 4px 12px -6px rgba(0,131,62,.4);}
   .rodape-confirmar{margin-top:1.6rem;}
 
   /* ---------- Tela de produção ---------- */
@@ -298,11 +307,11 @@
     font-size:.68rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--text-faint);
     display:flex;align-items:center;gap:.35rem;
   }
-  .dot-ativo{width:.4rem;height:.4rem;border-radius:50%;background:var(--success);box-shadow:0 0 0 0 rgba(46,213,116,.6);animation:pulse 1.8s infinite;}
+  .dot-ativo{width:.4rem;height:.4rem;border-radius:50%;background:var(--success);box-shadow:0 0 0 0 rgba(22,163,74,.6);animation:pulse 1.8s infinite;}
   @keyframes pulse{
-    0%{box-shadow:0 0 0 0 rgba(46,213,116,.5);}
-    70%{box-shadow:0 0 0 8px rgba(46,213,116,0);}
-    100%{box-shadow:0 0 0 0 rgba(46,213,116,0);}
+    0%{box-shadow:0 0 0 0 rgba(22,163,74,.5);}
+    70%{box-shadow:0 0 0 8px rgba(22,163,74,0);}
+    100%{box-shadow:0 0 0 0 rgba(22,163,74,0);}
   }
   /* pulsação em forma de sombra suave, mas com intensidade real: camada mais concentrada
      (cor sólida, blur menor) por dentro da camada larga e suave — dá visibilidade sem virar
@@ -329,7 +338,7 @@
   }
   #cronometro{
     font-size:3.8rem;font-weight:800;letter-spacing:.02em;line-height:1;
-    text-shadow:0 0 28px rgba(255,122,46,.4);
+    text-shadow:0 0 28px rgba(0,131,62,.4);
   }
 
   /* cavidades (editável) + meta/h (informativa) lado a lado, à direita do header */
@@ -375,7 +384,7 @@
     margin-top:.4rem;
   }
   .badge-desempenho-dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--text-faint);flex-shrink:0;}
-  .badge-desempenho.vermelho{background:rgba(255,77,94,.1);border-color:var(--danger);color:var(--danger);}
+  .badge-desempenho.vermelho{background:rgba(220,38,38,.1);border-color:var(--danger);color:var(--danger);}
   .badge-desempenho.vermelho .badge-desempenho-dot{background:var(--danger);}
   .badge-desempenho.amarelo{background:var(--warning-soft);border-color:var(--warning);color:var(--warning);}
   .badge-desempenho.amarelo .badge-desempenho-dot{background:var(--warning);}
@@ -524,7 +533,6 @@
     border:1px solid var(--border-hi);transition:box-shadow .2s ease, border-color .2s ease;
   }
   .pausa-icone svg{width:2rem;height:2rem;}
-  .emoji-resultado{font-size:2.3rem;line-height:1;filter:drop-shadow(0 0 6px rgba(255,255,255,.25));}
   .pausa-cronometro{text-align:center;font-size:2.6rem;font-weight:800;color:var(--warning);margin:.8rem 0 1.3rem;}
   /* faixas de avaliação do apontamento periódico, comparado com a meta de injetadas/hora */
   .pausa-icone.muito-baixa{background:var(--danger-soft);color:var(--danger);border-color:var(--danger);box-shadow:0 0 22px -4px var(--danger);}
@@ -536,10 +544,10 @@
   .pausa-icone.muito-baixa,.pausa-icone.baixa,.pausa-icone.boa,.pausa-icone.muito-boa{animation:pulsar-icone 1.8s ease-in-out infinite;}
 
   /* o cartão inteiro do resultado do apontamento acompanha a cor da faixa, não só o ícone/medidor */
-  #modal-resultado-apontamento .modal-sheet.muito-baixa{background:linear-gradient(180deg,rgba(255,77,94,.16),var(--bg-navy) 55%);}
-  #modal-resultado-apontamento .modal-sheet.baixa{background:linear-gradient(180deg,rgba(255,192,72,.15),var(--bg-navy) 55%);}
-  #modal-resultado-apontamento .modal-sheet.boa{background:linear-gradient(180deg,rgba(46,213,116,.15),var(--bg-navy) 55%);}
-  #modal-resultado-apontamento .modal-sheet.muito-boa{background:linear-gradient(180deg,rgba(255,122,46,.16),var(--bg-navy) 55%);}
+  #modal-resultado-apontamento .modal-sheet.muito-baixa{background:linear-gradient(180deg,rgba(220,38,38,.16),var(--bg-navy) 55%);}
+  #modal-resultado-apontamento .modal-sheet.baixa{background:linear-gradient(180deg,rgba(251,191,36,.15),var(--bg-navy) 55%);}
+  #modal-resultado-apontamento .modal-sheet.boa{background:linear-gradient(180deg,rgba(22,163,74,.15),var(--bg-navy) 55%);}
+  #modal-resultado-apontamento .modal-sheet.muito-boa{background:linear-gradient(180deg,rgba(0,131,62,.16),var(--bg-navy) 55%);}
 
   /* medidor de desempenho — arco de 3 zonas (vermelho/amarelo/verde) com ponteiro.
      Reescrito depois que a versão com muito glow/blur ficou "borrada" — agora é mais
@@ -549,9 +557,9 @@
   .medidor-svg{width:100%;max-width:14.5rem;overflow:visible;}
   .medidor-trilho{fill:none;stroke:var(--bg-void);stroke-width:18;stroke-linecap:round;}
   .medidor-arco{fill:none;stroke-width:13;stroke-linecap:round;}
-  .medidor-arco.vermelho{stroke:var(--danger);filter:drop-shadow(0 3px 5px rgba(255,77,94,.4));}
-  .medidor-arco.amarelo{stroke:var(--warning);filter:drop-shadow(0 3px 5px rgba(255,192,72,.4));}
-  .medidor-arco.verde{stroke:var(--success);filter:drop-shadow(0 3px 5px rgba(46,213,116,.4));}
+  .medidor-arco.vermelho{stroke:var(--danger);filter:drop-shadow(0 3px 5px rgba(220,38,38,.4));}
+  .medidor-arco.amarelo{stroke:var(--warning);filter:drop-shadow(0 3px 5px rgba(251,191,36,.4));}
+  .medidor-arco.verde{stroke:var(--success);filter:drop-shadow(0 3px 5px rgba(22,163,74,.4));}
   .medidor-marca{stroke:var(--border-hi);stroke-width:2;stroke-linecap:round;}
   .medidor-ponteiro{fill:var(--text);filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));}
   #medidor-ponteiro-geral{transition:transform .7s cubic-bezier(.34,1.4,.64,1);}
@@ -598,8 +606,8 @@
   }
   .btn-secundario:active{background:var(--bg-card-hi);}
   .btn-confirmar{
-    padding:1.15rem;border-radius:var(--radius-md);background:linear-gradient(155deg,var(--accent-hi),var(--accent));color:#150C05;font-weight:800;font-size:1.05rem;
-    box-shadow:0 8px 20px -8px rgba(255,122,46,.5);transition:transform .1s ease;
+    padding:1.15rem;border-radius:var(--radius-md);background:linear-gradient(155deg,var(--accent-hi),var(--accent));color:#FFFFFF;font-weight:800;font-size:1.05rem;
+    box-shadow:0 8px 20px -8px rgba(0,131,62,.5);transition:transform .1s ease;
   }
   .btn-confirmar:active{transform:scale(.98);}
   .btn-confirmar:disabled{opacity:.4;box-shadow:none;}
@@ -607,7 +615,7 @@
   /* ---------- Admin: layout com navbar lateral ---------- */
   .admin-layout{display:flex;height:100%;}
   .admin-sidebar{
-    width:15rem;flex-shrink:0;background:linear-gradient(180deg,#0F1E33,var(--bg-navy));border-right:1px solid var(--border);
+    width:15rem;flex-shrink:0;background:linear-gradient(180deg,#242424,var(--bg-navy));border-right:1px solid var(--border);
     display:flex;flex-direction:column;padding:1.4rem 1rem;gap:.3rem;overflow-y:auto;
   }
   .btn-back-admin{
@@ -626,7 +634,7 @@
     transition:background .1s ease,color .1s ease;
   }
   .nav-admin-item svg{width:1.2rem;height:1.2rem;flex-shrink:0;}
-  .nav-admin-item.ativo{background:linear-gradient(155deg,var(--accent-soft),rgba(255,122,46,.06));color:var(--accent-hi);box-shadow:inset 2px 0 0 var(--accent);}
+  .nav-admin-item.ativo{background:linear-gradient(155deg,var(--accent-soft),rgba(0,131,62,.06));color:var(--accent-hi);box-shadow:inset 2px 0 0 var(--accent);}
   .nav-admin-item:active{background:var(--bg-card-hi);}
 
   .admin-conteudo{flex:1;min-width:0;overflow-y:auto;padding:2rem 2.4rem 5.5rem;}
@@ -641,12 +649,12 @@
     position:fixed;bottom:2.2rem;right:2.4rem;z-index:20;
     width:3.8rem;height:3.8rem;border-radius:50%;
     background:linear-gradient(155deg,var(--accent-hi),var(--accent));
-    color:#150C05;display:flex;align-items:center;justify-content:center;
-    box-shadow:0 14px 30px -8px rgba(255,122,46,.55);
+    color:#FFFFFF;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 14px 30px -8px rgba(0,131,62,.55);
     transition:transform .15s ease,box-shadow .15s ease;
   }
   .fab-admin svg{width:1.7rem;height:1.7rem;}
-  .fab-admin:active{transform:scale(.92);box-shadow:0 6px 16px -6px rgba(255,122,46,.5);}
+  .fab-admin:active{transform:scale(.92);box-shadow:0 6px 16px -6px rgba(0,131,62,.5);}
   .fab-admin.oculto{display:none;}
 
   .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.4rem;}
@@ -712,7 +720,7 @@
     width:1.05rem;height:1.05rem;border-radius:3px;border:1.5px solid var(--border-hi);flex-shrink:0;
     display:flex;align-items:center;justify-content:center;background:transparent;
   }
-  .filtro-maquina-check svg{display:none;width:.7rem;height:.7rem;color:#150C05;}
+  .filtro-maquina-check svg{display:none;width:.7rem;height:.7rem;color:#FFFFFF;}
   .filtro-maquina-opcao.sel .filtro-maquina-check{background:var(--accent);border-color:var(--accent);}
   .filtro-maquina-opcao.sel .filtro-maquina-check svg{display:block;}
 
@@ -733,9 +741,9 @@
   .card-maquina-status svg{width:1.05rem;height:1.05rem;flex-shrink:0;}
   .card-maquina-status.verde{background:var(--success);color:#06210F;}
   .card-maquina-status.amarelo{background:var(--warning);color:#2B1B00;}
-  .card-maquina-status.vermelho{background:var(--danger);color:#2B0508;}
+  .card-maquina-status.vermelho{background:var(--danger);color:#FFFFFF;}
   .card-maquina-status.manutencao{background:var(--azul-vitalbor);color:#fff;}
-  .card-maquina-status.operando{background:var(--azul);color:#04223D;}
+  .card-maquina-status.operando{background:var(--azul);color:#FFFFFF;}
   .indicador-operacional{font-size:.68rem;font-weight:700;flex-shrink:0;white-space:nowrap;}
   .indicador-operacional.operando{color:var(--success);}
   .indicador-operacional.parada{color:var(--text-faint);}
@@ -801,7 +809,7 @@
     background:transparent;border:1px solid var(--border-hi);color:var(--text-dim);
     transition:background .12s ease,color .12s ease,border-color .12s ease;
   }
-  .btn-config-add:active{background:var(--accent);border-color:var(--accent);color:#150C05;}
+  .btn-config-add:active{background:var(--accent);border-color:var(--accent);color:#FFFFFF;}
   .config-linha-intervalo{display:flex;align-items:center;gap:.8rem;max-width:14rem;}
   .config-linha-intervalo .campo-texto{text-align:center;font-weight:700;font-size:1.05rem;font-variant-numeric:tabular-nums;}
   .config-intervalo-sufixo{color:var(--text-dim);font-size:.83rem;font-weight:600;white-space:nowrap;}
@@ -849,14 +857,14 @@
   .heatmap-linha-resumo .heatmap-td-maquina{font-weight:800;}
   .heatmap-linha-resumo.media .heatmap-td-maquina{background:var(--azul-vitalbor-soft);color:var(--azul-vitalbor-texto);}
   .heatmap-linha-resumo.eficiencia .heatmap-td-maquina{background:var(--roxo-soft);color:var(--roxo);}
-  .heatmap-linha-resumo.refugo .heatmap-td-maquina{background:rgba(255,92,104,.12);color:var(--danger);}
+  .heatmap-linha-resumo.refugo .heatmap-td-maquina{background:rgba(220,38,38,.12);color:var(--danger);}
   .heatmap-linha-resumo.paradas .heatmap-td-maquina{background:var(--accent-soft);color:var(--accent-hi);}
   .heatmap-linha-resumo td:not(.heatmap-td-maquina){background:var(--bg-void);color:var(--text-dim);font-weight:700;cursor:default;}
   /* destaque de coluna (hover) e linha (clique na máquina) — outline/borda, não troca o
      fundo por cima, pra não esconder a cor de desempenho que já está na célula */
   .heatmap-tabela .coluna-destacada{box-shadow:inset 0 0 0 2px var(--azul-vitalbor-texto);}
   .heatmap-tabela th.coluna-destacada{background:var(--azul-vitalbor-soft) !important;}
-  tr.heatmap-linha-selecionada .heatmap-td-maquina{background:var(--accent) !important;color:#150C05 !important;}
+  tr.heatmap-linha-selecionada .heatmap-td-maquina{background:var(--accent) !important;color:#FFFFFF !important;}
   tr.heatmap-linha-selecionada td:not(.heatmap-td-maquina){box-shadow:inset 0 0 0 2px var(--accent-hi);}
 
   .card-grafico-titulo{font-weight:800;font-size:1.05rem;}
@@ -4009,7 +4017,7 @@ var qrcode = function() {
   <!-- ===================== MODAL: RESULTADO DO APONTAMENTO (compara com a meta) ===================== -->
   <div class="modal-overlay" id="modal-resultado-apontamento">
     <div class="modal-sheet centro">
-      <div class="pausa-icone" id="resultado-apontamento-icone"><span class="emoji-resultado" id="resultado-apontamento-emoji">😐</span></div>
+      <div class="pausa-icone" id="resultado-apontamento-icone"><svg id="resultado-apontamento-emoji" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg></div>
       <div class="modal-titulo" id="resultado-apontamento-titulo" style="text-align:center">Apontamento registrado</div>
       <div class="modal-sub" id="resultado-apontamento-detalhe" style="text-align:center;margin-bottom:.4rem">—</div>
       <div id="resultado-desempenho-geral">
@@ -4871,7 +4879,15 @@ function girarPonteiro(elId, pct){
 }
 
 // emoji de humor no lugar de ícone genérico — mais direto de entender numa olhada rápida
-const EMOJI_DESEMPENHO = { 'muito-baixa':'😢', 'baixa':'😟', 'boa':'😄', 'muito-boa':'😄', 'neutro':'😐' };
+// ícones no lugar de emoji — resultado passou a ser um dado de painel industrial, não uma reação
+// de humor. Mantém a mesma leitura rápida (a cor do círculo já diz tudo) sem parecer app de jogo.
+const ICONES_DESEMPENHO = {
+  'muito-baixa': '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>',
+  'baixa': '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline>',
+  'boa': '<polyline points="20 6 9 17 4 12"></polyline>',
+  'muito-boa': '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline>',
+  'neutro': '<line x1="5" y1="12" x2="19" y2="12"></line>',
+};
 
 // desempenho da pessoa no turno até agora: soma tudo que ela já apontou contra o total esperado
 // nesses mesmos períodos (não é média das porcentagens — é injetadas reais ÷ esperado real).
@@ -4917,7 +4933,7 @@ function mostrarResultadoApontamento(registro){
 
   if(meta <= 0){
     icone.classList.add('neutro');
-    emoji.textContent = EMOJI_DESEMPENHO.neutro;
+    emoji.innerHTML = ICONES_DESEMPENHO.neutro;
     titulo.textContent = 'Apontamento registrado';
     detalhe.textContent = 'Sem meta cadastrada nesta OP pra comparar.';
     geralWrap.style.display = 'none'; // sem meta também não dá pra calcular desempenho geral
@@ -4928,7 +4944,7 @@ function mostrarResultadoApontamento(registro){
     const classif = classificarDesempenho(pct);
     icone.classList.add(classif.nivel);
     cartao.classList.add(classif.nivel); // o fundo do cartão inteiro acompanha a faixa
-    emoji.textContent = EMOJI_DESEMPENHO[classif.nivel];
+    emoji.innerHTML = ICONES_DESEMPENHO[classif.nivel];
     titulo.textContent = 'Produção ' + classif.texto.toLowerCase();
     detalhe.textContent = `${fmtInt(registro.injetadas)} de ${fmtInt(Math.round(metaNoPeriodo))} injetadas esperadas (${pct}%)`;
 
