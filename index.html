@@ -1182,7 +1182,8 @@
     .barra-h-linha{grid-template-columns:5.5rem 1fr 3.4rem;gap:.5rem;}
   }
   /* ---------- Tela: Responsável (chamados) ---------- */
-  .resp-toolbar{display:flex;align-items:center;gap:.8rem;margin:1rem 0 1.4rem;flex-shrink:0;flex-wrap:wrap;}
+  .resp-toolbar{display:flex;align-items:center;gap:1.4rem;margin:1rem 0 1.4rem;flex-shrink:0;flex-wrap:wrap;row-gap:.8rem;}
+  .resp-toolbar-grupo{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;row-gap:.6rem;}
   .resp-filtro-data{display:flex;align-items:center;gap:.4rem;}
   .resp-filtro-data-btn{
     padding:.5rem 1rem;border-radius:var(--radius-admin-md);font-weight:700;font-size:.8rem;
@@ -1191,11 +1192,19 @@
   }
   .resp-filtro-data-btn.ativo{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
   .resp-filtro-data-btn:active{transform:scale(.95);}
+  .resp-data-range{display:flex;align-items:center;gap:.7rem;}
+  .resp-data-range-label{display:flex;align-items:center;gap:.45rem;font-size:.7rem;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;}
   .resp-data-input{
     padding:.5rem .7rem;border-radius:var(--radius-admin-md);border:1px solid var(--border-hi);
     background:var(--card-bg);color:var(--text);font-weight:600;font-size:.8rem;
   }
   .resp-select-label{display:block;font-size:.78rem;font-weight:700;color:var(--text-dim);margin-bottom:.4rem;}
+  .btn-atualizar-resp{
+    width:2.5rem;height:2.5rem;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    background:var(--card-bg);border:1px solid var(--border-hi);color:var(--text-dim);
+    transition:background .12s ease,border-color .12s ease,transform .35s cubic-bezier(.2,.7,.3,1);
+  }
+  .btn-atualizar-resp:active{transform:rotate(180deg) scale(.92);background:var(--bg-card-hi);border-color:var(--accent);}
   .resp-view-toggle{display:flex;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:.25rem;}
   .resp-view-btn{padding:.55rem 1.1rem;border-radius:calc(var(--radius-md) - .25rem);font-weight:700;font-size:.85rem;color:var(--text-dim);background:transparent;}
   .resp-view-btn.ativo{background:var(--accent);color:#FFFFFF;}
@@ -3634,26 +3643,41 @@ var qrcode = function() {
       </div>
 
       <div class="resp-toolbar">
-        <div class="resp-view-toggle">
-          <button class="resp-view-btn ativo" data-resp-view="kanban">Kanban</button>
-          <button class="resp-view-btn" data-resp-view="lista">Lista</button>
+        <div class="resp-toolbar-grupo">
+          <div class="resp-view-toggle">
+            <button class="resp-view-btn ativo" data-resp-view="kanban">Kanban</button>
+            <button class="resp-view-btn" data-resp-view="lista">Lista</button>
+          </div>
         </div>
-        <div class="resp-filtro-data">
-          <button type="button" class="resp-filtro-data-btn ativo" data-filtro-data="hoje">Hoje</button>
-          <button type="button" class="resp-filtro-data-btn" data-filtro-data="todos">Todos</button>
-          <input type="date" id="resp-data-especifica" class="resp-data-input" aria-label="Escolher outra data">
+        <div class="resp-toolbar-grupo">
+          <div class="resp-filtro-data">
+            <button type="button" class="resp-filtro-data-btn ativo" data-filtro-data="hoje">Hoje</button>
+            <button type="button" class="resp-filtro-data-btn" data-filtro-data="todos">Todos</button>
+          </div>
+          <div class="resp-data-range">
+            <label class="resp-data-range-label">De
+              <input type="date" id="resp-data-inicio" class="resp-data-input" aria-label="Data inicial">
+            </label>
+            <label class="resp-data-range-label">Até
+              <input type="date" id="resp-data-fim" class="resp-data-input" aria-label="Data final">
+            </label>
+          </div>
         </div>
-        <div class="filtro-maquina-dropdown" id="filtro-maquina-resp-dropdown">
-          <button type="button" class="filtro-maquina-btn" id="btn-filtro-maquina-resp-toggle">
-            <span id="filtro-maquina-resp-btn-texto">Todas as máquinas</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        <div class="resp-toolbar-grupo">
+          <div class="filtro-maquina-dropdown" id="filtro-maquina-resp-dropdown">
+            <button type="button" class="filtro-maquina-btn" id="btn-filtro-maquina-resp-toggle">
+              <span id="filtro-maquina-resp-btn-texto">Todas as máquinas</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="filtro-maquina-painel" id="filtro-maquina-resp-painel"></div>
+          </div>
+          <button class="btn-atualizar-resp" id="btn-resp-atualizar" aria-label="Atualizar agora">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
           </button>
-          <div class="filtro-maquina-painel" id="filtro-maquina-resp-painel"></div>
         </div>
-        <button class="btn-back" id="btn-resp-atualizar" style="margin-left:auto" aria-label="Atualizar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-        </button>
       </div>
+
+
 
       <div class="resp-kanban" id="resp-kanban">
         <div class="resp-coluna">
@@ -5405,8 +5429,12 @@ function atualizarCards(){
   document.getElementById('card-restante').textContent = state.qtdRestante < 0 ? '+' + fmtInt(Math.abs(state.qtdRestante)) : fmtInt(state.qtdRestante);
 
   // barra de progresso do saldo (faixa própria acima do grid) + aviso quando a OP bate a meta
-  const inicial = state.qtdRestanteInicial || 1;
-  const pctFeito = Math.min(100, Math.max(0, Math.round((1 - state.qtdRestante / inicial) * 100)));
+  // usa o TOTAL ORIGINAL da OP como referência (fixo, não muda), não o saldo de quando essa
+  // sessão específica começou — se usasse o saldo da sessão, uma OP que outro operador já
+  // tinha levado além da meta (saldo negativo) fazia a conta "1 - saldo/saldo" dar exatamente
+  // 0%, mesmo a OP estando pronta, porque o operador novo começa do mesmo saldo negativo
+  const totalOriginal = state.op?.qtdTotal || state.qtdRestanteInicial || 1;
+  const pctFeito = Math.min(100, Math.max(0, Math.round((1 - state.qtdRestante / totalOriginal) * 100)));
   document.getElementById('barra-progresso-saldo').style.width = pctFeito + '%';
   document.getElementById('progresso-op-pct').textContent = pctFeito + '%';
   const completo = state.qtdRestante <= 0;
@@ -6072,24 +6100,26 @@ function linhaChamadoHTML(c, idx){
     <div class="resp-linha-meta">${c.status === 'pendente' ? formatarTempoRelativo(c.criado_em) : 'Concluído ' + formatarTempoRelativo(c.resolvido_em)}</div>
   </div>`;
 }
-// 'hoje' | 'todos' | 'YYYY-MM-DD' — controla o filtro de data (servidor, via query) e
-// fica separado do filtro de máquina (cliente, igual ao Ao Vivo faz com filtroMaquinasSelecionadas)
-let filtroDataChamados = 'hoje';
+// intervalo de datas — null em cada ponta significa "sem limite" nessa direção.
+// "Hoje" e "Todos" são só atalhos que preenchem os dois campos por baixo do pano;
+// o operador pode digitar um intervalo qualquer nos campos De/Até também.
+const hojeISO = new Date().toISOString().slice(0,10);
+let filtroDataInicio = hojeISO;
+let filtroDataFim = hojeISO;
 let filtroMaquinasRespSelecionadas = new Set();
 async function carregarChamados(){
   let query = db.from('chamados').select('*').order('criado_em', { ascending:false });
-  if(filtroDataChamados === 'hoje'){
-    const inicioHoje = new Date(); inicioHoje.setHours(0,0,0,0);
-    query = query.gte('criado_em', inicioHoje.toISOString());
-  } else if(filtroDataChamados !== 'todos'){
-    const inicio = new Date(filtroDataChamados + 'T00:00:00');
-    const fim = new Date(filtroDataChamados + 'T23:59:59.999');
-    query = query.gte('criado_em', inicio.toISOString()).lte('criado_em', fim.toISOString());
-  }
+  if(filtroDataInicio) query = query.gte('criado_em', new Date(filtroDataInicio + 'T00:00:00').toISOString());
+  if(filtroDataFim) query = query.lte('criado_em', new Date(filtroDataFim + 'T23:59:59.999').toISOString());
   const { data, error } = await query;
   if(error){ toast('Erro ao carregar chamados: ' + error.message); console.error('[Supabase]', error); return; }
-  CHAMADOS = data || [];
-  renderChamados();
+  const novosDados = data || [];
+  // só re-renderiza (e reanima os cards) quando os dados de verdade mudaram — sem isso,
+  // o polling de segurança de 25s recriava a lista inteira do zero mesmo sem nada novo,
+  // e isso é o que aparecia como "pisca-pisca" pro usuário
+  const mudou = JSON.stringify(novosDados) !== JSON.stringify(CHAMADOS);
+  CHAMADOS = novosDados;
+  if(mudou) renderChamados();
 }
 function renderFiltroMaquinaRespPainel(){
   const painel = document.getElementById('filtro-maquina-resp-painel');
@@ -6142,17 +6172,26 @@ function renderChamados(){
     el.addEventListener('click', ()=> abrirModalResolver(el.getAttribute('data-id')));
   });
 }
+function aplicarFiltroDataPreset(preset){
+  filtroDataInicio = preset === 'hoje' ? hojeISO : null;
+  filtroDataFim = preset === 'hoje' ? hojeISO : null;
+  document.getElementById('resp-data-inicio').value = filtroDataInicio || '';
+  document.getElementById('resp-data-fim').value = filtroDataFim || '';
+  document.querySelectorAll('.resp-filtro-data-btn').forEach(b=> b.classList.toggle('ativo', b.getAttribute('data-filtro-data')===preset));
+  carregarChamados();
+}
 document.querySelectorAll('.resp-filtro-data-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    filtroDataChamados = btn.getAttribute('data-filtro-data');
-    document.querySelectorAll('.resp-filtro-data-btn').forEach(b=> b.classList.toggle('ativo', b===btn));
-    document.getElementById('resp-data-especifica').value = '';
-    carregarChamados();
-  });
+  btn.addEventListener('click', ()=> aplicarFiltroDataPreset(btn.getAttribute('data-filtro-data')));
 });
-document.getElementById('resp-data-especifica').addEventListener('change', (e)=>{
-  if(!e.target.value) return;
-  filtroDataChamados = e.target.value;
+document.getElementById('resp-data-inicio').value = hojeISO;
+document.getElementById('resp-data-fim').value = hojeISO;
+document.getElementById('resp-data-inicio').addEventListener('change', (e)=>{
+  filtroDataInicio = e.target.value || null;
+  document.querySelectorAll('.resp-filtro-data-btn').forEach(b=> b.classList.remove('ativo'));
+  carregarChamados();
+});
+document.getElementById('resp-data-fim').addEventListener('change', (e)=>{
+  filtroDataFim = e.target.value || null;
   document.querySelectorAll('.resp-filtro-data-btn').forEach(b=> b.classList.remove('ativo'));
   carregarChamados();
 });
