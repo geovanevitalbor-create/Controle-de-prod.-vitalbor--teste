@@ -5261,7 +5261,10 @@ document.getElementById('btn-parada-jantar').addEventListener('click', ()=>{
       .then(({data, error})=>{
         if(error) console.error('[Supabase] falha ao marcar parada (pausa jantar):', error);
         else if(!data || data.length === 0) console.error('[Supabase] pausa jantar: update rodou sem erro, mas 0 linhas afetadas — nome "' + state.maquina + '" não existe na tabela maquinas com esse texto exato.');
+        else console.log('[pausa jantar] gravado com sucesso:', data);
       });
+  } else {
+    console.error('[pausa jantar] state.maquina está vazio/nulo no momento do clique — a gravação no banco nem foi tentada.');
   }
 });
 
