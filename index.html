@@ -781,6 +781,7 @@
   .card-maquina-status.vermelho{background:var(--danger);color:#FFFFFF;}
   .card-maquina-status.manutencao{background:var(--azul-vitalbor);color:#fff;}
   .card-maquina-status.aguardando{background:var(--roxo);color:#fff;}
+  .card-maquina-status.pausa_jantar{background:var(--warning);color:#2B1B00;}
   .card-maquina-status.operando{background:var(--azul);color:#FFFFFF;}
   .card-maquina-status.calculando{background:var(--azul);color:#FFFFFF;}
   .indicador-operacional{font-size:.68rem;font-weight:700;flex-shrink:0;white-space:nowrap;display:inline-flex;align-items:center;}
@@ -1189,9 +1190,10 @@
     .barra-h-linha{grid-template-columns:5.5rem 1fr 3.4rem;gap:.5rem;}
   }
   /* ---------- Tela: Responsável (chamados) ---------- */
-  .resp-toolbar{display:flex;align-items:center;justify-content:space-between;gap:1.4rem;margin:1rem 0 1.4rem;flex-shrink:0;flex-wrap:wrap;row-gap:.8rem;}
+  .resp-toolbar{display:flex;flex-direction:column;gap:.8rem;margin:1rem 0 1.4rem;flex-shrink:0;}
+  .resp-toolbar-linha1{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;row-gap:.6rem;}
+  .resp-toolbar-linha2{display:flex;align-items:center;gap:1.4rem;flex-wrap:wrap;row-gap:.6rem;}
   .resp-toolbar-grupo{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;row-gap:.6rem;}
-  .resp-toolbar-filtros{display:flex;align-items:center;gap:1.4rem;flex-wrap:wrap;row-gap:.8rem;margin-left:auto;}
   .resp-filtro-data{display:flex;align-items:center;gap:.4rem;}
   .resp-filtro-data-btn{
     padding:.5rem 1rem;border-radius:var(--radius-admin-md);font-weight:700;font-size:.8rem;
@@ -3651,26 +3653,10 @@ var qrcode = function() {
       </div>
 
       <div class="resp-toolbar">
-        <div class="resp-toolbar-grupo">
+        <div class="resp-toolbar-linha1">
           <div class="resp-view-toggle">
             <button class="resp-view-btn ativo" data-resp-view="kanban">Kanban</button>
             <button class="resp-view-btn" data-resp-view="lista">Lista</button>
-          </div>
-        </div>
-        <div class="resp-toolbar-filtros">
-          <div class="resp-toolbar-grupo">
-            <div class="resp-filtro-data">
-              <button type="button" class="resp-filtro-data-btn ativo" data-filtro-data="hoje">Hoje</button>
-              <button type="button" class="resp-filtro-data-btn" data-filtro-data="todos">Todos</button>
-            </div>
-            <div class="resp-data-range">
-              <label class="resp-data-range-label">De
-                <input type="date" id="resp-data-inicio" class="resp-data-input" aria-label="Data inicial">
-              </label>
-              <label class="resp-data-range-label">Até
-                <input type="date" id="resp-data-fim" class="resp-data-input" aria-label="Data final">
-              </label>
-            </div>
           </div>
           <div class="resp-toolbar-grupo">
             <div class="filtro-maquina-dropdown" id="filtro-maquina-resp-dropdown">
@@ -3683,6 +3669,20 @@ var qrcode = function() {
             <button class="btn-atualizar-resp" id="btn-resp-atualizar" aria-label="Atualizar agora">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
             </button>
+          </div>
+        </div>
+        <div class="resp-toolbar-linha2">
+          <div class="resp-filtro-data">
+            <button type="button" class="resp-filtro-data-btn ativo" data-filtro-data="hoje">Hoje</button>
+            <button type="button" class="resp-filtro-data-btn" data-filtro-data="todos">Todos</button>
+          </div>
+          <div class="resp-data-range">
+            <label class="resp-data-range-label">De
+              <input type="date" id="resp-data-inicio" class="resp-data-input" aria-label="Data inicial">
+            </label>
+            <label class="resp-data-range-label">Até
+              <input type="date" id="resp-data-fim" class="resp-data-input" aria-label="Data final">
+            </label>
           </div>
         </div>
       </div>
@@ -4937,6 +4937,8 @@ function iniciarRealtimeMaquinas(){
   db.channel('maquinas-realtime')
     .on('postgres_changes', {event:'INSERT', schema:'public', table:'historico_caixas'}, agendarAtualizacaoMaquinas)
     .on('postgres_changes', {event:'UPDATE', schema:'public', table:'ordens_producao'}, agendarAtualizacaoMaquinas)
+    .on('postgres_changes', {event:'*', schema:'public', table:'producoes_ativas'}, agendarAtualizacaoMaquinas)
+    .on('postgres_changes', {event:'UPDATE', schema:'public', table:'maquinas'}, agendarAtualizacaoMaquinas)
     .subscribe((status)=> console.log('[Supabase] canal realtime de máquinas:', status));
 }
 iniciarRealtimeMaquinas();
@@ -5251,7 +5253,7 @@ document.getElementById('btn-parada-jantar').addEventListener('click', ()=>{
   // se a rede falhar aqui, a pausa local continua funcionando normalmente pro operador,
   // só o Ao Vivo é que não vai saber (mesmo espírito "sem trava" do resto do app).
   if(state.maquina){
-    db.from('maquinas').update({ situacao_manual:'parada' }).eq('nome', state.maquina)
+    db.from('maquinas').update({ situacao_manual:'pausa_jantar' }).eq('nome', state.maquina)
       .then(({error})=>{ if(error) console.error('[Supabase] falha ao marcar parada (pausa jantar):', error); });
   }
 });
@@ -6563,7 +6565,8 @@ const ICO_STATUS_MAQUINA = {
   manutencao: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 01-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 015.4-5.4l-3 3-2-2z"/></svg>',
   operando: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none"/></svg>',
   calculando: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>',
-  aguardando: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>'
+  aguardando: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>',
+  pausa_jantar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>'
 };
 const LABEL_STATUS_MAQUINA = { verde:'Desempenho bom', amarelo:'Desempenho médio', vermelho:'Desempenho baixo', neutro:'Sem atividade', calculando:'Calculando desempenho...' };
 
@@ -6645,11 +6648,13 @@ async function renderCardsMaquinas(){
     const atrasoEntrada = `style="animation-delay:${Math.min(idx*35,350)}ms"`;
     const emManutencao = cacheSituacaoManual[m] === 'manutencao';
     const aguardandoResponsavel = cacheMaquinasAguardandoResponsavel.has(m);
+    const pausaJantar = cacheSituacaoManual[m] === 'pausa_jantar';
+    const paradaGenerica = cacheSituacaoManual[m] === 'parada';
     // aguardando responsável pisca roxo (mesma cor do pendente em todo o resto do app) e
-    // tem prioridade sobre só "parada" piscando amarelo — esperar o responsável é mais
-    // urgente que uma parada qualquer. Manutenção não pisca (já é uma explicação definitiva).
+    // tem prioridade sobre parada/pausa piscando amarelo — esperar o responsável é mais
+    // urgente. Manutenção não pisca (já é uma explicação definitiva).
     const classeBlink = aguardandoResponsavel ? 'piscar-aguardando'
-      : (cacheSituacaoManual[m] === 'parada' && !emManutencao ? 'piscar-parada' : '');
+      : ((paradaGenerica || pausaJantar) && !emManutencao ? 'piscar-parada' : '');
     const inicioSessao = cacheProducoesAtivas[m]; // timestamp de início, ou undefined se não tem sessão ativa
     const operando = inicioSessao !== undefined;
     const indicadorOperacional = `<span class="indicador-operacional ${operando?'operando':'parada'}">${operando?'Operando agora':'Parada'}</span>`;
@@ -6662,7 +6667,7 @@ async function renderCardsMaquinas(){
       const ultimaHistorica = cacheCaixasBanco.filter(c => c.maquina === m).sort((a,b)=>b.timestamp-a.timestamp)[0];
       return `
       <div class="card-maquina sem-dados ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
-        <div class="card-maquina-status ${emManutencao?'manutencao':aguardandoResponsavel?'aguardando':'neutro'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:ICO_STATUS_MAQUINA.neutro}<span>${emManutencao?'Em manutenção':aguardandoResponsavel?'Aguardando responsável':'Parada'}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':aguardandoResponsavel?'aguardando':pausaJantar?'pausa_jantar':'neutro'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:ICO_STATUS_MAQUINA.neutro}<span>${emManutencao?'Em manutenção':aguardandoResponsavel?'Aguardando responsável':pausaJantar?'Pausa (jantar)':'Parada'}</span></div>
         <div class="card-maquina-nome">${m}</div>
         <div class="item-admin-sub" style="padding:.3rem 0;white-space:normal;line-height:1.4">Livre pra nova produção.${ultimaHistorica ? ` Última: ${ultimaHistorica.peca} (${ultimaHistorica.operador}), ${new Date(ultimaHistorica.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}.` : ' Sem histórico registrado ainda.'}</div>
       </div>`;
@@ -6675,11 +6680,14 @@ async function renderCardsMaquinas(){
 
     if(d.registros === 0){
       const paradaManual = cacheSituacaoManual[m] === 'parada';
+      const textoCorpo = pausaJantar ? 'Pausado pro jantar — retoma automaticamente quando o operador voltar.'
+        : paradaManual ? 'Marcado como parado manualmente — ainda sem caixa fechada nesta sessão.'
+        : 'Em produção agora — ainda sem caixa fechada nesta sessão.';
       return `
       <div class="card-maquina sem-dados ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
-        <div class="card-maquina-status ${emManutencao?'manutencao':aguardandoResponsavel?'aguardando':paradaManual?'neutro':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:paradaManual?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção':aguardandoResponsavel?'Aguardando responsável':paradaManual?'Parada':'Em produção'}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':aguardandoResponsavel?'aguardando':pausaJantar?'pausa_jantar':paradaManual?'neutro':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:paradaManual?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção':aguardandoResponsavel?'Aguardando responsável':pausaJantar?'Pausa (jantar)':paradaManual?'Parada':'Em produção'}</span></div>
         <div class="card-maquina-nome">${m}</div>
-        <div class="item-admin-sub" style="padding:.3rem 0">Em produção agora — ainda sem caixa fechada nesta sessão.</div>
+        <div class="item-admin-sub" style="padding:.3rem 0">${textoCorpo}</div>
       </div>`;
     }
     // GUARDA CONTRA O BUG DE 120890%: a fórmula (injetadas ÷ esperado) é matematicamente
@@ -6705,10 +6713,11 @@ async function renderCardsMaquinas(){
     const totalTexto = opRef ? fmtInt(opRef.qtdTotal) : '—';
     const produzidoTexto = opRef ? fmtInt(Math.max(0, opRef.qtdTotal - opRef.qtdRestante)) : '—';
     const saldoTexto = opRef ? fmtInt(opRef.qtdRestante) : '—';
-    const classeStatus = emManutencao ? 'manutencao' : aguardandoResponsavel ? 'aguardando' : cacheSituacaoManual[m]==='parada' ? 'neutro' : zona;
-    const iconeStatus = emManutencao ? ICO_STATUS_MAQUINA.manutencao : aguardandoResponsavel ? ICO_STATUS_MAQUINA.aguardando : cacheSituacaoManual[m]==='parada' ? ICO_STATUS_MAQUINA.neutro : ICO_STATUS_MAQUINA[zona];
+    const classeStatus = emManutencao ? 'manutencao' : aguardandoResponsavel ? 'aguardando' : pausaJantar ? 'pausa_jantar' : cacheSituacaoManual[m]==='parada' ? 'neutro' : zona;
+    const iconeStatus = emManutencao ? ICO_STATUS_MAQUINA.manutencao : aguardandoResponsavel ? ICO_STATUS_MAQUINA.aguardando : pausaJantar ? ICO_STATUS_MAQUINA.pausa_jantar : cacheSituacaoManual[m]==='parada' ? ICO_STATUS_MAQUINA.neutro : ICO_STATUS_MAQUINA[zona];
     const labelStatus = emManutencao ? 'Em manutenção'
       : aguardandoResponsavel ? 'Aguardando responsável'
+      : pausaJantar ? 'Pausa (jantar)'
       : cacheSituacaoManual[m]==='parada' ? 'Parada'
       : zona === 'calculando' ? `Calculando... (~${minutosFaltando}min)`
       : LABEL_STATUS_MAQUINA[zona];
@@ -6790,6 +6799,18 @@ function renderStatusAtualMaquina(manutencaoAtiva, situacaoAtual){
       const { error: e2 } = await db.from('maquinas').update({ situacao_manual: null }).eq('nome', detalheMaquinaAtual);
       btn.disabled = false;
       if(e1 || e2){ const err = e1||e2; toast('Erro ao atualizar: ' + err.message); console.error('[Supabase]', err); return; }
+      abrirDetalheMaquina(detalheMaquinaAtual);
+      renderCardsMaquinas();
+    });
+  } else if(situacaoAtual === 'pausa_jantar'){
+    wrapStatus.innerHTML = `<div class="item-admin-sub">Pausada pro jantar pelo operador — volta sozinha quando ele retomar a produção.</div>`;
+    wrapAcao.innerHTML = `<button class="btn-secundario" id="btn-tirar-parada" style="width:100%;margin-top:.9rem">Forçar retomada (se o operador esqueceu)</button>`;
+    document.getElementById('btn-tirar-parada').addEventListener('click', async ()=>{
+      const btn = document.getElementById('btn-tirar-parada');
+      btn.disabled = true;
+      const { error } = await db.from('maquinas').update({ situacao_manual: null }).eq('nome', detalheMaquinaAtual);
+      btn.disabled = false;
+      if(error){ toast('Erro ao atualizar: ' + error.message); console.error('[Supabase]', error); return; }
       abrirDetalheMaquina(detalheMaquinaAtual);
       renderCardsMaquinas();
     });
