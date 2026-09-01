@@ -5246,6 +5246,14 @@ document.getElementById('btn-parada-jantar').addEventListener('click', ()=>{
   document.getElementById('btn-parada-jantar').classList.add('pausando');
   document.getElementById('screen-producao').classList.add('pausando');
   toggleModal('modal-pausa-jantar', true);
+  // grava no banco pra o Ao Vivo saber e piscar amarelo — sem isso a pausa só existia
+  // no tablet do operador, o admin não tinha como ver. Não trava a tela por causa disso;
+  // se a rede falhar aqui, a pausa local continua funcionando normalmente pro operador,
+  // só o Ao Vivo é que não vai saber (mesmo espírito "sem trava" do resto do app).
+  if(state.maquina){
+    db.from('maquinas').update({ situacao_manual:'parada' }).eq('nome', state.maquina)
+      .then(({error})=>{ if(error) console.error('[Supabase] falha ao marcar parada (pausa jantar):', error); });
+  }
 });
 
 function atualizarPausaCronometro(){
@@ -5267,6 +5275,13 @@ document.getElementById('btn-retomar-producao').addEventListener('click', ()=>{
   clearInterval(timerHandle);
   timerHandle = setInterval(atualizarCronometro, 1000);
   iniciarTimerApontamento(); // reinicia a contagem pro próximo apontamento a partir de agora
+  // desliga a parada no banco — ressalva: se por acaso o admin tiver marcado manutenção
+  // manualmente NO MEIO da pausa pro jantar dessa mesma máquina (bem raro), isso apaga
+  // o manutenção também. Caso extremo, não tratado — aceitável dado o quão raro é.
+  if(state.maquina){
+    db.from('maquinas').update({ situacao_manual:null }).eq('nome', state.maquina)
+      .then(({error})=>{ if(error) console.error('[Supabase] falha ao desmarcar parada (fim da pausa):', error); });
+  }
 });
 
 /* ============================================================
@@ -6608,6 +6623,7 @@ document.querySelectorAll('.filtro-desempenho-btn').forEach(btn=>{
 });
 
 let maquinasCarregouUmaVez = false;
+let ultimoHtmlMaquinas = '';
 async function renderCardsMaquinas(){
   renderFiltroMaquinaEspecifica();
   const el = document.getElementById('grid-maquinas');
@@ -6727,9 +6743,12 @@ async function renderCardsMaquinas(){
       </div>`;
   }).join('');
 
-  el.innerHTML = cardsHtml.trim()
+  const htmlFinal = cardsHtml.trim()
     ? cardsHtml
     : '<div class="item-admin-sub" style="padding:1rem 0">Nenhuma máquina corresponde aos filtros selecionados.</div>';
+  if(htmlFinal === ultimoHtmlMaquinas) return; // nada mudou — não mexe no DOM, não reinicia nenhuma animação em andamento
+  ultimoHtmlMaquinas = htmlFinal;
+  el.innerHTML = htmlFinal;
 
   el.querySelectorAll('[data-abrir-detalhe-maquina]').forEach(card=>{
     card.addEventListener('click', ()=> abrirDetalheMaquina(card.getAttribute('data-abrir-detalhe-maquina')));
