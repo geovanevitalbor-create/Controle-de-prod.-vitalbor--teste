@@ -6440,8 +6440,9 @@ async function renderCardsMaquinas(){
     // esperado fica perto de zero e a divisão explode. Abaixo de 5 min de dado real, a
     // taxa é ruído estatístico, não desempenho de verdade — mostra "calculando" em vez
     // de um número (mesmo que capado, um % chutado ainda passaria a falsa confiança).
-    const TEMPO_MINIMO_DESEMPENHO_MS = 5 * 60000;
+    const TEMPO_MINIMO_DESEMPENHO_MS = 2 * 60000; // era 5min — conservador demais até pra teste normal e monitoramento no início de uma sessão real
     const desempenhoDisponivel = d.duracaoTotalMs >= TEMPO_MINIMO_DESEMPENHO_MS;
+    const minutosFaltando = Math.max(1, Math.ceil((TEMPO_MINIMO_DESEMPENHO_MS - d.duracaoTotalMs) / 60000));
     const refugoPct = d.qtdPecas > 0 ? Math.round((d.refugo / d.qtdPecas) * 1000) / 10 : 0;
     const desempenhoPctBruto = d.esperado > 0 ? Math.round((d.injetadas / d.esperado) * 100) : 0;
     const desempenhoPct = Math.min(desempenhoPctBruto, 999); // teto de exibição — trava de segurança pra qualquer outro caso extremo que a guarda acima não previu
@@ -6456,9 +6457,13 @@ async function renderCardsMaquinas(){
     const totalTexto = opRef ? fmtInt(opRef.qtdTotal) : '—';
     const produzidoTexto = opRef ? fmtInt(Math.max(0, opRef.qtdTotal - opRef.qtdRestante)) : '—';
     const saldoTexto = opRef ? fmtInt(opRef.qtdRestante) : '—';
+    const labelStatus = emManutencao ? 'Em manutenção'
+      : cacheSituacaoManual[m]==='parada' ? 'Parada'
+      : zona === 'calculando' ? `Calculando... (~${minutosFaltando}min)`
+      : LABEL_STATUS_MAQUINA[zona];
     return `
       <div class="card-maquina" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
-        <div class="card-maquina-status ${emManutencao?'manutencao':cacheSituacaoManual[m]==='parada'?'neutro':zona}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:cacheSituacaoManual[m]==='parada'?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA[zona]}<span>${emManutencao?'Em manutenção':cacheSituacaoManual[m]==='parada'?'Parada':LABEL_STATUS_MAQUINA[zona]}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':cacheSituacaoManual[m]==='parada'?'neutro':zona}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:cacheSituacaoManual[m]==='parada'?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA[zona]}<span>${labelStatus}</span></div>
         <div class="card-maquina-nome">${m}</div>
         <div class="card-maquina-contexto">
           <div class="contexto-peca">${u.peca}</div>
