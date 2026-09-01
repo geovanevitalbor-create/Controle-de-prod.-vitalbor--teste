@@ -334,6 +334,10 @@
     0%,100%{box-shadow:inset 0 0 0 0 transparent;}
     50%{box-shadow:inset 0 0 20px 3px var(--roxo), inset 0 0 55px 8px var(--roxo-soft);}
   }
+  @keyframes piscar-amarelo{
+    0%,100%{box-shadow:inset 0 0 0 0 transparent;}
+    50%{box-shadow:inset 0 0 20px 3px var(--warning), inset 0 0 55px 8px var(--warning-soft);}
+  }
   @keyframes piscar-azul{
     0%,100%{box-shadow:inset 0 0 0 0 transparent;}
     50%{box-shadow:inset 0 0 26px 6px var(--azul), inset 0 0 65px 12px var(--azul-soft);}
@@ -725,7 +729,7 @@
      em vez de uma fileira de chips sempre visível ocupando a largura toda */
   .filtro-maquina-dropdown{position:relative;display:inline-block;margin-bottom:1rem;}
   .filtro-maquina-btn{
-    display:flex;align-items:center;gap:.6rem;padding:.55rem 1.1rem;
+    display:flex;align-items:center;gap:.6rem;padding:.55rem 1.1rem;min-height:2.5rem;box-sizing:border-box;
     border-radius:var(--radius-admin-md);border:1px solid var(--border-hi);
     background:var(--card-bg);color:var(--text);font-weight:700;font-size:.83rem;
     transition:border-color .15s ease,transform .1s ease;
@@ -760,6 +764,8 @@
     transition:border-color .15s ease,transform .15s ease,box-shadow .15s ease;
   }
   .card-maquina:hover{transform:translateY(-3px);box-shadow:var(--elev-2);border-color:var(--border-hi);}
+  .grid-maquinas .card-maquina.piscar-aguardando{animation:entrada-card-maquina .4s cubic-bezier(.2,.7,.3,1) both, piscar-roxo 1.3s ease-in-out infinite;}
+  .grid-maquinas .card-maquina.piscar-parada{animation:entrada-card-maquina .4s cubic-bezier(.2,.7,.3,1) both, piscar-amarelo 1.6s ease-in-out infinite;}
   .card-maquina:active{transform:translateY(-1px) scale(.99);box-shadow:var(--elev-1);border-color:var(--border-hi);}
   .card-maquina.sem-dados{cursor:pointer;}
   /* a barra de status continua com cor cheia de propósito (não é decoração — é sinal de alerta
@@ -774,6 +780,7 @@
   .card-maquina-status.amarelo{background:var(--warning);color:#2B1B00;}
   .card-maquina-status.vermelho{background:var(--danger);color:#FFFFFF;}
   .card-maquina-status.manutencao{background:var(--azul-vitalbor);color:#fff;}
+  .card-maquina-status.aguardando{background:var(--roxo);color:#fff;}
   .card-maquina-status.operando{background:var(--azul);color:#FFFFFF;}
   .card-maquina-status.calculando{background:var(--azul);color:#FFFFFF;}
   .indicador-operacional{font-size:.68rem;font-weight:700;flex-shrink:0;white-space:nowrap;display:inline-flex;align-items:center;}
@@ -1182,12 +1189,13 @@
     .barra-h-linha{grid-template-columns:5.5rem 1fr 3.4rem;gap:.5rem;}
   }
   /* ---------- Tela: Responsável (chamados) ---------- */
-  .resp-toolbar{display:flex;align-items:center;gap:1.4rem;margin:1rem 0 1.4rem;flex-shrink:0;flex-wrap:wrap;row-gap:.8rem;}
+  .resp-toolbar{display:flex;align-items:center;justify-content:space-between;gap:1.4rem;margin:1rem 0 1.4rem;flex-shrink:0;flex-wrap:wrap;row-gap:.8rem;}
   .resp-toolbar-grupo{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;row-gap:.6rem;}
+  .resp-toolbar-filtros{display:flex;align-items:center;gap:1.4rem;flex-wrap:wrap;row-gap:.8rem;margin-left:auto;}
   .resp-filtro-data{display:flex;align-items:center;gap:.4rem;}
   .resp-filtro-data-btn{
     padding:.5rem 1rem;border-radius:var(--radius-admin-md);font-weight:700;font-size:.8rem;
-    border:1px solid var(--border);background:var(--bg-card);color:var(--text-faint);
+    border:1px solid var(--border);background:var(--bg-card);color:var(--text-faint);min-height:2.5rem;
     transition:background .15s ease,border-color .15s ease,color .15s ease,transform .1s ease;
   }
   .resp-filtro-data-btn.ativo{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
@@ -1195,8 +1203,8 @@
   .resp-data-range{display:flex;align-items:center;gap:.7rem;}
   .resp-data-range-label{display:flex;align-items:center;gap:.45rem;font-size:.7rem;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;}
   .resp-data-input{
-    padding:.5rem .7rem;border-radius:var(--radius-admin-md);border:1px solid var(--border-hi);
-    background:var(--card-bg);color:var(--text);font-weight:600;font-size:.8rem;
+    padding:.5rem .7rem;border-radius:var(--radius-admin-md);border:1px solid var(--border-hi);min-height:2.5rem;
+    background:var(--card-bg);color:var(--text);font-weight:600;font-size:.8rem;box-sizing:border-box;
   }
   .resp-select-label{display:block;font-size:.78rem;font-weight:700;color:var(--text-dim);margin-bottom:.4rem;}
   .btn-atualizar-resp{
@@ -1221,8 +1229,8 @@
     animation:entrada-card-maquina .4s cubic-bezier(.2,.7,.3,1) both;
   }
   .resp-card:active{transform:scale(.98);border-color:var(--border-hi);}
-  .resp-card[data-status="concluido"]{border-left-color:var(--success);cursor:default;}
-  .resp-card[data-status="concluido"]:active{transform:none;}
+  .resp-card[data-status="concluido"]{border-left-color:var(--success);}
+  .resp-card[data-status="concluido"]:active{transform:scale(.98);}
   .resp-card-maquina{font-weight:800;font-size:1.15rem;color:var(--text);letter-spacing:-.01em;}
   .resp-card-motivo{color:var(--text-dim);font-size:.85rem;margin-top:.3rem;line-height:1.4;}
   .resp-avatar-mini{
@@ -1242,7 +1250,7 @@
     border-radius:var(--radius-md);padding:.9rem 1.1rem;cursor:pointer;
     animation:entrada-card-maquina .4s cubic-bezier(.2,.7,.3,1) both;
   }
-  .resp-linha[data-status="concluido"]{cursor:default;opacity:.7;}
+  .resp-linha[data-status="concluido"]{opacity:.85;}
   .resp-linha-status{width:.6rem;height:.6rem;border-radius:100%;background:var(--roxo);flex-shrink:0;}
   .resp-linha[data-status="concluido"] .resp-linha-status{background:var(--success);}
   .resp-linha-corpo{flex:1;min-width:0;}
@@ -3649,31 +3657,33 @@ var qrcode = function() {
             <button class="resp-view-btn" data-resp-view="lista">Lista</button>
           </div>
         </div>
-        <div class="resp-toolbar-grupo">
-          <div class="resp-filtro-data">
-            <button type="button" class="resp-filtro-data-btn ativo" data-filtro-data="hoje">Hoje</button>
-            <button type="button" class="resp-filtro-data-btn" data-filtro-data="todos">Todos</button>
+        <div class="resp-toolbar-filtros">
+          <div class="resp-toolbar-grupo">
+            <div class="resp-filtro-data">
+              <button type="button" class="resp-filtro-data-btn ativo" data-filtro-data="hoje">Hoje</button>
+              <button type="button" class="resp-filtro-data-btn" data-filtro-data="todos">Todos</button>
+            </div>
+            <div class="resp-data-range">
+              <label class="resp-data-range-label">De
+                <input type="date" id="resp-data-inicio" class="resp-data-input" aria-label="Data inicial">
+              </label>
+              <label class="resp-data-range-label">Até
+                <input type="date" id="resp-data-fim" class="resp-data-input" aria-label="Data final">
+              </label>
+            </div>
           </div>
-          <div class="resp-data-range">
-            <label class="resp-data-range-label">De
-              <input type="date" id="resp-data-inicio" class="resp-data-input" aria-label="Data inicial">
-            </label>
-            <label class="resp-data-range-label">Até
-              <input type="date" id="resp-data-fim" class="resp-data-input" aria-label="Data final">
-            </label>
-          </div>
-        </div>
-        <div class="resp-toolbar-grupo">
-          <div class="filtro-maquina-dropdown" id="filtro-maquina-resp-dropdown">
-            <button type="button" class="filtro-maquina-btn" id="btn-filtro-maquina-resp-toggle">
-              <span id="filtro-maquina-resp-btn-texto">Todas as máquinas</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          <div class="resp-toolbar-grupo">
+            <div class="filtro-maquina-dropdown" id="filtro-maquina-resp-dropdown">
+              <button type="button" class="filtro-maquina-btn" id="btn-filtro-maquina-resp-toggle">
+                <span id="filtro-maquina-resp-btn-texto">Todas as máquinas</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="filtro-maquina-painel" id="filtro-maquina-resp-painel"></div>
+            </div>
+            <button class="btn-atualizar-resp" id="btn-resp-atualizar" aria-label="Atualizar agora">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
             </button>
-            <div class="filtro-maquina-painel" id="filtro-maquina-resp-painel"></div>
           </div>
-          <button class="btn-atualizar-resp" id="btn-resp-atualizar" aria-label="Atualizar agora">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-          </button>
         </div>
       </div>
 
@@ -3699,19 +3709,21 @@ var qrcode = function() {
   <!-- ===================== MODAL: RESOLVER CHAMADO ===================== -->
   <div class="modal-overlay" id="modal-resolver-chamado">
     <div class="modal-sheet">
-      <div class="modal-titulo">Resolver chamado</div>
+      <div class="modal-titulo" id="resp-modal-titulo">Resolver chamado</div>
       <div class="resp-detalhe-chamado" id="resp-detalhe-chamado"></div>
-      <label class="resp-select-label" for="resp-select-responsavel">Quem está resolvendo?</label>
-      <select id="resp-select-responsavel" class="campo-texto" style="margin-bottom:.8rem">
-        <option value="">Selecione...</option>
-      </select>
-      <label class="resp-upload-foto" id="resp-upload-label">
-        <input type="file" accept="image/*" capture="environment" id="resp-input-foto" style="display:none">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        <span id="resp-upload-texto">Adicionar foto (opcional)</span>
-      </label>
       <img id="resp-preview-foto" style="display:none">
-      <textarea class="campo-outro show" id="resp-observacao" placeholder="O que foi feito (opcional)..."></textarea>
+      <div id="resp-campos-resolver">
+        <label class="resp-select-label" for="resp-select-responsavel">Quem está resolvendo?</label>
+        <select id="resp-select-responsavel" class="campo-texto" style="margin-bottom:.8rem">
+          <option value="">Selecione...</option>
+        </select>
+        <label class="resp-upload-foto" id="resp-upload-label">
+          <input type="file" accept="image/*" capture="environment" id="resp-input-foto" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span id="resp-upload-texto">Adicionar foto (opcional)</span>
+        </label>
+        <textarea class="campo-outro show" id="resp-observacao" placeholder="O que foi feito (opcional)..."></textarea>
+      </div>
       <div class="linha-botoes-modal">
         <button class="btn-secundario" id="btn-resolver-cancelar">Cancelar</button>
         <button class="btn-confirmar" id="btn-resolver-confirmar">Marcar como concluído</button>
@@ -4867,18 +4879,21 @@ let cacheCaixasBanco = [];
 let cacheOrdensBanco = [];
 let cacheProducoesAtivas = {}; // {nomeMaquina: timestamp de início da sessão ativa} — pra status operando/parada E pra filtrar só as caixas dessa sessão
 let cacheSituacaoManual = {}; // {nomeMaquina: 'manutencao'} — override manual do admin
+let cacheMaquinasAguardandoResponsavel = new Set(); // nomes de máquina com chamado pendente agora
 async function buscarDadosMaquinasDoBanco(){
   try{
-    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }] = await Promise.all([
+    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }, { data: chamadosPendentes, error: e5 }] = await Promise.all([
       db.from('historico_caixas').select('*').order('fechado_em', {ascending:true}),
       db.from('ordens_producao').select('*'),
       db.from('producoes_ativas').select('maquina, inicio_em'),
-      db.from('maquinas').select('nome,situacao_manual')
+      db.from('maquinas').select('nome,situacao_manual'),
+      db.from('chamados').select('maquina').eq('status', 'pendente')
     ]);
     if(e1) throw e1;
     if(e2) throw e2;
     if(e3) throw e3;
     if(e4) throw e4;
+    if(e5) throw e5;
     cacheCaixasBanco = (caixas||[]).map(c => ({
       maquina:c.maquina, operador:c.operador, peca:c.peca, op:c.op, material:c.material,
       cavidades:c.cavidades, refugo:c.refugo, qtdPecas:c.qtd_pecas, injetadas:c.injetadas,
@@ -4895,6 +4910,8 @@ async function buscarDadosMaquinasDoBanco(){
     (ativas||[]).forEach(a => { cacheProducoesAtivas[a.maquina] = new Date(a.inicio_em).getTime(); });
     cacheSituacaoManual = {};
     (maquinasDb||[]).forEach(m => { if(m.situacao_manual) cacheSituacaoManual[m.nome] = m.situacao_manual; });
+    // quais máquinas têm chamado esperando o responsável agora — usado pro card piscar roxo
+    cacheMaquinasAguardandoResponsavel = new Set((chamadosPendentes||[]).map(c => c.maquina));
     return true;
   } catch(err){
     console.error('[Supabase] falha ao buscar dados de máquinas:', err);
@@ -6168,7 +6185,7 @@ function renderChamados(){
   document.getElementById('resp-cards-concluido').innerHTML = concluidos.map(cardChamadoHTML).join('') || '<div class="resp-coluna-vazia">—</div>';
   document.getElementById('resp-lista').innerHTML = listaFiltrada.map(linhaChamadoHTML).join('');
   document.getElementById('resp-vazio').style.display = listaFiltrada.length === 0 ? 'block' : 'none';
-  document.querySelectorAll('.resp-card[data-status="pendente"], .resp-linha[data-status="pendente"]').forEach(el=>{
+  document.querySelectorAll('.resp-card, .resp-linha').forEach(el=>{
     el.addEventListener('click', ()=> abrirModalResolver(el.getAttribute('data-id')));
   });
 }
@@ -6233,18 +6250,39 @@ function abrirModalResolver(id){
   if(!c) return;
   chamadoSelecionadoId = id;
   fotoChamadoSelecionada = null;
-  document.getElementById('resp-detalhe-chamado').innerHTML = `
+  const detalhesBase = `
     <div class="resp-detalhe-linha"><strong>Máquina:</strong> ${c.maquina}</div>
     <div class="resp-detalhe-linha"><strong>Motivo:</strong> ${c.motivo}${c.detalhe ? ' — ' + c.detalhe : ''}</div>
     <div class="resp-detalhe-linha"><strong>Operador:</strong> ${c.operador || '—'} · ${formatarTempoRelativo(c.criado_em)}</div>
   `;
-  const selectResp = document.getElementById('resp-select-responsavel');
-  selectResp.innerHTML = '<option value="">Selecione...</option>' + RESPONSAVEIS.map(r => `<option value="${r.nome}">${r.nome}</option>`).join('');
-  if(RESPONSAVEIS.length === 0) selectResp.innerHTML = '<option value="">Cadastre em Configurações → Responsáveis</option>';
-  document.getElementById('resp-observacao').value = '';
-  document.getElementById('resp-input-foto').value = '';
-  document.getElementById('resp-upload-texto').textContent = 'Adicionar foto (opcional)';
-  document.getElementById('resp-preview-foto').style.display = 'none';
+  const preview = document.getElementById('resp-preview-foto');
+  if(c.status === 'concluido'){
+    // modo visualização — só leitura, mostra o que já foi registrado ao resolver
+    document.getElementById('resp-modal-titulo').textContent = 'Chamado resolvido';
+    document.getElementById('resp-detalhe-chamado').innerHTML = detalhesBase + `
+      <div class="resp-detalhe-linha"><strong>Resolvido por:</strong> ${c.responsavel_resolveu || '—'} · ${formatarTempoRelativo(c.resolvido_em)}</div>
+      ${c.observacao_responsavel ? `<div class="resp-detalhe-linha"><strong>Observação:</strong> ${c.observacao_responsavel}</div>` : ''}
+    `;
+    if(c.foto_url){ preview.src = c.foto_url; preview.style.display = 'block'; }
+    else preview.style.display = 'none';
+    document.getElementById('resp-campos-resolver').style.display = 'none';
+    document.getElementById('btn-resolver-confirmar').style.display = 'none';
+    document.getElementById('btn-resolver-cancelar').textContent = 'Fechar';
+  } else {
+    // modo resolver — como já era
+    document.getElementById('resp-modal-titulo').textContent = 'Resolver chamado';
+    document.getElementById('resp-detalhe-chamado').innerHTML = detalhesBase;
+    const selectResp = document.getElementById('resp-select-responsavel');
+    selectResp.innerHTML = '<option value="">Selecione...</option>' + RESPONSAVEIS.map(r => `<option value="${r.nome}">${r.nome}</option>`).join('');
+    if(RESPONSAVEIS.length === 0) selectResp.innerHTML = '<option value="">Cadastre em Configurações → Responsáveis</option>';
+    document.getElementById('resp-observacao').value = '';
+    document.getElementById('resp-input-foto').value = '';
+    document.getElementById('resp-upload-texto').textContent = 'Adicionar foto (opcional)';
+    preview.style.display = 'none';
+    document.getElementById('resp-campos-resolver').style.display = '';
+    document.getElementById('btn-resolver-confirmar').style.display = '';
+    document.getElementById('btn-resolver-cancelar').textContent = 'Cancelar';
+  }
   toggleModal('modal-resolver-chamado', true);
 }
 document.getElementById('btn-resolver-cancelar').addEventListener('click', ()=> toggleModal('modal-resolver-chamado', false));
@@ -6509,7 +6547,8 @@ const ICO_STATUS_MAQUINA = {
   neutro: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v7"/><path d="M6.3 6.3a9 9 0 1011.4 0"/></svg>',
   manutencao: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 01-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 015.4-5.4l-3 3-2-2z"/></svg>',
   operando: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none"/></svg>',
-  calculando: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>'
+  calculando: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>',
+  aguardando: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>'
 };
 const LABEL_STATUS_MAQUINA = { verde:'Desempenho bom', amarelo:'Desempenho médio', vermelho:'Desempenho baixo', neutro:'Sem atividade', calculando:'Calculando desempenho...' };
 
@@ -6589,6 +6628,12 @@ async function renderCardsMaquinas(){
   const cardsHtml = listaMaquinas.map((m, idx) => {
     const atrasoEntrada = `style="animation-delay:${Math.min(idx*35,350)}ms"`;
     const emManutencao = cacheSituacaoManual[m] === 'manutencao';
+    const aguardandoResponsavel = cacheMaquinasAguardandoResponsavel.has(m);
+    // aguardando responsável pisca roxo (mesma cor do pendente em todo o resto do app) e
+    // tem prioridade sobre só "parada" piscando amarelo — esperar o responsável é mais
+    // urgente que uma parada qualquer. Manutenção não pisca (já é uma explicação definitiva).
+    const classeBlink = aguardandoResponsavel ? 'piscar-aguardando'
+      : (cacheSituacaoManual[m] === 'parada' && !emManutencao ? 'piscar-parada' : '');
     const inicioSessao = cacheProducoesAtivas[m]; // timestamp de início, ou undefined se não tem sessão ativa
     const operando = inicioSessao !== undefined;
     const indicadorOperacional = `<span class="indicador-operacional ${operando?'operando':'parada'}">${operando?'Operando agora':'Parada'}</span>`;
@@ -6600,8 +6645,8 @@ async function renderCardsMaquinas(){
       // livre, com só uma referência histórica mínima de quando foi a última vez que rodou.
       const ultimaHistorica = cacheCaixasBanco.filter(c => c.maquina === m).sort((a,b)=>b.timestamp-a.timestamp)[0];
       return `
-      <div class="card-maquina sem-dados" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
-        <div class="card-maquina-status ${emManutencao?'manutencao':'neutro'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:ICO_STATUS_MAQUINA.neutro}<span>${emManutencao?'Em manutenção':'Parada'}</span></div>
+      <div class="card-maquina sem-dados ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
+        <div class="card-maquina-status ${emManutencao?'manutencao':aguardandoResponsavel?'aguardando':'neutro'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:ICO_STATUS_MAQUINA.neutro}<span>${emManutencao?'Em manutenção':aguardandoResponsavel?'Aguardando responsável':'Parada'}</span></div>
         <div class="card-maquina-nome">${m}</div>
         <div class="item-admin-sub" style="padding:.3rem 0;white-space:normal;line-height:1.4">Livre pra nova produção.${ultimaHistorica ? ` Última: ${ultimaHistorica.peca} (${ultimaHistorica.operador}), ${new Date(ultimaHistorica.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}.` : ' Sem histórico registrado ainda.'}</div>
       </div>`;
@@ -6615,8 +6660,8 @@ async function renderCardsMaquinas(){
     if(d.registros === 0){
       const paradaManual = cacheSituacaoManual[m] === 'parada';
       return `
-      <div class="card-maquina sem-dados" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
-        <div class="card-maquina-status ${emManutencao?'manutencao':paradaManual?'neutro':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:paradaManual?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção':paradaManual?'Parada':'Em produção'}</span></div>
+      <div class="card-maquina sem-dados ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
+        <div class="card-maquina-status ${emManutencao?'manutencao':aguardandoResponsavel?'aguardando':paradaManual?'neutro':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:paradaManual?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção':aguardandoResponsavel?'Aguardando responsável':paradaManual?'Parada':'Em produção'}</span></div>
         <div class="card-maquina-nome">${m}</div>
         <div class="item-admin-sub" style="padding:.3rem 0">Em produção agora — ainda sem caixa fechada nesta sessão.</div>
       </div>`;
@@ -6644,13 +6689,16 @@ async function renderCardsMaquinas(){
     const totalTexto = opRef ? fmtInt(opRef.qtdTotal) : '—';
     const produzidoTexto = opRef ? fmtInt(Math.max(0, opRef.qtdTotal - opRef.qtdRestante)) : '—';
     const saldoTexto = opRef ? fmtInt(opRef.qtdRestante) : '—';
+    const classeStatus = emManutencao ? 'manutencao' : aguardandoResponsavel ? 'aguardando' : cacheSituacaoManual[m]==='parada' ? 'neutro' : zona;
+    const iconeStatus = emManutencao ? ICO_STATUS_MAQUINA.manutencao : aguardandoResponsavel ? ICO_STATUS_MAQUINA.aguardando : cacheSituacaoManual[m]==='parada' ? ICO_STATUS_MAQUINA.neutro : ICO_STATUS_MAQUINA[zona];
     const labelStatus = emManutencao ? 'Em manutenção'
+      : aguardandoResponsavel ? 'Aguardando responsável'
       : cacheSituacaoManual[m]==='parada' ? 'Parada'
       : zona === 'calculando' ? `Calculando... (~${minutosFaltando}min)`
       : LABEL_STATUS_MAQUINA[zona];
     return `
-      <div class="card-maquina" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
-        <div class="card-maquina-status ${emManutencao?'manutencao':cacheSituacaoManual[m]==='parada'?'neutro':zona}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:cacheSituacaoManual[m]==='parada'?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA[zona]}<span>${labelStatus}</span></div>
+      <div class="card-maquina ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
+        <div class="card-maquina-status ${classeStatus}">${iconeStatus}<span>${labelStatus}</span></div>
         <div class="card-maquina-nome">${m}</div>
         <div class="card-maquina-contexto">
           <div class="contexto-peca">${u.peca}</div>
@@ -6669,15 +6717,9 @@ async function renderCardsMaquinas(){
           ${metricaHTML('saldo', 'Saldo (OP)', saldoTexto)}
         </div>
         <div class="card-maquina-chips">
-          <div class="mini-chip-anel">
-            <div class="anel-wrap">${anelSVG(refugoPct, zonaRefugo==='verde'?'var(--success)':zonaRefugo==='amarelo'?'var(--warning)':'var(--danger)', true)}<span class="anel-num-central" style="color:${zonaRefugo==='verde'?'var(--success)':zonaRefugo==='amarelo'?'var(--warning)':'var(--danger)'}">${refugoPct}%</span></div>
-            <span class="lbl">Refugo</span>
-          </div>
-          <div class="mini-chip-anel">
-            <div class="anel-wrap">${anelSVG(desempenhoPct, corBarra, desempenhoDisponivel)}<span class="anel-num-central" style="color:${corBarra}">${desempenhoDisponivel ? desempenhoPct+'%' : '···'}</span></div>
-            <span class="lbl">Desemp.</span>
-          </div>
-          <div class="mini-chip neutro" style="align-self:center"><span class="num">${d.registros}</span><span class="lbl">Caixas</span></div>
+          <div class="mini-chip ${zonaRefugo}"><span class="num">${refugoPct}%</span><span class="lbl">Refugo</span></div>
+          <div class="mini-chip ${zona}"><span class="num">${desempenhoDisponivel ? desempenhoPct+'%' : '···'}</span><span class="lbl">Desemp.</span></div>
+          <div class="mini-chip neutro"><span class="num">${d.registros}</span><span class="lbl">Caixas</span></div>
         </div>
         <div class="card-maquina-barra-trilho"><div class="card-maquina-barra-fill${desempenhoDisponivel?'':' indeterminado'}" style="${desempenhoDisponivel ? `width:${Math.min(100,desempenhoPct)}%;background:${corBarra};color:${corBarra}` : `color:${corBarra}`}"></div></div>
         <div style="font-size:1.15rem;font-weight:800;margin-bottom:.2rem">${fmtInt(d.pecasBoas)} <span style="font-size:.72rem;font-weight:700;color:var(--text-faint);text-transform:uppercase">peças produzidas (boas)</span></div>
