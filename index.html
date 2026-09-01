@@ -4923,15 +4923,16 @@ async function buscarDadosMaquinasDoBanco(){
 // se alguma caixa for fechada ou o saldo de uma OP mudar EM QUALQUER TABLET, rebusca e
 // redesenha os cards — só se a aba Máquinas for a que está visível agora, pra não gastar
 // processamento à toa redesenhando algo que ninguém está olhando.
-// Debounce de 900ms: fechar 1 caixa dispara os DOIS eventos abaixo quase juntos (INSERT
+// Debounce de 350ms: fechar 1 caixa dispara os DOIS eventos abaixo quase juntos (INSERT
 // na caixa + UPDATE no saldo da OP) — sem isso, cada fechamento causava DOIS redesenhos
-// em sequência, um dos motivos do piscar que você via.
+// em sequência, um dos motivos do piscar que você via. 350ms ainda é sobra de tempo pra
+// juntar os dois (chegam com poucos ms de diferença), mas corta quase 600ms de espera.
 let debounceMaquinasHandle = null;
 function agendarAtualizacaoMaquinas(){
   clearTimeout(debounceMaquinasHandle);
   debounceMaquinasHandle = setTimeout(()=>{
     if(secaoAdminAtiva === 'maquinas') renderCardsMaquinas();
-  }, 900);
+  }, 350);
 }
 function iniciarRealtimeMaquinas(){
   db.channel('maquinas-realtime')
@@ -5253,8 +5254,14 @@ document.getElementById('btn-parada-jantar').addEventListener('click', ()=>{
   // se a rede falhar aqui, a pausa local continua funcionando normalmente pro operador,
   // só o Ao Vivo é que não vai saber (mesmo espírito "sem trava" do resto do app).
   if(state.maquina){
-    db.from('maquinas').update({ situacao_manual:'pausa_jantar' }).eq('nome', state.maquina)
-      .then(({error})=>{ if(error) console.error('[Supabase] falha ao marcar parada (pausa jantar):', error); });
+    if(!MAQUINAS.includes(state.maquina)){
+      console.error('[pausa jantar] state.maquina="' + state.maquina + '" não bate com nenhum nome em MAQUINAS — a escrita no banco vai falhar silenciosamente (0 linhas afetadas).');
+    }
+    db.from('maquinas').update({ situacao_manual:'pausa_jantar' }).eq('nome', state.maquina).select()
+      .then(({data, error})=>{
+        if(error) console.error('[Supabase] falha ao marcar parada (pausa jantar):', error);
+        else if(!data || data.length === 0) console.error('[Supabase] pausa jantar: update rodou sem erro, mas 0 linhas afetadas — nome "' + state.maquina + '" não existe na tabela maquinas com esse texto exato.');
+      });
   }
 });
 
@@ -5281,8 +5288,11 @@ document.getElementById('btn-retomar-producao').addEventListener('click', ()=>{
   // manualmente NO MEIO da pausa pro jantar dessa mesma máquina (bem raro), isso apaga
   // o manutenção também. Caso extremo, não tratado — aceitável dado o quão raro é.
   if(state.maquina){
-    db.from('maquinas').update({ situacao_manual:null }).eq('nome', state.maquina)
-      .then(({error})=>{ if(error) console.error('[Supabase] falha ao desmarcar parada (fim da pausa):', error); });
+    db.from('maquinas').update({ situacao_manual:null }).eq('nome', state.maquina).select()
+      .then(({data, error})=>{
+        if(error) console.error('[Supabase] falha ao desmarcar parada (fim da pausa):', error);
+        else if(!data || data.length === 0) console.error('[Supabase] retomar pausa: update rodou sem erro, mas 0 linhas afetadas — nome "' + state.maquina + '" não existe na tabela maquinas com esse texto exato.');
+      });
   }
 });
 
