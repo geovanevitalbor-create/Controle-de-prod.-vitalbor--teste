@@ -180,7 +180,7 @@
   .logo-card{
     display:flex;align-items:center;justify-content:center;padding:.6rem 0;
   }
-  .logo-img{display:block;height:7rem;width:auto;}
+  .logo-img{display:block;height:var(--logo-altura-inicial,7rem);width:auto;}
   .brandmark .sub{font-size:2.1rem;font-weight:800;letter-spacing:-.01em;}
   .btn-iniciar{
     padding:1.35rem 5rem;border-radius:100px;
@@ -938,6 +938,16 @@
 
   .tema-logo-linha{display:flex;align-items:center;gap:1.2rem;padding:1rem;background:var(--bg-void);border-radius:var(--radius-admin-md);margin-bottom:.4rem;}
   #tema-logo-preview{height:4rem;width:auto;max-width:9rem;object-fit:contain;background:#1a1a1a;border-radius:var(--radius-admin-sm);padding:.4rem;}
+  .btn-logo-upload{
+    display:inline-flex;align-items:center;gap:.55rem;padding:.85rem 1.3rem;border-radius:var(--radius-admin-sm);
+    background:var(--accent-soft);color:var(--accent-hi);border:1px solid var(--accent);font-weight:700;font-size:.95rem;
+    cursor:pointer;transition:background .12s ease;
+  }
+  .btn-logo-upload:active{background:var(--accent);color:#fff;}
+  .btn-logo-upload svg{width:1.1rem;height:1.1rem;flex-shrink:0;}
+  .tema-logo-tamanho{margin-top:.9rem;display:flex;align-items:center;gap:.8rem;}
+  .tema-logo-tamanho input[type="range"]{flex:1;accent-color:var(--accent);}
+  .tema-logo-tamanho .valor{font-weight:800;font-variant-numeric:tabular-nums;min-width:3rem;text-align:right;color:var(--text-dim);}
   .tema-grade{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem 1.4rem;}
   .tema-campo{display:flex;flex-direction:column;gap:.4rem;}
   .tema-campo span{font-size:.8rem;font-weight:700;color:var(--text-dim);}
@@ -3960,7 +3970,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-31</div>
+    <div class="versao-build-canto">v2026.09.03-32</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -4001,7 +4011,7 @@ var qrcode = function() {
           <span>Configurações</span>
         </button>
       </nav>
-      <div class="admin-versao-build">v2026.09.03-31</div>
+      <div class="admin-versao-build">v2026.09.03-32</div>
 
       <div class="admin-conteudo">
         <!-- ---- DASHBOARD ---- -->
@@ -4215,10 +4225,18 @@ var qrcode = function() {
             <div class="config-bloco-sub">Logo do sistema — aparece na tela inicial e no menu do admin.</div>
             <div class="tema-logo-linha">
               <img id="tema-logo-preview" alt="Preview da logo">
-              <div>
-                <label class="btn-secundario" for="tema-logo-input" style="cursor:pointer;display:inline-block">Escolher imagem</label>
+              <div style="flex:1">
+                <label class="btn-logo-upload" for="tema-logo-input">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+                  Escolher imagem
+                </label>
                 <input type="file" id="tema-logo-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none">
-                <div class="item-admin-sub" style="margin-top:.4rem">PNG, JPG, SVG ou WEBP. Fica melhor com fundo transparente.</div>
+                <div class="item-admin-sub" style="margin-top:.5rem">PNG, JPG, SVG ou WEBP. Fica melhor com fundo transparente.</div>
+                <div class="tema-logo-tamanho">
+                  <span class="item-admin-sub" style="white-space:nowrap">Tamanho (tela inicial)</span>
+                  <input type="range" id="tema-logo-altura" min="4" max="12" step=".5" value="7">
+                  <span class="valor" id="tema-logo-altura-valor">7rem</span>
+                </div>
               </div>
             </div>
             <div class="config-bloco-sub" style="margin-top:1.3rem">Cores do sistema inteiro — operador e admin, todas as telas. O preview já mostra o resultado antes de salvar.</div>
@@ -4757,7 +4775,7 @@ function preencherFormularioDoTema(tema){
 // (sem essa separação, cairia na mesma armadilha de ordenação assíncrona documentada acima
 // pras listas de turno/operador/OP). maybeSingle, não single: linha pode não existir ainda
 // se ninguém salvou uma aparência customizada — nesse caso fica no padrão do CSS, sem erro.
-function aplicarLogo(url){
+function aplicarLogo(url, altura){
   const inicial = document.getElementById('logo-tela-inicial');
   const sidebar = document.getElementById('logo-sidebar-admin');
   const preview = document.getElementById('tema-logo-preview');
@@ -4768,6 +4786,11 @@ function aplicarLogo(url){
   // preview sempre reflete a logo que está de fato em uso agora (customizada ou padrão) —
   // sem isso, sem nenhuma logo customizada salva ainda, o preview ficava quebrado/vazio
   if(preview && inicial) preview.src = url || inicial.src;
+  const alturaFinal = altura || 7;
+  document.documentElement.style.setProperty('--logo-altura-inicial', alturaFinal + 'rem');
+  const slider = document.getElementById('tema-logo-altura'), valorTexto = document.getElementById('tema-logo-altura-valor');
+  if(slider) slider.value = alturaFinal;
+  if(valorTexto) valorTexto.textContent = alturaFinal + 'rem';
 }
 async function carregarTema(){
   try{
@@ -4777,7 +4800,7 @@ async function carregarTema(){
     const tema = { accent:data.accent, bg:data.bg_void, success:data.success, danger:data.danger, warning:data.warning, azul:data.azul };
     aplicarTema(tema);
     preencherFormularioDoTema(tema);
-    aplicarLogo(data.logo_url);
+    aplicarLogo(data.logo_url, data.logo_altura);
   } catch(err){ console.error('[Supabase] falha ao carregar tema:', err); }
 }
 carregarTema();
@@ -4804,6 +4827,12 @@ document.getElementById('tema-logo-input').addEventListener('change', async (e)=
   } finally {
     label.textContent = textoOriginal;
   }
+});
+
+document.getElementById('tema-logo-altura').addEventListener('input', (e)=>{
+  const valor = e.target.value;
+  document.documentElement.style.setProperty('--logo-altura-inicial', valor + 'rem');
+  document.getElementById('tema-logo-altura-valor').textContent = valor + 'rem';
 });
 
 
@@ -7279,6 +7308,7 @@ document.getElementById('btn-tema-salvar').addEventListener('click', async ()=>{
     danger: tema.danger, warning: tema.warning, azul: tema.azul,
   };
   if(logoUrlPendente) payload.logo_url = logoUrlPendente; // só grava se trocou — não sobrescreve com null à toa
+  payload.logo_altura = parseFloat(document.getElementById('tema-logo-altura').value);
   const { error } = await db.from('tema_config').update(payload).eq('id', 1);
   if(error){ toast('Erro ao salvar aparência: ' + error.message); console.error('[Supabase]', error); return; }
   logoUrlPendente = null;
@@ -7288,6 +7318,9 @@ document.getElementById('btn-tema-restaurar').addEventListener('click', ()=>{
   preencherFormularioDoTema(TEMA_PADRAO);
   aplicarTema(TEMA_PADRAO);
   atualizarAvisoContraste(TEMA_PADRAO);
+  document.documentElement.style.setProperty('--logo-altura-inicial', '7rem');
+  document.getElementById('tema-logo-altura').value = 7;
+  document.getElementById('tema-logo-altura-valor').textContent = '7rem';
   toast('Restaurado — toque em "Salvar aparência" pra valer pra todo mundo.');
 });
 
