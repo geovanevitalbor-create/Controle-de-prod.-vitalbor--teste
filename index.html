@@ -887,11 +887,7 @@
   .mini-chip.neutro{background:var(--bg-card-hi);color:var(--text-dim);}
   .card-maquina-barra-trilho{height:.45rem;background:var(--bg-void);border-radius:100px;overflow:visible;margin-bottom:.7rem;position:relative;}
   .card-maquina-barra-fill{height:100%;border-radius:100px;transition:width .5s ease;position:relative;filter:drop-shadow(0 0 4px currentColor);}
-  .card-maquina-barra-fill.indeterminado{
-    background:linear-gradient(90deg,transparent,var(--azul) 35%,var(--azul) 65%,transparent);
-    background-size:200% 100%;animation:varrer-indeterminado 1.5s ease-in-out infinite;
-  }
-  @keyframes varrer-indeterminado{0%{background-position:200% 0;}100%{background-position:-100% 0;}}
+  .card-maquina-barra-fill.indeterminado{background:transparent;}
   .card-maquina-rodape{font-size:.72rem;color:var(--text-faint);padding-top:.7rem;border-top:1px solid var(--border);}
   .card-maquina.sem-dados{opacity:.85;}
   .card-maquina.sem-dados .card-maquina-nome{margin-bottom:.4rem;color:var(--text-dim);}
@@ -3962,7 +3958,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-28</div>
+    <div class="versao-build-canto">v2026.09.03-29</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -4003,7 +3999,7 @@ var qrcode = function() {
           <span>Configurações</span>
         </button>
       </nav>
-      <div class="admin-versao-build">v2026.09.03-28</div>
+      <div class="admin-versao-build">v2026.09.03-29</div>
 
       <div class="admin-conteudo">
         <!-- ---- DASHBOARD ---- -->
