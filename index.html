@@ -3962,7 +3962,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-23</div>
+    <div class="versao-build-canto">v2026.09.03-24</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -4003,7 +4003,7 @@ var qrcode = function() {
           <span>Configurações</span>
         </button>
       </nav>
-      <div class="admin-versao-build">v2026.09.03-23</div>
+      <div class="admin-versao-build">v2026.09.03-24</div>
 
       <div class="admin-conteudo">
         <!-- ---- DASHBOARD ---- -->
@@ -7835,10 +7835,16 @@ document.getElementById('btn-admin-form-salvar').addEventListener('click', async
     const peca = document.getElementById('admin-campo-peca').value.trim();
     if(!op || !peca){ document.getElementById('admin-form-aviso').classList.add('show'); return; }
     const qtdTotal = parseInt(document.getElementById('admin-campo-qtd').value, 10) || 0;
-    // OP nova: saldo começa igual ao total (nada produzido ainda). OP existente: preserva o
-    // saldo real que já vinha decrementando com as caixas fechadas — mudar o total cadastrado
-    // não deve zerar o progresso que já rolou.
-    const qtdRestanteAtual = adminEditandoIndex!==null ? ORDENS[adminEditandoIndex].qtdRestante : qtdTotal;
+    // OP nova: saldo começa igual ao total (nada produzido ainda). OP existente: o que
+    // importa preservar é o PRODUZIDO real (o que as caixas fechadas já geraram), não o
+    // saldo em si — daí calcula produzido = total antigo menos saldo antigo, e o saldo novo
+    // vira total novo menos esse produzido. Sem isso, mudar o total mantinha o saldo antigo
+    // intacto e a diferença virava "produzido" do nada, mesmo sem nenhuma caixa a mais.
+    // Sem trava no zero de propósito — se o novo total ficar abaixo do que já foi produzido,
+    // o saldo fica negativo, mesmo espírito de "passou da meta" usado no resto do app.
+    const qtdRestanteAtual = adminEditandoIndex!==null
+      ? qtdTotal - (ORDENS[adminEditandoIndex].qtdTotal - ORDENS[adminEditandoIndex].qtdRestante)
+      : qtdTotal;
     const codigo = document.getElementById('admin-campo-codigo').value.trim();
     const materiaPrima = document.getElementById('admin-campo-materia').value.trim();
     const cavidades = parseInt(document.getElementById('admin-campo-cavidades').value, 10) || 1;
