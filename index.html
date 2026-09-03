@@ -985,8 +985,8 @@
   /* 4 faixas discretas — mesma classificação usada no resto do app (classificarDesempenho:
      muito-baixa/baixa/boa/muito-boa), só mapeada pra cor em vez de texto */
   .heatmap-celula.nivel-muito-baixa{background:var(--danger);}
-  .heatmap-celula.nivel-baixa{background:var(--accent);}
-  .heatmap-celula.nivel-boa{background:var(--warning);}
+  .heatmap-celula.nivel-baixa{background:var(--warning);}
+  .heatmap-celula.nivel-boa{background:var(--accent);}
   .heatmap-celula.nivel-muito-boa{background:var(--success);}
   .heatmap-celula.vazia{color:var(--text-faint);background:transparent !important;font-weight:400;}
   /* estado 3 do manual: apontou, mas sem meta/hora válida pra calcular desempenho — distinto
@@ -998,11 +998,16 @@
   .heatmap-celula.anotada.manutencao{background:var(--azul-vitalbor) !important;color:#fff !important;}
   .heatmap-celula.fimdesemana{background:var(--bg-void) !important;color:var(--text-faint) !important;cursor:default;}
   .heatmap-th-fimdesemana{color:var(--text-faint) !important;font-style:italic;vertical-align:middle;background:var(--bg-void) !important;}
-  .heatmap-celula.hoje,.heatmap-tabela th.hoje{box-shadow:inset 0 0 0 2px var(--accent-hi);}
+  .heatmap-celula.hoje,.heatmap-tabela th.hoje{box-shadow:none !important;outline:2px dashed var(--accent-hi);outline-offset:-2px;}
+  .heatmap-legenda{display:flex;flex-wrap:wrap;gap:.9rem;margin:.9rem 0 1.1rem;padding:.7rem .9rem;background:var(--bg-void);border-radius:var(--radius-admin-sm);}
+  .heatmap-legenda-item{display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--text-dim);font-weight:600;}
+  .heatmap-legenda-cor{width:.85rem;height:.85rem;border-radius:3px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:.5rem;color:var(--text-faint);}
+  .heatmap-legenda-cor.invalida{background:repeating-linear-gradient(135deg,var(--bg-card-hi),var(--bg-card-hi) 3px,var(--bg-void) 3px,var(--bg-void) 6px);border:1px solid var(--warning);}
+  .heatmap-legenda-cor.vazia{background:var(--bg-card-hi);border:1px solid var(--border);}
   /* resumo agora é 4 LINHAS completas (uma por dia cada), não só caixinhas de total —
      mostra a tendência dia a dia, não só a média do período inteiro */
   .heatmap-linha-resumo .heatmap-td-maquina{font-weight:800;}
-  .heatmap-linha-resumo.media .heatmap-td-maquina{background:var(--azul-vitalbor-soft);color:var(--azul-vitalbor-texto);}
+  .heatmap-linha-resumo.media .heatmap-td-maquina{background:var(--warning-soft);color:var(--warning);}
   .heatmap-linha-resumo.eficiencia .heatmap-td-maquina{background:var(--roxo-soft);color:var(--roxo);}
   .heatmap-linha-resumo.refugo .heatmap-td-maquina{background:rgba(220,38,38,.12);color:var(--danger);}
   .heatmap-linha-resumo.paradas .heatmap-td-maquina{background:var(--accent-soft);color:var(--accent-hi);}
@@ -3957,7 +3962,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-22</div>
+    <div class="versao-build-canto">v2026.09.03-23</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -3998,7 +4003,7 @@ var qrcode = function() {
           <span>Configurações</span>
         </button>
       </nav>
-      <div class="admin-versao-build">v2026.09.03-22</div>
+      <div class="admin-versao-build">v2026.09.03-23</div>
 
       <div class="admin-conteudo">
         <!-- ---- DASHBOARD ---- -->
@@ -4011,6 +4016,15 @@ var qrcode = function() {
           <div class="card-grafico">
             <div class="card-grafico-titulo">Mapa de calor — desempenho por dia</div>
             <div class="card-grafico-sub">Cada linha é uma máquina num turno (D/T/N); cada coluna é um dia. Baseado nos turnos finalizados no período.</div>
+            <div class="heatmap-legenda">
+              <span class="heatmap-legenda-item"><span class="heatmap-legenda-cor nivel-muito-baixa"></span>&lt;50%</span>
+              <span class="heatmap-legenda-item"><span class="heatmap-legenda-cor nivel-baixa"></span>50–84%</span>
+              <span class="heatmap-legenda-item"><span class="heatmap-legenda-cor nivel-boa"></span>85–110%</span>
+              <span class="heatmap-legenda-item"><span class="heatmap-legenda-cor nivel-muito-boa"></span>&gt;110%</span>
+              <span class="heatmap-legenda-item"><span class="heatmap-legenda-cor invalida"></span>apontou, sem meta válida</span>
+              <span class="heatmap-legenda-item"><span class="heatmap-legenda-cor vazia">·</span>sem apontamento</span>
+              <span class="heatmap-legenda-item"><span class="heatmap-legenda-cor" style="background:var(--bg-void);border:1px dashed var(--accent-hi)"></span>hoje (parcial)</span>
+            </div>
             <div class="heatmap-filtros">
               <label>De <input type="date" class="campo-texto-sm" id="heatmap-data-inicio"></label>
               <label>Até <input type="date" class="campo-texto-sm" id="heatmap-data-fim"></label>
