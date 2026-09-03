@@ -632,6 +632,8 @@
     width:15rem;flex-shrink:0;background:linear-gradient(180deg,#242424,var(--bg-navy));border-right:1px solid var(--border);
     display:flex;flex-direction:column;padding:1.4rem 1rem;gap:.3rem;overflow-y:auto;
   }
+  .admin-versao-build{margin-top:auto;padding-top:1rem;font-size:.62rem;color:var(--text-faint);text-align:center;opacity:.55;user-select:text;}
+  .versao-build-canto{position:absolute;bottom:.3rem;right:.5rem;font-size:.6rem;color:var(--text-faint);opacity:.4;user-select:text;pointer-events:none;}
   .admin-sidebar-logo{
     display:flex;justify-content:center;padding-bottom:1rem;margin-bottom:.8rem;
     border-bottom:1px solid var(--border);
@@ -3908,6 +3910,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
+    <div class="versao-build-canto">v2026.09.03-19</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -3945,6 +3948,7 @@ var qrcode = function() {
           <span>Configurações</span>
         </button>
       </nav>
+      <div class="admin-versao-build">v2026.09.03-19</div>
 
       <div class="admin-conteudo">
         <!-- ---- DASHBOARD ---- -->
@@ -4940,6 +4944,7 @@ function iniciarRealtimeMaquinas(){
     .on('postgres_changes', {event:'UPDATE', schema:'public', table:'ordens_producao'}, agendarAtualizacaoMaquinas)
     .on('postgres_changes', {event:'*', schema:'public', table:'producoes_ativas'}, agendarAtualizacaoMaquinas)
     .on('postgres_changes', {event:'UPDATE', schema:'public', table:'maquinas'}, agendarAtualizacaoMaquinas)
+    .on('postgres_changes', {event:'*', schema:'public', table:'chamados'}, agendarAtualizacaoMaquinas)
     .subscribe((status)=> console.log('[Supabase] canal realtime de máquinas:', status));
 }
 iniciarRealtimeMaquinas();
@@ -6704,17 +6709,25 @@ async function renderCardsMaquinas(){
       </div>`;
     }
     // GUARDA CONTRA O BUG DE 120890%: a fórmula (injetadas ÷ esperado) é matematicamente
-    // correta, mas "esperado" cresce com o TEMPO REAL decorrido — com poucos minutos de
-    // sessão (ex: 1ª caixa fechada segundos depois de abrir a produção, comum em teste),
-    // esperado fica perto de zero e a divisão explode. Abaixo de 5 min de dado real, a
-    // taxa é ruído estatístico, não desempenho de verdade — mostra "calculando" em vez
-    // de um número (mesmo que capado, um % chutado ainda passaria a falsa confiança).
-    const TEMPO_MINIMO_DESEMPENHO_MS = 2 * 60000; // era 5min — conservador demais até pra teste normal e monitoramento no início de uma sessão real
-    const desempenhoDisponivel = d.duracaoTotalMs >= TEMPO_MINIMO_DESEMPENHO_MS;
-    const minutosFaltando = Math.max(1, Math.ceil((TEMPO_MINIMO_DESEMPENHO_MS - d.duracaoTotalMs) / 60000));
+    // correta, mas "esperado" cresce com o TEMPO REAL decorrido — com pouquíssimo tempo de
+    // sessão (ex: 1ª caixa fechada segundos depois de abrir a produção), esperado fica perto
+    // de zero e a divisão explode. Mas nem toda leitura cedo é ruim: 2 peças em 1min29 pode
+    // dar uma % totalmente plausível se a meta/hora for compatível — não faz sentido esconder
+    // isso só por ainda não ter batido um relógio arbitrário. Por isso são DUAS regras, não uma:
+    // (1) abaixo de 20s SEMPRE calculando — tempo tão curto que qualquer conta é ruído puro;
+    // (2) entre 20s e 2min, só esconde se o número em si vier implausível (>300%) — nesse caso
+    // ainda pode ser só o timing de digitação, dá mais alguns segundos pra se estabilizar.
+    const TEMPO_MINIMO_ABSOLUTO_MS = 20000;
+    const TEMPO_CONFORTAVEL_MS = 2 * 60000;
     const refugoPct = d.qtdPecas > 0 ? Math.round((d.refugo / d.qtdPecas) * 1000) / 10 : 0;
     const desempenhoPctBruto = d.esperado > 0 ? Math.round((d.injetadas / d.esperado) * 100) : 0;
-    const desempenhoPct = Math.min(desempenhoPctBruto, 999); // teto de exibição — trava de segurança pra qualquer outro caso extremo que a guarda acima não previu
+    const desempenhoPct = Math.min(desempenhoPctBruto, 999); // teto de exibição — trava de segurança pra qualquer outro caso extremo
+    const numeroImplausível = desempenhoPctBruto > 300;
+    const desempenhoDisponivel = d.duracaoTotalMs >= TEMPO_CONFORTAVEL_MS
+      || (d.duracaoTotalMs >= TEMPO_MINIMO_ABSOLUTO_MS && !numeroImplausível);
+    const minutosFaltando = d.duracaoTotalMs < TEMPO_MINIMO_ABSOLUTO_MS
+      ? Math.max(1, Math.ceil((TEMPO_MINIMO_ABSOLUTO_MS - d.duracaoTotalMs) / 1000)) + 's'
+      : `${Math.max(1, Math.ceil((TEMPO_CONFORTAVEL_MS - d.duracaoTotalMs) / 60000))}min`;
     const zona = desempenhoDisponivel ? classificarGauge(desempenhoPct) : 'calculando';
     if(!filtroMaquinasZonas.has(zona) && zona !== 'calculando') return ''; // escondida pelo filtro de desempenho (não filtra "calculando" — some da tela de vez em quando senão)
     const corBarra = zona==='verde' ? 'var(--success)' : zona==='amarelo' ? 'var(--warning)' : zona==='calculando' ? 'var(--azul)' : 'var(--danger)';
@@ -6732,7 +6745,7 @@ async function renderCardsMaquinas(){
       : aguardandoResponsavel ? 'Aguardando responsável'
       : pausaJantar ? 'Pausa (jantar)'
       : cacheSituacaoManual[m]==='parada' ? 'Parada'
-      : zona === 'calculando' ? `Calculando... (~${minutosFaltando}min)`
+      : zona === 'calculando' ? `Calculando... (~${minutosFaltando})`
       : LABEL_STATUS_MAQUINA[zona];
     return `
       <div class="card-maquina ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
