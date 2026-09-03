@@ -5254,6 +5254,7 @@ document.getElementById('btn-parada-jantar').addEventListener('click', ()=>{
   document.getElementById('btn-parada-jantar').classList.add('pausando');
   document.getElementById('screen-producao').classList.add('pausando');
   toggleModal('modal-pausa-jantar', true);
+  toast('DEBUG: state.maquina = "' + state.maquina + '"'); // temporário, só pra achar o bug — tira depois
   // grava no banco pra o Ao Vivo saber e piscar amarelo — sem isso a pausa só existia
   // no tablet do operador, o admin não tinha como ver. Não trava a tela por causa disso;
   // se a rede falhar aqui, a pausa local continua funcionando normalmente pro operador,
