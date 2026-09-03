@@ -995,10 +995,10 @@
   .heatmap-celula{font-weight:700;color:#0A0A0A;min-width:2.6rem;cursor:pointer;}
   /* 4 faixas discretas — mesma classificação usada no resto do app (classificarDesempenho:
      muito-baixa/baixa/boa/muito-boa), só mapeada pra cor em vez de texto */
-  .heatmap-celula.nivel-muito-baixa{background:var(--danger);}
-  .heatmap-celula.nivel-baixa{background:var(--warning);}
-  .heatmap-celula.nivel-boa{background:var(--accent);}
-  .heatmap-celula.nivel-muito-boa{background:var(--success);}
+  .nivel-muito-baixa{background:#EF4444;}
+  .nivel-baixa{background:#F97316;}
+  .nivel-boa{background:#EAB308;}
+  .nivel-muito-boa{background:#22C55E;}
   .heatmap-celula.vazia{color:var(--text-faint);background:transparent !important;font-weight:400;}
   /* estado 3 do manual: apontou, mas sem meta/hora válida pra calcular desempenho — distinto
      de "vazia" (não apontou nada) e das 4 cores de desempenho (apontamento válido) */
@@ -3974,7 +3974,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-33</div>
+    <div class="versao-build-canto">v2026.09.03-35</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -4015,7 +4015,7 @@ var qrcode = function() {
           <span>Sair do Admin</span>
         </button>
       </nav>
-      <div class="admin-versao-build">v2026.09.03-33</div>
+      <div class="admin-versao-build">v2026.09.03-35</div>
 
       <div class="admin-conteudo">
         <!-- ---- DASHBOARD ---- -->
@@ -7343,10 +7343,14 @@ async function carregarMapaCalor(){
   }
 
   // NÍVEL 1 — agrupa por SESSÃO: (máquina, turno, dia, OP). "OP" aqui faz o papel de
-  // "ferramenta/molde" do manual. Dentro da MESMA sessão: peças SOMAM entre registros,
-  // mas o "esperado" (meta do turno) usa o MAIOR valor visto, nunca soma — representa a
-  // meta do turno inteiro, não uma cota por linha (se somasse, um turno com 2 registros
-  // pareceria ter o DOBRO da meta real).
+  // "ferramenta/molde" do manual. Dentro da MESMA sessão: peças E esperado SOMAM entre
+  // registros. Cada registro tem sua própria duração real (não sobreposta com as outras —
+  // cada "Encerrar Turno" fecha um período e o próximo só começa depois), então a meta
+  // esperada do combinado é a soma de cada (meta × duração individual), exatamente como
+  // as peças. Usar o MAIOR valor em vez de somar (versão anterior) subestimava o esperado
+  // sempre que a mesma OP era fechada e reaberta mais de uma vez no mesmo dia/turno/máquina
+  // — as peças de todas as sessões somavam contra a meta de só uma delas, o que gerava
+  // porcentagens impossíveis tipo 840% ou 2263% quando isso acontecia.
   const sessoes = {};
   (turnosHist||[]).forEach(r => {
     const turnoObj = TURNOS.find(t => t.nome === r.turno);
@@ -7358,8 +7362,7 @@ async function carregarMapaCalor(){
     s.injetadas += r.injetadas || 0;
     s.refugo += r.refugo || 0;
     s.qtdPecas += r.qtd_pecas || 0;
-    const esperadoDesteRegistro = (r.meta_hora||0) * ((r.duracao_ms||0)/3600000);
-    s.esperado = Math.max(s.esperado, esperadoDesteRegistro); // MÁXIMO, nunca soma
+    s.esperado += (r.meta_hora||0) * ((r.duracao_ms||0)/3600000);
   });
 
   // NÍVEL 2 — agrupa sessões por CÉLULA: (máquina, turno, dia). Se uma célula teve mais
