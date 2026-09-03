@@ -5262,15 +5262,17 @@ document.getElementById('btn-parada-jantar').addEventListener('click', ()=>{
   if(state.maquina){
     if(!MAQUINAS.includes(state.maquina)){
       console.error('[pausa jantar] state.maquina="' + state.maquina + '" não bate com nenhum nome em MAQUINAS — a escrita no banco vai falhar silenciosamente (0 linhas afetadas).');
+      toast('DEBUG: nome "' + state.maquina + '" não existe em MAQUINAS!');
     }
     db.from('maquinas').update({ situacao_manual:'pausa_jantar' }).eq('nome', state.maquina).select()
       .then(({data, error})=>{
-        if(error) console.error('[Supabase] falha ao marcar parada (pausa jantar):', error);
-        else if(!data || data.length === 0) console.error('[Supabase] pausa jantar: update rodou sem erro, mas 0 linhas afetadas — nome "' + state.maquina + '" não existe na tabela maquinas com esse texto exato.');
-        else console.log('[pausa jantar] gravado com sucesso:', data);
+        if(error){ console.error('[Supabase] falha ao marcar parada (pausa jantar):', error); toast('DEBUG: ERRO ao gravar — ' + error.message); }
+        else if(!data || data.length === 0){ console.error('[Supabase] pausa jantar: update rodou sem erro, mas 0 linhas afetadas — nome "' + state.maquina + '" não existe na tabela maquinas com esse texto exato.'); toast('DEBUG: gravou mas 0 linhas afetadas!'); }
+        else { console.log('[pausa jantar] gravado com sucesso:', data); toast('DEBUG: gravado OK — situacao_manual="' + data[0].situacao_manual + '"'); }
       });
   } else {
     console.error('[pausa jantar] state.maquina está vazio/nulo no momento do clique — a gravação no banco nem foi tentada.');
+    toast('DEBUG: state.maquina vazio!');
   }
 });
 
