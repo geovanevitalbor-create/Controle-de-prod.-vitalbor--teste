@@ -3962,7 +3962,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-25</div>
+    <div class="versao-build-canto">v2026.09.03-26</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -4003,7 +4003,7 @@ var qrcode = function() {
           <span>Configurações</span>
         </button>
       </nav>
-      <div class="admin-versao-build">v2026.09.03-25</div>
+      <div class="admin-versao-build">v2026.09.03-26</div>
 
       <div class="admin-conteudo">
         <!-- ---- DASHBOARD ---- -->
@@ -7771,7 +7771,6 @@ function abrirFormAdmin(tipo, index){
           <label class="campo-label" for="admin-campo-qtd">Quantidade total da OP</label>
           <input type="number" class="campo-texto" id="admin-campo-qtd" value="${o.qtdTotal}">
           <div class="item-admin-sub" style="padding:.3rem 0 0">Saldo: ${formatarSaldo(o.qtdRestante)} — atualiza sozinho conforme caixas são fechadas, não editável direto aqui. A OP continua na lista do operador mesmo depois de bater a meta, a não ser que o status mude pra "Fechada" ou "Finalizada".</div>
-          ${index!==null ? `<button type="button" class="btn-secundario" id="btn-recalcular-saldo" style="margin-top:.6rem;width:100%">Recalcular saldo a partir do histórico</button>` : ''}
         </div>
       </div>
       <label class="campo-label" for="admin-campo-meta">Meta de injetadas por hora</label>
@@ -7780,29 +7779,6 @@ function abrirFormAdmin(tipo, index){
       <div class="chips-motivo compacto" id="admin-campo-status-chips">
         ${STATUS_OP.map(s => `<button type="button" class="chip-motivo status-${s}${s===adminOpStatus?' sel':''}" data-status="${s}">${s.charAt(0).toUpperCase()+s.slice(1)}</button>`).join('')}
       </div>`;
-    if(index!==null){
-      document.getElementById('btn-recalcular-saldo').addEventListener('click', async ()=>{
-        const btnRecalc = document.getElementById('btn-recalcular-saldo');
-        const opAlvo = ORDENS[index];
-        btnRecalc.disabled = true;
-        btnRecalc.textContent = 'Recalculando...';
-        try{
-          const { data, error } = await db.from('historico_caixas').select('qtd_pecas,refugo').eq('op', opAlvo.op);
-          if(error){ toast('Erro ao buscar histórico: ' + error.message); console.error('[Supabase]', error); return; }
-          const totalProduzidoLiquido = (data||[]).reduce((soma, r) => soma + Math.max(0, (r.qtd_pecas||0) - (r.refugo||0)), 0);
-          const qtdTotalAtual = parseInt(document.getElementById('admin-campo-qtd').value, 10) || opAlvo.qtdTotal;
-          const novoSaldo = qtdTotalAtual - totalProduzidoLiquido;
-          const { error: erroUpdate } = await db.from('ordens_producao').update({ qtd_restante: novoSaldo }).eq('id', opAlvo._dbId);
-          if(erroUpdate){ toast('Erro ao gravar: ' + erroUpdate.message); console.error('[Supabase]', erroUpdate); return; }
-          opAlvo.qtdRestante = novoSaldo;
-          toast(`Saldo recalculado: ${totalProduzidoLiquido} peças boas produzidas no histórico → saldo agora é ${formatarSaldo(novoSaldo)}.`);
-          abrirFormAdmin('ops', index); // reabre o modal já atualizado, mostra o novo saldo na tela
-        } finally {
-          btnRecalc.disabled = false;
-          btnRecalc.textContent = 'Recalcular saldo a partir do histórico';
-        }
-      });
-    }
     document.querySelectorAll('#admin-campo-status-chips [data-status]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         adminOpStatus = btn.getAttribute('data-status');
