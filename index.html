@@ -1223,21 +1223,9 @@
   }
   #toast.show{transform:translate(-50%,0);opacity:1;visibility:visible;transition:transform .22s ease,opacity .22s ease;}
 
-  /* ---------- Impressão ---------- */
-  /* tamanho real da bobina de etiqueta da Elgin L42 Pro Full do Thiago: 70x100mm.
-     Ajuste aqui se ele trocar de bobina — só esses 2 números (mais o padding logo abaixo,
-     se precisar de mais/menos margem) precisam mudar. */
-  #print-label{display:none;}
-  @media print{
-    html, body{background:#fff !important;}
-    body *{visibility:hidden;}
-    #print-label, #print-label *{visibility:visible;}
-    #print-label{
-      display:block;position:absolute;top:0;left:0;width:70mm;padding:3mm;
-      background:#fff;color:#000;font-family:var(--font);
-    }
-    @page{size:70mm 100mm;margin:0;}
-  }
+  /* impressão de etiqueta via PrintNode agora — ver enviarEtiquetaParaImpressao() no JS.
+     Sem CSS de @media print aqui: o navegador nunca abre diálogo de impressão nesse fluxo,
+     quem imprime de fato é a função no Supabase, que gera o PDF e manda pra PrintNode. */
 
   @media (max-width:900px){
     .screen-pad{padding:1.4rem 1.3rem;}
@@ -4013,7 +4001,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-42</div>
+    <div class="versao-build-canto">v2026.09.03-44</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -4054,7 +4042,7 @@ var qrcode = function() {
           <span>Sair do Admin</span>
         </button>
       </nav>
-      <div class="admin-versao-build">v2026.09.03-42</div>
+      <div class="admin-versao-build">v2026.09.03-44</div>
 
       <div class="admin-conteudo">
         <!-- ---- DASHBOARD ---- -->
@@ -4183,6 +4171,7 @@ var qrcode = function() {
             <button type="button" class="config-subtab" data-config-tab="seguranca">Segurança</button>
             <button type="button" class="config-subtab" data-config-tab="responsaveis">Responsáveis</button>
             <button type="button" class="config-subtab" data-config-tab="aparencia">Aparência</button>
+            <button type="button" class="config-subtab" data-config-tab="impressao">Impressão</button>
           </div>
 
           <div class="config-subpainel ativo" id="config-subpainel-maquinas">
@@ -4326,6 +4315,26 @@ var qrcode = function() {
               <button class="btn-config-add" id="btn-tema-restaurar">Restaurar padrão</button>
             </div>
             <div class="item-admin-sub" style="margin-top:.7rem">Salvar grava no banco pra todos os tablets. Sem salvar, o preview vale só até você sair desta tela.</div>
+          </div>
+
+          <div class="config-subpainel" id="config-subpainel-impressao" style="max-width:34rem">
+            <div class="config-bloco-sub">Impressão de etiqueta via PrintNode, direto do navegador — modo de teste rápido.</div>
+            <label class="tema-campo" style="margin-bottom:1rem">
+              <span>ID da impressora na PrintNode</span>
+              <input type="text" class="campo-texto" id="cfg-printnode-printer-id" placeholder="Ex: 75801204" inputmode="numeric">
+            </label>
+            <label class="tema-campo" style="margin-bottom:1rem">
+              <span>Chave de API da PrintNode</span>
+              <input type="password" class="campo-texto" id="cfg-printnode-api-key" placeholder="Cole a chave aqui" autocomplete="off">
+            </label>
+            <div class="config-add-linha">
+              <button class="btn-config-add" id="btn-printnode-salvar">Salvar</button>
+              <button class="btn-secundario" id="btn-printnode-testar">Imprimir etiqueta de teste</button>
+            </div>
+            <div class="item-admin-sub" id="printnode-status" style="margin-top:.7rem"></div>
+            <div class="config-bloco-sub" style="margin-top:1.5rem;padding-top:1.2rem;border-top:1px solid var(--border)">
+              <b>Modo de teste:</b> a chave fica salva no banco pra validar rápido se a impressão funciona. Ela é lida pelo navegador de qualquer tablet que abrir esta tela — não é o arranjo final recomendado (dá pra alguém com a URL do sistema conseguir ler essa chave). Quando confirmar que funciona, vale migrar pra uma function do Supabase, que guarda a chave num lugar que o navegador nunca acessa.
+            </div>
           </div>
         </div>
       </div>
@@ -4690,7 +4699,6 @@ var qrcode = function() {
 </div>
 
 <!-- conteúdo espelhado aqui na hora de fechar caixa, usado só pela impressão -->
-<div id="print-label"></div>
 
 <script>
 'use strict';
@@ -4855,6 +4863,53 @@ async function carregarTema(){
   }
 }
 carregarTema();
+
+async function carregarConfigImpressao(){
+  try{
+    const { data, error } = await db.from('config_impressao').select('*').eq('id', 1).maybeSingle();
+    if(error){ console.error('[Supabase] erro ao carregar config de impressão:', error); return; }
+    if(!data) return;
+    PRINTNODE_PRINTER_ID = data.printnode_printer_id || null;
+    PRINTNODE_API_KEY = data.printnode_api_key || null;
+    const campoId = document.getElementById('cfg-printnode-printer-id');
+    if(campoId && PRINTNODE_PRINTER_ID) campoId.value = PRINTNODE_PRINTER_ID;
+    const campoChave = document.getElementById('cfg-printnode-api-key');
+    if(campoChave && PRINTNODE_API_KEY) campoChave.value = PRINTNODE_API_KEY;
+  } catch(err){ console.error('[Supabase] falha ao carregar config de impressão:', err); }
+}
+carregarConfigImpressao();
+
+document.getElementById('btn-printnode-salvar').addEventListener('click', async ()=>{
+  const valorId = document.getElementById('cfg-printnode-printer-id').value.trim();
+  const valorChave = document.getElementById('cfg-printnode-api-key').value.trim();
+  const statusEl = document.getElementById('printnode-status');
+  const { error } = await db.from('config_impressao').update({
+    printnode_printer_id: valorId || null,
+    printnode_api_key: valorChave || null,
+  }).eq('id', 1);
+  if(error){ statusEl.textContent = 'Erro ao salvar: ' + error.message; console.error('[Supabase]', error); return; }
+  PRINTNODE_PRINTER_ID = valorId || null;
+  PRINTNODE_API_KEY = valorChave || null;
+  statusEl.textContent = 'Salvo.';
+  toast('Configuração de impressão salva.');
+});
+
+document.getElementById('btn-printnode-testar').addEventListener('click', async ()=>{
+  const btn = document.getElementById('btn-printnode-testar');
+  const statusEl = document.getElementById('printnode-status');
+  const textoOriginal = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  const agora = new Date();
+  const dataHora = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const dadosTeste = {
+    titulo: 'Etiqueta de teste', caixaNum: '000', operador: 'Teste de configuração',
+    qtd: '0', data: dataHora, ordem: 'TESTE', loteMP: '—', loteArame: '—',
+    qrData: `VITALBOR | Teste de configuração | ${dataHora}`
+  };
+  const ok = await enviarEtiquetaParaImpressao(dadosTeste);
+  btn.disabled = false; btn.textContent = textoOriginal;
+  statusEl.textContent = ok ? 'Enviado — confira se saiu na impressora.' : 'Falhou — veja o erro acima.';
+});
 // Rede de segurança ADICIONAL, fora do try/catch/finally de cima: em teste, uma consulta ao
 // Supabase em certas condições de rede não resolve nem rejeita — fica pendente pra sempre. Isso
 // significa que nem o catch nem o finally de carregarTema() chegam a rodar, e a logo (que nasce
@@ -6175,6 +6230,7 @@ function montarHtmlEtiqueta(d, qrId){
   `;
 }
 
+let ultimaEtiquetaDados = null; // guarda os dados da última etiqueta preparada — o botão "Imprimir etiqueta" lê daqui pra montar o envio pra PrintNode
 function prepararEtiqueta(qtd){
   const agora = new Date();
   const dataHora = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -6190,13 +6246,10 @@ function prepararEtiqueta(qtd){
     loteArame: state.loteArame || '—'
   };
   const textoQR = `VITALBOR | Ordem:${d.ordem} | Peça:${state.op.peca} | Caixa:${caixaNum} | ${dataHora}`;
+  ultimaEtiquetaDados = { ...d, qrData: textoQR };
 
   document.getElementById('etiqueta-fisica-preview').innerHTML = montarHtmlEtiqueta(d, 'et2-qr-preview');
   gerarQRCode('et2-qr-preview', textoQR);
-
-  // espelha pro elemento usado na impressão real (70x100mm, bobina da Elgin L42 Pro Full em uso)
-  document.getElementById('print-label').innerHTML = montarHtmlEtiqueta(d, 'et2-qr-print');
-  gerarQRCode('et2-qr-print', textoQR);
 }
 
 document.getElementById('btn-et-fechar').addEventListener('click', ()=>{
@@ -6206,8 +6259,94 @@ document.getElementById('btn-et-fechar').addEventListener('click', ()=>{
     abrirFormularioEncerramento();
   }
 });
-document.getElementById('btn-et-imprimir').addEventListener('click', ()=>{
-  window.print();
+let PRINTNODE_PRINTER_ID = null; // carregado de config_impressao na inicialização
+let PRINTNODE_API_KEY = null; // idem — modo de teste: normalmente isso NÃO ficaria no navegador
+
+// escapa os 3 caracteres que têm significado especial dentro de um campo ^FD do ZPL
+function escaparZpl(texto){
+  return String(texto ?? '').replace(/[\^~\\]/g, ' ');
+}
+
+// monta a etiqueta em ZPL (70x100mm = 560x800 dots a 203dpi) — usa ^FB (Field Block) pra
+// deixar a PRÓPRIA impressora quebrar linha automaticamente, já que não dá pra medir
+// largura de texto em JS puro sem depender de canvas/biblioteca. Por isso cada campo reserva
+// uma altura FIXA generosa (assume até 2 linhas), em vez de calcular a altura real como fazia
+// a versão em PDF — usa um pouco mais de espaço em troca de não precisar de biblioteca nenhuma
+// rodando no tablet do operador.
+function montarZplEtiqueta(d){
+  const titulo = escaparZpl(d.titulo).slice(0, 46);
+  const qr = escaparZpl(d.qrData);
+  const campo = (rotulo, valor) => `${rotulo} ${escaparZpl(valor).slice(0, 30)}`;
+
+  return [
+    '^XA',
+    '^PW560', '^LL800', '^CI28',
+    // título (até 2 linhas) + número da caixa no canto direito
+    `^FO24,20^A0N,32,32^FB400,2,4,L^FD${titulo}^FS`,
+    `^FO464,20^A0N,24,24^FD No:${escaparZpl(d.caixaNum)}^FS`,
+    // coluna esquerda
+    `^FO24,150^A0N,22,22^FB250,2,4,L^FD${campo('OP:', d.operador)}^FS`,
+    `^FO24,220^A0N,22,22^FB250,1,0,L^FD${campo('QTD:', d.qtd)}^FS`,
+    `^FO24,270^A0N,22,22^FB250,2,4,L^FD${campo('DATA:', d.data)}^FS`,
+    `^FO24,340^A0N,22,22^FB250,2,4,L^FD${campo('No ORDEM:', d.ordem)}^FS`,
+    '^FO24,420^A0N,20,20^FDLIMP:^FS',
+    '^FO24,450^GB170,2,2^FS',
+    // coluna direita
+    `^FO300,150^A0N,22,22^FB240,2,4,L^FD${campo('LOTE M.P.:', d.loteMP)}^FS`,
+    `^FO300,220^A0N,22,22^FB240,2,4,L^FD${campo('LOTE ARAME:', d.loteArame)}^FS`,
+    `^FO300,290^BQN,2,6^FDQA,${qr}^FS`,
+    '^FO300,480^A0N,20,20^FDQTDE:^FS',
+    '^FO300,510^GB170,2,2^FS',
+    // linha final
+    '^FO24,540^GB512,3,3^FS',
+    '^XZ',
+  ].join('\n');
+}
+
+async function enviarEtiquetaParaImpressao(dados){
+  if(!PRINTNODE_PRINTER_ID || !PRINTNODE_API_KEY){
+    toast('Configure o ID da impressora e a chave da PrintNode em Configurações → Impressão.');
+    return false;
+  }
+  const zpl = montarZplEtiqueta(dados);
+  const zplBase64 = btoa(unescape(encodeURIComponent(zpl))); // suporta acento (UTF-8) no base64
+  try{
+    const resp = await fetch('https://api.printnode.com/printjobs', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Basic ' + btoa(`${PRINTNODE_API_KEY}:`),
+      },
+      body: JSON.stringify({
+        printerId: Number(PRINTNODE_PRINTER_ID),
+        title: `Etiqueta OP ${dados.ordem || ''} - Caixa ${dados.caixaNum || ''}`,
+        contentType: 'raw_base64',
+        content: zplBase64,
+        source: 'Terminal de Produção Vitalbor',
+      }),
+    });
+    if(!resp.ok){
+      const erroTxt = await resp.text().catch(()=> '');
+      console.error('[PrintNode] falha ao enviar etiqueta:', resp.status, erroTxt);
+      toast('Erro ao enviar etiqueta pra impressão — confira a aba Impressão nas Configurações.');
+      return false;
+    }
+    return true;
+  } catch(err){
+    console.error('[PrintNode] falha de rede:', err);
+    toast('Não consegui contatar a PrintNode — confira sua conexão.');
+    return false;
+  }
+}
+
+document.getElementById('btn-et-imprimir').addEventListener('click', async ()=>{
+  if(!ultimaEtiquetaDados) return;
+  const btn = document.getElementById('btn-et-imprimir');
+  const textoOriginal = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  const ok = await enviarEtiquetaParaImpressao(ultimaEtiquetaDados);
+  btn.disabled = false; btn.textContent = textoOriginal;
+  if(ok) toast('Etiqueta enviada pra impressão.');
 });
 
 /* ============================================================
