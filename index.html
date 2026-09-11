@@ -1268,7 +1268,7 @@
     .badge-pendente{top:.4rem;right:.4rem;padding:.15rem .4rem;font-size:.6rem;}
     .btn-encerrar-full{padding:.9rem;font-size:.95rem;}
     #cronometro{font-size:2.3rem;}
-    .prod-header{grid-template-columns:1fr;padding:1.2rem 1.3rem;gap:1.4rem;}
+    #screen-producao .prod-header{grid-template-columns:1fr;padding:1.2rem 1.3rem;gap:1.4rem;}
     .prod-peca{text-align:center;padding-bottom:.2rem;border-bottom:1px solid var(--border);}
     .cronometro-wrap{padding:.2rem 0;}
     .chips-direita{justify-self:center;padding-top:.2rem;border-top:1px solid var(--border);width:100%;justify-content:center;}
@@ -3707,6 +3707,7 @@ var qrcode = function() {
     </button>
     <div class="painel-info-tecnica" id="painel-info-tecnica">
       <div class="footnote">Rascunho v1 · fluxo: turno → operador → OP → produção</div>
+      <div class="footnote" id="info-viewport"></div>
       <div class="status-conexao-db" id="status-conexao-db">● Testando conexão com o banco...</div>
     </div>
   </section>
@@ -4008,7 +4009,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-39</div>
+    <div class="versao-build-canto">v2026.09.03-41</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -4049,7 +4050,7 @@ var qrcode = function() {
           <span>Sair do Admin</span>
         </button>
       </nav>
-      <div class="admin-versao-build">v2026.09.03-39</div>
+      <div class="admin-versao-build">v2026.09.03-41</div>
 
       <div class="admin-conteudo">
         <!-- ---- DASHBOARD ---- -->
@@ -5000,6 +5001,7 @@ async function iniciarApp(){
   const dot = document.getElementById('dot-status-inicial');
   const painel = document.getElementById('painel-info-tecnica');
   const btn = document.getElementById('btn-iniciar');
+  document.getElementById('info-viewport').textContent = `Tela: ${window.innerWidth}×${window.innerHeight}px · pixel ratio ${window.devicePixelRatio}`;
   btn.disabled = true;
   btn.textContent = 'Carregando...';
   badge.textContent = '● Carregando dados do banco...';
