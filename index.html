@@ -734,6 +734,8 @@
   .kpi-gauge-titulo{align-self:flex-start;font-size:.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin-bottom:.2rem;}
   .kpi-gauge-valor{font-family:var(--font-admin-mono);font-size:1.5rem;font-weight:700;margin-top:-1.1rem;font-variant-numeric:tabular-nums;}
   .kpi-gauge-escala{display:flex;justify-content:space-between;width:100%;font-size:.62rem;color:var(--text-faint);margin-top:.1rem;font-family:var(--font-admin-mono);padding:0 .3rem;}
+  .kpi-gauge-status{font-size:.66rem;color:var(--text-faint);margin-top:.5rem;text-align:center;}
+  .kpi-gauge-status.ativo{color:var(--success);}
   .kpi-stats-stack{display:flex;flex-direction:column;gap:1rem;}
   .kpi-stats-stack .kpi-card{flex:1;display:flex;flex-direction:column;justify-content:center;}
   .kpi-card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-admin-lg);padding:1.3rem 1.4rem;box-shadow:var(--elev-1);}
@@ -5147,22 +5149,25 @@ async function atualizarSaldoOpNoBanco(opNumero, novoSaldo){
 let cacheCaixasBanco = [];
 let cacheOrdensBanco = [];
 let cacheProducoesAtivas = {}; // {nomeMaquina: timestamp de início da sessão ativa} — pra status operando/parada E pra filtrar só as caixas dessa sessão
+let cacheApontamentosHora = []; // registros de apontamento de hora a hora de TODAS as máquinas — alimenta o Desempenho/Refugo ao vivo do Dashboard (turno ativo agora), mesmo recorte por sessão do cacheCaixasBanco
 let cacheSituacaoManual = {}; // {nomeMaquina: 'manutencao'} — override manual do admin
 let cacheMaquinasAguardandoResponsavel = new Set(); // nomes de máquina com chamado pendente agora
 async function buscarDadosMaquinasDoBanco(){
   try{
-    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }, { data: chamadosPendentes, error: e5 }] = await Promise.all([
+    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }, { data: chamadosPendentes, error: e5 }, { data: apontamentos, error: e6 }] = await Promise.all([
       db.from('historico_caixas').select('*').order('fechado_em', {ascending:true}),
       db.from('ordens_producao').select('*'),
       db.from('producoes_ativas').select('maquina, inicio_em'),
       db.from('maquinas').select('nome,situacao_manual'),
-      db.from('chamados').select('maquina').eq('status', 'pendente')
+      db.from('chamados').select('maquina').eq('status', 'pendente'),
+      db.from('apontamentos_hora').select('*').order('registrado_em', {ascending:true})
     ]);
     if(e1) throw e1;
     if(e2) throw e2;
     if(e3) throw e3;
     if(e4) throw e4;
     if(e5) throw e5;
+    if(e6) throw e6;
     cacheCaixasBanco = (caixas||[]).map(c => ({
       maquina:c.maquina, operador:c.operador, peca:c.peca, op:c.op, material:c.material,
       cavidades:c.cavidades, refugo:c.refugo, qtdPecas:c.qtd_pecas, injetadas:c.injetadas,
@@ -5177,6 +5182,11 @@ async function buscarDadosMaquinasDoBanco(){
     // mostrando os números acumulados de uma sessão que já encerrou
     cacheProducoesAtivas = {};
     (ativas||[]).forEach(a => { cacheProducoesAtivas[a.maquina] = new Date(a.inicio_em).getTime(); });
+    cacheApontamentosHora = (apontamentos||[]).map(a => ({
+      maquina:a.maquina, operador:a.operador, peca:a.peca, op:a.op, material:a.material,
+      cavidades:a.cavidades, refugo:a.refugo, qtdPecas:a.qtd_pecas, injetadas:a.injetadas,
+      metaHora:a.meta_hora, motivo:a.motivo, duracaoMs:a.duracao_ms, timestamp:new Date(a.registrado_em).getTime()
+    }));
     cacheSituacaoManual = {};
     (maquinasDb||[]).forEach(m => { if(m.situacao_manual) cacheSituacaoManual[m.nome] = m.situacao_manual; });
     // quais máquinas têm chamado esperando o responsável agora — usado pro card piscar roxo
@@ -5201,6 +5211,10 @@ function agendarAtualizacaoMaquinas(){
   clearTimeout(debounceMaquinasHandle);
   debounceMaquinasHandle = setTimeout(()=>{
     if(secaoAdminAtiva === 'maquinas') renderCardsMaquinas();
+    // Dashboard também escuta o mesmo canal: turno ativo começando/acabando ou um apontamento
+    // de hora novo chegando têm que atualizar o gauge de Desempenho/Refugo na hora, sem precisar
+    // trocar de aba e voltar
+    if(secaoAdminAtiva === 'dashboard') renderDashboard();
   }, 350);
 }
 function iniciarRealtimeMaquinas(){
@@ -5210,6 +5224,7 @@ function iniciarRealtimeMaquinas(){
     .on('postgres_changes', {event:'*', schema:'public', table:'producoes_ativas'}, agendarAtualizacaoMaquinas)
     .on('postgres_changes', {event:'UPDATE', schema:'public', table:'maquinas'}, agendarAtualizacaoMaquinas)
     .on('postgres_changes', {event:'*', schema:'public', table:'chamados'}, agendarAtualizacaoMaquinas)
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'apontamentos_hora'}, agendarAtualizacaoMaquinas)
     .subscribe((status)=> console.log('[Supabase] canal realtime de máquinas:', status));
 }
 iniciarRealtimeMaquinas();
@@ -5252,7 +5267,7 @@ const state = {
   turno:null, operador:null, op:null, cavidades:0,
   inicioMs:null, totalProduzido:0, totalRefugo:0, totalInjetadas:0, qtdRestante:0,
   injetadasCaixa:0, refugoCaixa:0, caixasFechadas:0, caixasFechadasLog:[], chamadoPendente:null,
-  loteMP:null, loteArame:null, maquina:null, ultimoFechamentoMs:null, qtdRestanteInicial:0, apontamentosHora:[]
+  loteMP:null, loteArame:null, maquina:null, ultimoFechamentoMs:null, ultimoApontamentoMs:null, qtdRestanteInicial:0, apontamentosHora:[]
 };
 
 let timerHandle = null;
@@ -5481,6 +5496,7 @@ function iniciarProducao(restaurando){
     state.qtdRestanteInicial = state.qtdRestante; // referência fixa pra calcular % da barra de progresso
     state.apontamentosHora = [];
     state.ultimoFechamentoMs = null;
+    state.ultimoApontamentoMs = null;
   }
   state.injetadasCaixa = 0;
   state.refugoCaixa = 0;
@@ -5563,6 +5579,7 @@ function atualizarPausaCronometro(){
 document.getElementById('btn-retomar-producao').addEventListener('click', ()=>{
   const duracaoPausa = Date.now() - pausaInicioMs;
   state.inicioMs += duracaoPausa; // desconta a pausa do cronômetro de produção
+  if(state.ultimoApontamentoMs) state.ultimoApontamentoMs += duracaoPausa; // mesmo desconto pro próximo apontamento de hora, senão a pausa vira "esperado" indevido
   pausaInicioMs = null;
   clearInterval(pausaTimerHandle);
   document.getElementById('btn-parada-jantar').classList.remove('pausando');
@@ -5628,11 +5645,42 @@ document.getElementById('btn-apt-enviar').addEventListener('click', ()=>{
     document.getElementById('apt-aviso').classList.add('show');
     return;
   }
-  const registro = { injetadas: aptInjetadasAtual, refugo: aptRefugoAtual, motivo, hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) };
+  // duração REAL desde o último apontamento (ou desde o início da produção, no primeiro) —
+  // mesmo raciocínio do fechamento de caixa: não assume os N minutos cheios do intervalo
+  // configurado, porque um ciclo pode ter sido pulado (outro modal já aberto) e ter levado mais tempo.
+  const duracaoDesteApontamentoMs = Date.now() - (state.ultimoApontamentoMs || state.inicioMs);
+  state.ultimoApontamentoMs = Date.now();
+  const registro = {
+    injetadas: aptInjetadasAtual, refugo: aptRefugoAtual, motivo,
+    hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+    // contexto extra — só usado pro Dashboard (desempenho ao vivo do turno ativo);
+    // calcularDesempenhoGeral() e o badge do operador continuam lendo só injetadas/refugo, como sempre
+    op: state.op.op, peca: state.op.peca, turno: state.turno.nome, operador: state.operador,
+    maquina: state.maquina, material: state.op.materiaPrima, cavidades: state.cavidades,
+    qtdPecas: aptInjetadasAtual * state.cavidades, metaHora: state.op.metaHora || 0,
+    duracaoMs: duracaoDesteApontamentoMs, timestamp: Date.now()
+  };
   state.apontamentosHora.push(registro);
+  // grava no Supabase em paralelo — mesmo espírito "sem trava" do resto do app: se a rede
+  // falhar aqui, o apontamento local do operador continua funcionando normalmente, só o
+  // Dashboard (admin) é que não vai enxergar esse checkpoint específico
+  gravarApontamentoHoraNoBanco(registro);
   toggleModal('modal-apontamento-hora', false);
   mostrarResultadoApontamento(registro);
 });
+async function gravarApontamentoHoraNoBanco(r){
+  try{
+    const { error } = await db.from('apontamentos_hora').insert({
+      op: r.op, peca: r.peca, turno: r.turno, operador: r.operador, maquina: r.maquina,
+      material: r.material, cavidades: r.cavidades, qtd_pecas: r.qtdPecas,
+      refugo: r.refugo, injetadas: r.injetadas, meta_hora: r.metaHora,
+      motivo: r.motivo, duracao_ms: r.duracaoMs
+    });
+    if(error) console.error('[Supabase] falha ao gravar apontamento de hora:', error);
+  } catch(err){
+    console.error('[Supabase] falha ao gravar apontamento de hora (rede?):', err);
+  }
+}
 
 // classificação reaproveitada tanto pro resultado da hora quanto pro desempenho acumulado do turno
 function classificarDesempenho(pct){
@@ -7813,7 +7861,7 @@ function renderGauge(containerId, value, opts){
       <circle cx="${cx}" cy="${cy}" r="4.5" fill="var(--text)"/>
     </svg>`;
 }
-function renderDashboard(){
+async function renderDashboard(){
   // datas padrão do mapa de calor: do dia 1 do mês atual até hoje — só na primeira vez
   // que a dashboard é aberta, não sobrescreve se o usuário já mexeu no filtro
   const campoInicio = document.getElementById('heatmap-data-inicio');
@@ -7829,46 +7877,66 @@ function renderDashboard(){
   const contagemStatus = {aberta:0, fechada:0, finalizada:0};
   ORDENS.forEach(o => { contagemStatus[o.status || 'aberta']++; });
 
-  // Desempenho e refugo médios da sessão inteira (todos os turnos finalizados) — soma real
-  // sobre soma real, mesma lógica de agruparRefugoPor logo abaixo, não média de percentuais
-  // individuais (turno pequeno não pesa igual a turno grande na conta).
-  //
-  // TRAVAMENTO EM 120%: mesmo raciocínio do mapa de calor (ver carregarMapaCalor) — uma sessão
-  // muito curta com contagem de peças desproporcional gera uma razão tecnicamente correta mas
-  // impossível na prática. Aqui a soma é feita nos numeradores/denominadores brutos, então o
-  // travamento entra creditando no máximo 120% do esperado de CADA turno pra soma — garante
-  // matematicamente que a razão final (soma ÷ soma) nunca passa de 120%, sem precisar de um
-  // segundo travamento solto no resultado final.
+  // Desempenho e refugo AO VIVO do turno ativo agora — antes isso era a média de TODOS os
+  // turnos já finalizados desde sempre (sem recorte de data nenhum) e só se mexia quando
+  // alguém clicava "Finalizar Produção", podendo ficar horas sem atualizar. Agora usa a MESMA
+  // fonte já testada da aba Máquinas: quem está com produção ativa agora (producoes_ativas) +
+  // os apontamentos de hora a hora que essa sessão já gerou (apontamentos_hora) — sobe a cada
+  // ~1h por máquina (ou no intervalo configurado em Configurações), ao vivo via realtime.
+  // Turno já finalizado não entra mais nessa conta — isso agora é só o "agora".
+  const dadosAoVivoOk = await buscarDadosMaquinasDoBanco();
+  if(!dadosAoVivoOk) toast('⚠ Não consegui atualizar os dados ao vivo do turno ativo — mostrando o último valor calculado.');
+  // TRAVAMENTO EM 120%: mesmo raciocínio já usado antes (e no mapa de calor/Máquinas) — um
+  // apontamento isolado com contagem desproporcional pro tempo daquele checkpoint gera uma
+  // razão tecnicamente correta mas impossível na prática. Credita no máximo 120% do esperado
+  // de CADA checkpoint pra soma — garante que a razão final (soma ÷ soma) nunca passa de 120%.
   const DESEMPENHO_MAX_RAZAO_SESSAO = 1.2; // 120%
-  let somaInjetadas=0, somaEsperado=0, somaRefugo=0, somaPecas=0;
-  HISTORICO_TURNOS.forEach(h => {
-    const horas = h.duracaoMs / 3600000;
-    const esperadoDesteTurno = (h.metaHora||0) * horas;
-    const injetadasCreditadas = esperadoDesteTurno > 0
-      ? Math.min(h.injetadas||0, esperadoDesteTurno * DESEMPENHO_MAX_RAZAO_SESSAO)
-      : (h.injetadas||0);
-    somaInjetadas += injetadasCreditadas;
-    somaEsperado += esperadoDesteTurno;
-    somaRefugo += h.refugo || 0;
-    somaPecas += h.qtdPecas || 0;
+  let somaInjetadas=0, somaEsperado=0, somaRefugo=0, somaPecas=0, totalCheckpoints=0;
+  const maquinasAtivasAgora = Object.keys(cacheProducoesAtivas);
+  maquinasAtivasAgora.forEach(m => {
+    const inicioSessao = cacheProducoesAtivas[m];
+    // só os apontamentos DESSA sessão ativa (mesmo recorte por timestamp que a aba Máquinas
+    // já usa pras caixas) — não o histórico de hora a hora de sessões antigas dessa máquina
+    const registrosDaSessao = cacheApontamentosHora.filter(a => a.maquina === m && a.timestamp >= inicioSessao);
+    totalCheckpoints += registrosDaSessao.length;
+    registrosDaSessao.forEach(r => {
+      const esperadoDesteCheckpoint = (r.metaHora||0) * (r.duracaoMs / 3600000);
+      const injetadasCreditadas = esperadoDesteCheckpoint > 0
+        ? Math.min(r.injetadas||0, esperadoDesteCheckpoint * DESEMPENHO_MAX_RAZAO_SESSAO)
+        : (r.injetadas||0);
+      somaInjetadas += injetadasCreditadas;
+      somaEsperado += esperadoDesteCheckpoint;
+      somaRefugo += r.refugo || 0;
+      somaPecas += r.qtdPecas || 0;
+    });
   });
   const desempenhoSessao = somaEsperado > 0 ? (somaInjetadas/somaEsperado)*100 : 0;
   const refugoSessao = somaPecas > 0 ? (somaRefugo/somaPecas)*100 : 0;
+  const semTurnoAtivo = maquinasAtivasAgora.length === 0;
+  const aguardandoPrimeiroApontamento = !semTurnoAtivo && totalCheckpoints === 0;
+  const statusGauge = semTurnoAtivo
+    ? 'Nenhum turno ativo agora'
+    : aguardandoPrimeiroApontamento
+      ? `Turno ativo — aguardando 1º apontamento (a cada ${INTERVALO_APONTAMENTO_MIN}min)`
+      : `${maquinasAtivasAgora.length} máquina${maquinasAtivasAgora.length>1?'s':''} ativa${maquinasAtivasAgora.length>1?'s':''} agora · ${totalCheckpoints} apontamento${totalCheckpoints>1?'s':''}`;
+  const semDadosParaGauge = semTurnoAtivo || aguardandoPrimeiroApontamento;
 
   // hero (2 colunas) com o detalhamento por status + 2 stats menores ao lado — em vez de
   // 4 cards idênticos em fileira, que é o clichê mais óbvio de dashboard genérico
   document.getElementById('kpi-row').innerHTML = `
     <div class="kpi-gauge-card">
-      <div class="kpi-gauge-titulo">Desempenho da sessão</div>
+      <div class="kpi-gauge-titulo">Desempenho — turno ativo</div>
       <div id="gauge-desempenho"></div>
-      <div class="kpi-gauge-valor">${fmtInt(desempenhoSessao)}%</div>
+      <div class="kpi-gauge-valor">${semDadosParaGauge ? '—' : fmtInt(desempenhoSessao)+'%'}</div>
       <div class="kpi-gauge-escala"><span>0%</span><span>120%</span></div>
+      <div class="kpi-gauge-status${semTurnoAtivo?'':' ativo'}">${statusGauge}</div>
     </div>
     <div class="kpi-gauge-card">
-      <div class="kpi-gauge-titulo">Refugo da sessão</div>
+      <div class="kpi-gauge-titulo">Refugo — turno ativo</div>
       <div id="gauge-refugo"></div>
-      <div class="kpi-gauge-valor">${refugoSessao.toFixed(1)}%</div>
+      <div class="kpi-gauge-valor">${semDadosParaGauge ? '—' : refugoSessao.toFixed(1)+'%'}</div>
       <div class="kpi-gauge-escala"><span>0%</span><span>10%</span></div>
+      <div class="kpi-gauge-status${semTurnoAtivo?'':' ativo'}">${statusGauge}</div>
     </div>
     <div class="kpi-card kpi-hero">
       <div class="kpi-lbl">OPs por status</div>
