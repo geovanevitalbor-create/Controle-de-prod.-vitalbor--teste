@@ -7346,16 +7346,23 @@ async function renderCardsMaquinas(){
     }
 
     // OPERANDO — agrega só as caixas fechadas DENTRO desta sessão (desde que ela começou),
-    // não o histórico inteiro da máquina desde sempre. Usada pra refugo/produzido/contexto —
+    // não o histórico inteiro da máquina desde sempre. Usada pra refugo/produzido/caixas —
     // contagem exata, vem do fechamento de caixa mesmo (isso não mudou).
     const registrosDaSessao = cacheCaixasBanco.filter(c => c.maquina === m && c.timestamp >= inicioSessao);
     const d = agregarUmaMaquina(registrosDaSessao);
+    // Desempenho (só o %) vem do apontamento de hora a hora desta sessão, independente de
+    // caixa fechada — a cadência de fechar caixa varia demais (pode sair 8 numa hora ou
+    // nenhuma), enquanto o apontamento periódico dá uma leitura regular e não depende de
+    // nenhuma caixa ter fechado ainda.
+    const apontamentosDaSessao = cacheApontamentosHora.filter(a => a.maquina === m && a.timestamp >= inicioSessao);
+    const dHora = agregarUmaMaquina(apontamentosDaSessao);
 
-    if(d.registros === 0){
+    if(d.registros === 0 && dHora.registros === 0){
+      // de verdade sem nenhum dado ainda (nem caixa, nem apontamento) — aí sim mostra o card mínimo
       const paradaManual = cacheSituacaoManual[m] === 'parada';
       const textoCorpo = pausaJantar ? 'Pausado pro jantar — retoma automaticamente quando o operador voltar.'
-        : paradaManual ? 'Marcado como parado manualmente — ainda sem caixa fechada nesta sessão.'
-        : 'Em produção agora — ainda sem caixa fechada nesta sessão.';
+        : paradaManual ? 'Marcado como parado manualmente — ainda sem dados nesta sessão.'
+        : 'Em produção agora — ainda sem apontamento ou caixa fechada nesta sessão.';
       return `
       <div class="card-maquina sem-dados ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
         <div class="card-maquina-status ${emManutencao?'manutencao':pausaJantar?'pausa_jantar':aguardandoResponsavel?'aguardando':paradaManual?'neutro':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:paradaManual?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção':pausaJantar?'Pausa (jantar)':aguardandoResponsavel?'Aguardando responsável':paradaManual?'Parada':'Em produção'}</span></div>
@@ -7364,12 +7371,6 @@ async function renderCardsMaquinas(){
         ${notaChamadoPendenteSePausado}
       </div>`;
     }
-    // Desempenho (só o %, não refugo/produzido) agora vem do apontamento de hora a hora desta
-    // sessão, não mais das caixas fechadas — a cadência de fechar caixa varia demais (pode sair
-    // 8 numa hora ou nenhuma), enquanto o apontamento periódico dá uma leitura regular e também
-    // pega máquina "rodando" que parou de fechar caixa mas ninguém percebeu ainda.
-    const apontamentosDaSessao = cacheApontamentosHora.filter(a => a.maquina === m && a.timestamp >= inicioSessao);
-    const dHora = agregarUmaMaquina(apontamentosDaSessao);
     const refugoPct = d.qtdPecas > 0 ? Math.round((d.refugo / d.qtdPecas) * 1000) / 10 : 0;
     const desempenhoPctBruto = dHora.esperado > 0 ? Math.round((dHora.injetadas / dHora.esperado) * 100) : 0;
     const desempenhoPct = Math.min(desempenhoPctBruto, 999); // teto de exibição — trava de segurança pra qualquer caso extremo
@@ -7379,7 +7380,10 @@ async function renderCardsMaquinas(){
     if(!filtroMaquinasZonas.has(zona) && zona !== 'calculando') return ''; // escondida pelo filtro de desempenho (não filtra "calculando" — some da tela de vez em quando senão)
     const corBarra = zona==='verde' ? 'var(--success)' : zona==='amarelo' ? 'var(--warning)' : zona==='calculando' ? 'var(--azul)' : 'var(--danger)';
     const zonaRefugo = refugoPct >= 5 ? 'vermelho' : refugoPct >= 2 ? 'amarelo' : 'verde';
-    const u = d.ultimoRegistro; // caixa mais recente fechada NESTA sessão
+    // contexto (peça/operador/material/cavidades/OP): prefere a caixa mais recente; se ainda
+    // não fechou nenhuma, usa o apontamento de hora mais recente — os dois carregam os mesmos
+    // campos de contexto, então serve igual pra isso
+    const u = d.registros > 0 ? d.ultimoRegistro : dHora.ultimoRegistro;
     // essa máquina está operando, então mostra os números da OP normalmente — não precisa
     // mais checar "operando" aqui, isso já filtrou lá em cima
     const opRef = cacheOrdensBanco.find(o => o.op === u.op);
@@ -7448,7 +7452,7 @@ async function renderCardsMaquinas(){
         </div>
         <div class="card-maquina-barra-trilho"><div class="card-maquina-barra-fill${desempenhoDisponivel?'':' indeterminado'}" style="${desempenhoDisponivel ? `width:${Math.min(100,desempenhoPct)}%;background:${corBarra};color:${corBarra}` : `color:${corBarra}`}"></div></div>
         <div style="font-size:1.15rem;font-weight:800;margin-bottom:.2rem">${fmtInt(d.pecasBoas)} <span style="font-size:.72rem;font-weight:700;color:var(--text-faint);text-transform:uppercase">peças produzidas (boas)</span></div>
-        <div class="card-maquina-rodape">Última caixa fechada nesta sessão: ${new Date(d.ultimaAtividade).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+        <div class="card-maquina-rodape">${d.registros > 0 ? `Última caixa fechada nesta sessão: ${new Date(d.ultimaAtividade).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}` : 'Nenhuma caixa fechada ainda nesta sessão.'}</div>
       </div>`;
   }).join('');
 
