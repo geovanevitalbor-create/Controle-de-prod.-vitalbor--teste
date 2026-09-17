@@ -5157,20 +5157,23 @@ let cacheProducoesAtivas = {}; // {nomeMaquina: timestamp de início da sessão 
 let cacheApontamentosHora = []; // registros de apontamento de hora a hora de TODAS as máquinas — alimenta o Desempenho/Refugo ao vivo do Dashboard (turno ativo agora), mesmo recorte por sessão do cacheCaixasBanco
 let cacheSituacaoManual = {}; // {nomeMaquina: 'manutencao'} — override manual do admin
 let cacheMaquinasAguardandoResponsavel = new Set(); // nomes de máquina com chamado pendente agora
-let cacheChamadosHoje = []; // chamados criados HOJE (qualquer status) — usado pro tempo médio de resolução
+let cacheChamadosPendentesDetalhe = []; // {maquina, criadoEm} de cada chamado pendente agora — precisa do horário pra contar a espera ao vivo no card
+let cacheChamadosHoje = []; // chamados criados HOJE (qualquer status) — usado no KPI de tempo médio de resolução da frota inteira
+let cacheChamadosResolvidosTodos = []; // TODO o histórico de chamados já resolvidos (qualquer data) — usado pra média de espera POR MÁQUINA no card individual
 let cachePausasJantarHoje = []; // pausas pro jantar de HOJE + qualquer uma ainda aberta (mesmo se começou ontem) — tempo parado pro jantar
 async function buscarDadosMaquinasDoBanco(){
   const hojeInicioISO = new Date(new Date().setHours(0,0,0,0)).toISOString();
   try{
-    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }, { data: chamadosPendentes, error: e5 }, { data: apontamentos, error: e6 }, { data: chamadosHoje, error: e7 }, { data: pausasJantar, error: e8 }] = await Promise.all([
+    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }, { data: chamadosPendentes, error: e5 }, { data: apontamentos, error: e6 }, { data: chamadosHoje, error: e7 }, { data: pausasJantar, error: e8 }, { data: chamadosResolvidos, error: e9 }] = await Promise.all([
       db.from('historico_caixas').select('*').order('fechado_em', {ascending:true}),
       db.from('ordens_producao').select('*'),
       db.from('producoes_ativas').select('maquina, inicio_em'),
       db.from('maquinas').select('nome,situacao_manual'),
-      db.from('chamados').select('maquina').eq('status', 'pendente'),
+      db.from('chamados').select('maquina,criado_em').eq('status', 'pendente'),
       db.from('apontamentos_hora').select('*').order('registrado_em', {ascending:true}),
       db.from('chamados').select('maquina,criado_em,resolvido_em,status').gte('criado_em', hojeInicioISO),
-      db.from('pausas_jantar').select('maquina,operador,iniciado_em,finalizado_em').or(`finalizado_em.is.null,iniciado_em.gte.${hojeInicioISO}`)
+      db.from('pausas_jantar').select('maquina,operador,iniciado_em,finalizado_em').or(`finalizado_em.is.null,iniciado_em.gte.${hojeInicioISO}`),
+      db.from('chamados').select('maquina,criado_em,resolvido_em').not('resolvido_em', 'is', null)
     ]);
     if(e1) throw e1;
     if(e2) throw e2;
@@ -5180,6 +5183,7 @@ async function buscarDadosMaquinasDoBanco(){
     if(e6) throw e6;
     if(e7) throw e7;
     if(e8) throw e8;
+    if(e9) throw e9;
     cacheCaixasBanco = (caixas||[]).map(c => ({
       maquina:c.maquina, operador:c.operador, peca:c.peca, op:c.op, material:c.material,
       cavidades:c.cavidades, refugo:c.refugo, qtdPecas:c.qtd_pecas, injetadas:c.injetadas,
@@ -5201,8 +5205,9 @@ async function buscarDadosMaquinasDoBanco(){
     }));
     cacheSituacaoManual = {};
     (maquinasDb||[]).forEach(m => { if(m.situacao_manual) cacheSituacaoManual[m.nome] = m.situacao_manual; });
+    cacheChamadosPendentesDetalhe = (chamadosPendentes||[]).map(c => ({ maquina:c.maquina, criadoEm:new Date(c.criado_em).getTime() }));
     // quais máquinas têm chamado esperando o responsável agora — usado pro card piscar roxo
-    cacheMaquinasAguardandoResponsavel = new Set((chamadosPendentes||[]).map(c => c.maquina));
+    cacheMaquinasAguardandoResponsavel = new Set(cacheChamadosPendentesDetalhe.map(c => c.maquina));
     cacheChamadosHoje = (chamadosHoje||[]).map(c => ({
       maquina:c.maquina, status:c.status,
       criadoEm:new Date(c.criado_em).getTime(),
@@ -5212,6 +5217,13 @@ async function buscarDadosMaquinasDoBanco(){
       maquina:p.maquina, operador:p.operador,
       iniciadoEm:new Date(p.iniciado_em).getTime(),
       finalizadoEm:p.finalizado_em ? new Date(p.finalizado_em).getTime() : null
+    }));
+    // histórico completo (sem recorte de data) só dos JÁ resolvidos — usado pra tirar a média
+    // de tempo de espera de UMA máquina específica no card dela. Tabela de chamados de fábrica
+    // tende a ficar pequena (dezenas/poucas centenas por ano); se um dia isso crescer muito,
+    // vale colocar um recorte de data aqui também (ex.: últimos 6 meses).
+    cacheChamadosResolvidosTodos = (chamadosResolvidos||[]).map(c => ({
+      maquina:c.maquina, criadoEm:new Date(c.criado_em).getTime(), resolvidoEm:new Date(c.resolvido_em).getTime()
     }));
     return true;
   } catch(err){
@@ -7065,6 +7077,9 @@ const ICO_METRICA = {
   total: '<rect x="6" y="3.5" width="12" height="17" rx="2"/><path d="M9 3.5V2.3a1 1 0 011-1h4a1 1 0 011 1V3.5"/><path d="M9 10.5h6M9 14.5h6"/>',
   produzido: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
   saldo: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/>',
+  execucao: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  jantar: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+  aguardando: '<path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>',
 };
 function metricaHTML(icone, label, valor, corValor){
   return `<div class="metrica-linha">
@@ -7276,6 +7291,28 @@ async function renderCardsMaquinas(){
     const totalTexto = opRef ? fmtInt(opRef.qtdTotal) : '—';
     const produzidoTexto = opRef ? fmtInt(Math.max(0, opRef.qtdTotal - opRef.qtdRestante)) : '—';
     const saldoTexto = opRef ? fmtInt(opRef.qtdRestante) : '—';
+
+    // ---- 3 métricas de tempo desta sessão: execução líquida, parado pro jantar e espera
+    // do responsável. "Execução" aqui é o tempo TOTAL da sessão MENOS jantar e MENOS espera
+    // de responsável — não desconta manutenção nem parada manual porque essas duas (ainda)
+    // não têm início/fim gravado no banco, só um flag do estado atual; se isso passar a
+    // incomodar, dá pra criar uma tabela pra elas no mesmo molde de pausas_jantar.
+    const pausasDestaSessao = cachePausasJantarHoje.filter(p => p.maquina === m && p.iniciadoEm >= inicioSessao);
+    const tempoJantarSessaoMs = pausasDestaSessao.reduce((soma,p) => soma + ((p.finalizadoEm || Date.now()) - p.iniciadoEm), 0);
+    const chamadosResolvidosDestaSessao = cacheChamadosResolvidosTodos.filter(c => c.maquina === m && c.criadoEm >= inicioSessao);
+    let tempoAguardandoSessaoMs = chamadosResolvidosDestaSessao.reduce((soma,c) => soma + (c.resolvidoEm - c.criadoEm), 0);
+    const chamadoPendenteAgora = cacheChamadosPendentesDetalhe.find(c => c.maquina === m);
+    const esperandoAgoraMs = (chamadoPendenteAgora && chamadoPendenteAgora.criadoEm >= inicioSessao) ? (Date.now() - chamadoPendenteAgora.criadoEm) : 0;
+    tempoAguardandoSessaoMs += esperandoAgoraMs; // conta ao vivo enquanto ainda estiver esperando agora
+    const tempoExecucaoMs = Math.max(0, (Date.now() - inicioSessao) - tempoJantarSessaoMs - tempoAguardandoSessaoMs);
+    // média HISTÓRICA (todo o período, não só esta sessão) de quanto tempo ESTA máquina
+    // específica costuma ficar esperando o responsável quando chama — sobre os chamados
+    // dela já resolvidos algum dia, pra dar um número estável mesmo em sessões sem chamado
+    const chamadosResolvidosDaMaquina = cacheChamadosResolvidosTodos.filter(c => c.maquina === m);
+    const mediaAguardandoHistoricoMs = chamadosResolvidosDaMaquina.length > 0
+      ? chamadosResolvidosDaMaquina.reduce((soma,c) => soma + (c.resolvidoEm - c.criadoEm), 0) / chamadosResolvidosDaMaquina.length
+      : null;
+
     const classeStatus = emManutencao ? 'manutencao' : aguardandoResponsavel ? 'aguardando' : pausaJantar ? 'pausa_jantar' : cacheSituacaoManual[m]==='parada' ? 'neutro' : zona;
     const iconeStatus = emManutencao ? ICO_STATUS_MAQUINA.manutencao : aguardandoResponsavel ? ICO_STATUS_MAQUINA.aguardando : pausaJantar ? ICO_STATUS_MAQUINA.pausa_jantar : cacheSituacaoManual[m]==='parada' ? ICO_STATUS_MAQUINA.neutro : ICO_STATUS_MAQUINA[zona];
     const labelStatus = emManutencao ? 'Em manutenção'
@@ -7303,6 +7340,11 @@ async function renderCardsMaquinas(){
           ${metricaHTML('total', 'Total (OP)', totalTexto)}
           ${metricaHTML('produzido', 'Produzido (OP)', produzidoTexto, 'var(--success)')}
           ${metricaHTML('saldo', 'Saldo (OP)', saldoTexto)}
+        </div>
+        <div class="card-maquina-detalhe-grid" style="grid-template-columns:1fr">
+          ${metricaHTML('execucao', 'Tempo em execução (sessão)', formatarDuracaoMs(tempoExecucaoMs), 'var(--success)')}
+          ${metricaHTML('jantar', 'Parado p/ jantar (sessão)', formatarDuracaoMs(tempoJantarSessaoMs))}
+          ${metricaHTML('aguardando', 'Média espera responsável (histórico)', mediaAguardandoHistoricoMs !== null ? formatarDuracaoMs(mediaAguardandoHistoricoMs) : '— (sem chamado resolvido ainda)', esperandoAgoraMs>0?'var(--roxo)':undefined)}
         </div>
         <div class="card-maquina-chips">
           <div class="mini-chip ${zonaRefugo}"><span class="num">${refugoPct}%</span><span class="lbl">Refugo</span></div>
