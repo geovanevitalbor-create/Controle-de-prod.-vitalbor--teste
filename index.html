@@ -6453,9 +6453,11 @@ function escaparZpl(texto){
 
 // monta a etiqueta em ZPL. Etiqueta física: 100mm de LARGURA x 70mm de ALTURA (deitada), a
 // 8,0 dpmm (203dpi) — confirmado direto nas Preferências de impressão do driver da Elgin
-// L42 Pro Full (antes eu tinha isso invertido: assumia 70 largura x 100 altura, em pé — por
-// isso o conteúdo de baixo, LIMP/QTDE, ficava fora da área física real da etiqueta e nem
-// chegava a imprimir). 100mm x 8 = 800 dots de largura, 70mm x 8 = 560 dots de altura.
+// L42 Pro Full. 100mm x 8 = 800 dots de largura, 70mm x 8 = 560 dots de altura.
+// ^PW e ^LL voltam a ser declarados EXPLICITAMENTE — tinha tirado achando que "deixar a
+// impressora decidir" bastava, mas sem esses comandos o ZPL usa o que ficou gravado do
+// ÚLTIMO trabalho enviado (não o que está fisicamente carregado), e ficou valendo um valor
+// velho — foi isso que cortou o QR pela metade. Agora com o valor certo, confirmado.
 // Usa ^FB (Field Block) pra deixar a PRÓPRIA impressora quebrar linha automaticamente, já que
 // não dá pra medir largura de texto em JS puro sem depender de canvas/biblioteca.
 function montarZplEtiqueta(d){
@@ -6465,27 +6467,27 @@ function montarZplEtiqueta(d){
 
   return [
     '^XA',
-    '^CI28', // quem define tamanho da etiqueta agora é a própria impressora, não o ZPL
-    // título (até 2 linhas) + número da caixa no canto direito — usa a largura extra (800)
-    `^FO24,16^A0N,34,34^FB560,2,4,L^FD${titulo}^FS`,
-    `^FO620,20^A0N,26,26^FDNº:${escaparZpl(d.caixaNum)}^FS`,
-    // coluna esquerda — 4 linhas em vez de 5: DATA e ARAME dividem a largura extra numa
-    // linha só, o que sobra de altura vira fonte maior em tudo
-    `^FO24,105^A0N,26,26^FB400,2,4,L^FD${campo('OP:', d.operador)}^FS`,
-    `^FO24,175^A0N,26,26^FB230,1,0,L^FD${campo('QTD:', d.qtd)}^FS`,
-    `^FO24,235^A0N,26,26^FB400,2,4,L^FD${campo('DATA:', d.data)}^FS`,
-    `^FO24,300^A0N,26,26^FB400,2,4,L^FD${campo('ARAME:', d.loteArame)}^FS`,
-    `^FO24,365^A0N,26,26^FB400,2,4,L^FD${campo('Nº ORDEM:', d.ordem)}^FS`,
+    '^PW800', '^LL560', '^CI28',
+    // título (peça + material) centralizado e bem maior que o resto — é o campo mais
+    // importante do olhar rápido. Centralizado só até x=574 pra não brigar com o Nº da caixa
+    // no canto direito.
+    `^FO24,10^A0N,44,44^FB550,2,6,C^FD${titulo}^FS`,
+    `^FO600,20^A0N,28,28^FDNº:${escaparZpl(d.caixaNum)}^FS`,
+    // coluna esquerda
+    `^FO24,118^A0N,30,30^FB400,2,4,L^FD${campo('OP:', d.operador)}^FS`,
+    `^FO24,186^A0N,30,30^FB230,1,0,L^FD${campo('QTD:', d.qtd)}^FS`,
+    `^FO24,254^A0N,30,30^FB400,2,4,L^FD${campo('DATA:', d.data)}^FS`,
+    `^FO24,322^A0N,30,30^FB400,2,4,L^FD${campo('ARAME:', d.loteArame)}^FS`,
+    `^FO24,390^A0N,30,30^FB400,2,4,L^FD${campo('Nº ORDEM:', d.ordem)}^FS`,
     // coluna direita
-    `^FO450,105^A0N,26,26^FB320,2,4,L^FD${campo('LOTE:', d.loteMP)}^FS`,
-    `^FO450,175^BQN,2,5^FDMA,${qr}^FS`,
-    // linha de preenchimento manual, LIMP e QTDE lado a lado, agora dentro da altura real
-    // (560) com folga de verdade — antes disso ficava em y=520/550, quase no limite físico
-    // de uma etiqueta que na real só tem 560 de altura, não 800
-    '^FO24,460^A0N,24,24^FDLIMP:^FS',
-    '^FO24,494^GB200,2,2^FS',
-    '^FO450,460^A0N,24,24^FDQTDE:^FS',
-    '^FO450,494^GB200,2,2^FS',
+    `^FO450,118^A0N,30,30^FB320,2,4,L^FD${campo('LOTE:', d.loteMP)}^FS`,
+    `^FO450,192^BQN,2,6^FDMA,${qr}^FS`,
+    // LIMP/QTDE: o traço agora fica NA MESMA LINHA, logo depois dos dois-pontos — antes
+    // vinha numa linha separada embaixo do rótulo
+    `^FO24,468^A0N,26,26^FDLIMP:^FS`,
+    '^FO134,498^GB180,2,2^FS',
+    `^FO450,468^A0N,26,26^FDQTDE:^FS`,
+    '^FO560,498^GB180,2,2^FS',
     '^XZ',
   ].join('\n');
 }
