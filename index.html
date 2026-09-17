@@ -841,7 +841,7 @@
   .card-maquina-status.verde{background:var(--success);color:#06210F;}
   .card-maquina-status.amarelo{background:var(--warning);color:#2B1B00;}
   .card-maquina-status.vermelho{background:var(--danger);color:#FFFFFF;}
-  .card-maquina-status.manutencao{background:var(--azul-vitalbor);color:#fff;}
+  .card-maquina-status.manutencao{background:var(--danger);color:#FFFFFF;}
   .card-maquina-status.aguardando{background:var(--roxo);color:#fff;}
   .card-maquina-status.pausa_jantar{background:var(--warning);color:#2B1B00;}
   .card-maquina-status.operando{background:var(--azul);color:#FFFFFF;}
@@ -3694,7 +3694,7 @@ var qrcode = function() {
       <span class="dot-status-inicial" id="dot-status-inicial"></span>
     </button>
     <div class="painel-info-tecnica" id="painel-info-tecnica">
-      <div class="footnote">Rascunho v1 · fluxo: turno → operador → OP → produção</div>
+      <div class="footnote" id="footnote-versao"></div>
       <div class="footnote" id="info-viewport"></div>
       <div class="status-conexao-db" id="status-conexao-db">● Testando conexão com o banco...</div>
     </div>
@@ -4038,7 +4038,7 @@ var qrcode = function() {
           <span>Sair do Admin</span>
         </button>
       </nav>
-      <div class="admin-versao-build">v2026.09.03-44</div>
+      <div class="admin-versao-build" id="admin-versao-build"></div>
 
       <div class="admin-conteudo">
         <!-- ---- DASHBOARD ---- -->
@@ -4731,6 +4731,11 @@ const HISTORICO_CAIXAS = []; // só escrita local agora — a aba Máquinas lê 
 // já foi usado 2 min só durante os testes).
 // ============================================================
 let INTERVALO_APONTAMENTO_MIN = 60; // editável em Configurações
+// versão do build — fonte única pro carimbo no admin E na tela inicial do operador. Serve
+// pra checar rápido, sem precisar imprimir nada, se um tablet específico está numa aba
+// travada com JS antigo em memória (recarregar a página não basta olhar — precisa comparar
+// esse número com o que aparece nos outros tablets/no admin).
+const BUILD_VERSION = 'v2026.09.17-01';
 let apontamentoTimerHandle = null; // checagem a cada 1min contra apontamentoProximoAlvoMs — ver iniciarTimerApontamento
 let apontamentoProximoAlvoMs = null; // quando o próximo apontamento DEVERIA abrir — ver iniciarTimerApontamento
 let aptInjetadasAtual = 0, aptRefugoAtual = 0;
@@ -5058,6 +5063,8 @@ async function iniciarApp(){
   const dot = document.getElementById('dot-status-inicial');
   const painel = document.getElementById('painel-info-tecnica');
   const btn = document.getElementById('btn-iniciar');
+  document.getElementById('footnote-versao').textContent = `Build ${BUILD_VERSION}`;
+  document.getElementById('admin-versao-build').textContent = BUILD_VERSION;
   document.getElementById('info-viewport').textContent = `Tela: ${window.innerWidth}×${window.innerHeight}px · pixel ratio ${window.devicePixelRatio}`;
   btn.disabled = true;
   btn.textContent = 'Carregando...';
