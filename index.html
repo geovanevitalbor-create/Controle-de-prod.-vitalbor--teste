@@ -4477,7 +4477,7 @@ var qrcode = function() {
   <div class="modal-overlay" id="modal-apontamento-hora">
     <div class="modal-sheet centro">
       <div class="modal-titulo">Apontamento de produção</div>
-      <div class="modal-sub">Conte como foi a última hora — os 3 campos são obrigatórios.</div>
+      <div class="modal-sub">Conte como foi a última hora — injetadas e refugo são obrigatórios, a observação é opcional.</div>
       <div class="linha-refugo-injetadas">
         <button class="campo-numero-grande injetadas tocavel" id="apt-campo-injetadas">
           <span class="lbl">Injetadas na hora</span>
@@ -4488,9 +4488,8 @@ var qrcode = function() {
           <span class="valor num" id="apt-refugo-valor">0</span>
         </button>
       </div>
-      <label class="campo-label" for="apt-motivo">Motivo / observação</label>
-      <textarea class="campo-outro show" id="apt-motivo" placeholder="O que aconteceu nesta hora de produção?"></textarea>
-      <div class="aviso-inline" id="apt-aviso">Preencha o motivo antes de enviar.</div>
+      <label class="campo-label" for="apt-motivo">Observação (opcional)</label>
+      <textarea class="campo-outro show" id="apt-motivo" placeholder="O que aconteceu nesta hora de produção? (opcional)"></textarea>
       <button class="btn-confirmar" id="btn-apt-enviar" style="width:100%">Enviar apontamento</button>
     </div>
   </div>
@@ -4899,10 +4898,17 @@ async function carregarConfigImpressao(){
     if(!data) return;
     PRINTNODE_PRINTER_ID = data.printnode_printer_id || null;
     PRINTNODE_API_KEY = data.printnode_api_key || null;
+    // intervalo do apontamento de hora — antes só existia na memória da aba, então mudar em
+    // Configurações não tinha efeito nenhum em outro dispositivo (o tablet do operador nunca
+    // ficava sabendo). Agora vem do banco, carregado em QUALQUER tela (operador ou admin),
+    // então o valor configurado uma vez vale pra todo mundo de verdade.
+    if(data.intervalo_apontamento_min) INTERVALO_APONTAMENTO_MIN = data.intervalo_apontamento_min;
     const campoId = document.getElementById('cfg-printnode-printer-id');
     if(campoId && PRINTNODE_PRINTER_ID) campoId.value = PRINTNODE_PRINTER_ID;
     const campoChave = document.getElementById('cfg-printnode-api-key');
     if(campoChave && PRINTNODE_API_KEY) campoChave.value = PRINTNODE_API_KEY;
+    const campoIntervalo = document.getElementById('config-intervalo-apontamento');
+    if(campoIntervalo) campoIntervalo.value = INTERVALO_APONTAMENTO_MIN;
   } catch(err){ console.error('[Supabase] falha ao carregar config de impressão:', err); }
 }
 carregarConfigImpressao();
@@ -5747,11 +5753,7 @@ document.getElementById('apt-campo-refugo').addEventListener('click', ()=>{
 });
 
 document.getElementById('btn-apt-enviar').addEventListener('click', ()=>{
-  const motivo = document.getElementById('apt-motivo').value.trim();
-  if(!motivo){
-    document.getElementById('apt-aviso').classList.add('show');
-    return;
-  }
+  const motivo = document.getElementById('apt-motivo').value.trim(); // observação — opcional, não bloqueia envio
   // duração REAL desde o último apontamento (ou desde o início da produção, no primeiro) —
   // mesmo raciocínio do fechamento de caixa: não assume os N minutos cheios do intervalo
   // configurado, porque um ciclo pode ter sido pulado (outro modal já aberto) e ter levado mais tempo.
@@ -6421,15 +6423,27 @@ function prepararEtiqueta(qtd){
     qtd: fmtInt(qtd),
     data: dataHora,
     ordem: state.op.op,
+    maquina: state.maquina,
     loteMP: state.loteMP || '—',
     loteArame: state.loteArame || '—'
   };
-  // texto do QR — CURTO de propósito e sem o nome da peça (que já está grande e legível no
-  // topo da etiqueta, não precisa duplicar). Isso importa de verdade: o tamanho do QR em ZPL
-  // não é fixo, cresce junto com a quantidade de dados dentro dele (confirmado na doc da
-  // Zebra), e a peça é o único campo aqui que varia MUITO de tamanho — era isso que fazia o
-  // QR crescer o suficiente pra atropelar o LIMP/QTDE em algumas OPs e não em outras.
-  const textoQR = `VITALBOR|OP${d.ordem}|CX${caixaNum}|${dataHora}`;
+  // texto do QR — TUDO que existe sobre essa caixa: OP, peça, máquina, operador, lote de
+  // borracha, lote de arame, nº da caixa e data/hora. Cada campo variável tem um teto de
+  // caracteres (não corta em uso normal, só protege o pior caso) pra garantir um tamanho
+  // MÁXIMO previsível de QR — testei o pior caso plausível (todo campo no limite) e não passa
+  // de 41 módulos com correção de erro L, o que cabe folgado no espaço reservado pro QR.
+  const cortar = (texto, max) => String(texto || '').slice(0, max);
+  const textoQR = [
+    'VITALBOR',
+    `OD${d.ordem}`,
+    `PC:${cortar(state.op.peca, 22)}`,
+    `MQ:${cortar(d.maquina, 13)}`,
+    `OPR:${cortar(d.operador, 18)}`,
+    `MP:${cortar(d.loteMP, 10)}`,
+    `AR:${cortar(d.loteArame, 10)}`,
+    `CX${caixaNum}`,
+    dataHora,
+  ].join('|');
   ultimaEtiquetaDados = { ...d, qrData: textoQR };
 
   document.getElementById('etiqueta-fisica-preview').innerHTML = montarHtmlEtiqueta(d, 'et2-qr-preview');
@@ -6481,7 +6495,7 @@ function montarZplEtiqueta(d){
     `^FO24,390^A0N,30,30^FB400,2,4,L^FD${campo('Nº ORDEM:', d.ordem)}^FS`,
     // coluna direita
     `^FO450,118^A0N,30,30^FB320,2,4,L^FD${campo('LOTE:', d.loteMP)}^FS`,
-    `^FO450,192^BQN,2,6^FDMA,${qr}^FS`,
+    `^FO450,192^BQN,2,4^FDLA,${qr}^FS`,
     // LIMP/QTDE: o traço agora fica NA MESMA LINHA, logo depois dos dois-pontos — antes
     // vinha numa linha separada embaixo do rótulo
     `^FO24,468^A0N,26,26^FDLIMP:^FS`,
@@ -7665,11 +7679,19 @@ document.getElementById('btn-config-add-material').addEventListener('click', asy
   toast('Material adicionado.');
 });
 
-document.getElementById('btn-config-salvar-intervalo').addEventListener('click', ()=>{
+document.getElementById('btn-config-salvar-intervalo').addEventListener('click', async ()=>{
   const valor = parseInt(document.getElementById('config-intervalo-apontamento').value, 10);
   if(!valor || valor < 1){ toast('Informe um intervalo válido (em minutos).'); return; }
   INTERVALO_APONTAMENTO_MIN = valor;
-  toast('Intervalo salvo — vale a partir da próxima produção iniciada (ou da próxima retomada, se já estiver em produção agora).');
+  // salva no banco de verdade agora — antes ficava só na memória desta aba, então mudar aqui
+  // nunca chegava no tablet do operador (cada dispositivo tem sua própria aba/memória)
+  const { error } = await db.from('config_impressao').update({ intervalo_apontamento_min: valor }).eq('id', 1);
+  if(error){
+    console.error('[Supabase] falha ao salvar intervalo de apontamento:', error);
+    toast('Intervalo aplicado nesta tela, mas falhou ao salvar no banco — outros tablets não vão receber. Confira o console.');
+    return;
+  }
+  toast('Intervalo salvo pra todos os tablets — vale a partir da próxima produção iniciada (ou da próxima retomada, se já estiver em produção agora).');
 });
 
 function renderConfiguracoes(){
