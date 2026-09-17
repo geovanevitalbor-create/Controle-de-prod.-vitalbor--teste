@@ -6424,23 +6424,28 @@ function prepararEtiqueta(qtd){
     data: dataHora,
     ordem: state.op.op,
     maquina: state.maquina,
+    turno: state.turno ? state.turno.nome : '—',
+    material: materiaPrima || '—',
     loteMP: state.loteMP || '—',
     loteArame: state.loteArame || '—'
   };
-  // texto do QR — TUDO que existe sobre essa caixa: OP, peça, máquina, operador, lote de
-  // borracha, lote de arame, nº da caixa e data/hora. Cada campo variável tem um teto de
+  // texto do QR — TUDO que existe sobre essa caixa. "OP" aqui é Ordem de Produção (não
+  // confundir com "OPR" = operador, alguns campos abaixo). Cada campo variável tem um teto de
   // caracteres (não corta em uso normal, só protege o pior caso) pra garantir um tamanho
   // MÁXIMO previsível de QR — testei o pior caso plausível (todo campo no limite) e não passa
-  // de 41 módulos com correção de erro L, o que cabe folgado no espaço reservado pro QR.
+  // de 49 módulos com correção de erro L, o que cabe no espaço reservado pro QR (aumentado
+  // nesta versão — ver montarZplEtiqueta).
   const cortar = (texto, max) => String(texto || '').slice(0, max);
   const textoQR = [
     'VITALBOR',
-    `OD${d.ordem}`,
+    `OP${d.ordem}`,
     `PC:${cortar(state.op.peca, 22)}`,
+    `MT:${cortar(d.material, 8)}`,
     `MQ:${cortar(d.maquina, 13)}`,
+    `TN:${cortar(d.turno, 12)}`,
     `OPR:${cortar(d.operador, 18)}`,
-    `MP:${cortar(d.loteMP, 10)}`,
-    `AR:${cortar(d.loteArame, 10)}`,
+    `LOTE BORR:${cortar(d.loteMP, 8)}`,
+    `LOTE ARA:${cortar(d.loteArame, 8)}`,
     `CX${caixaNum}`,
     dataHora,
   ].join('|');
@@ -6487,15 +6492,15 @@ function montarZplEtiqueta(d){
     // no canto direito.
     `^FO24,10^A0N,44,44^FB550,2,6,C^FD${titulo}^FS`,
     `^FO600,20^A0N,28,28^FDNº:${escaparZpl(d.caixaNum)}^FS`,
-    // coluna esquerda
+    // coluna esquerda — ARAME e LOTE dividem uma linha só, o espaço que sobra vira altura
+    // extra pro QR na coluna direita (o texto do QR cresceu bastante com os campos novos)
     `^FO24,118^A0N,30,30^FB400,2,4,L^FD${campo('OP:', d.operador)}^FS`,
     `^FO24,186^A0N,30,30^FB230,1,0,L^FD${campo('QTD:', d.qtd)}^FS`,
     `^FO24,254^A0N,30,30^FB400,2,4,L^FD${campo('DATA:', d.data)}^FS`,
-    `^FO24,322^A0N,30,30^FB400,2,4,L^FD${campo('ARAME:', d.loteArame)}^FS`,
+    `^FO24,322^A0N,26,26^FB400,2,4,L^FD${campo('ARAME:', d.loteArame)}  ${campo('LOTE:', d.loteMP)}^FS`,
     `^FO24,390^A0N,30,30^FB400,2,4,L^FD${campo('Nº ORDEM:', d.ordem)}^FS`,
-    // coluna direita
-    `^FO450,118^A0N,30,30^FB320,2,4,L^FD${campo('LOTE:', d.loteMP)}^FS`,
-    `^FO450,192^BQN,2,4^FDLA,${qr}^FS`,
+    // coluna direita — QR ocupa a coluna inteira agora, começando logo depois do título
+    `^FO450,118^BQN,2,5^FDLA,${qr}^FS`,
     // LIMP/QTDE: o traço agora fica NA MESMA LINHA, logo depois dos dois-pontos — antes
     // vinha numa linha separada embaixo do rótulo
     `^FO24,468^A0N,26,26^FDLIMP:^FS`,
