@@ -908,6 +908,8 @@
   .mini-chip.vermelho{background:var(--danger-soft);color:var(--danger);}
   .mini-chip.calculando{background:var(--azul-soft);color:var(--azul);}
   .mini-chip.neutro{background:var(--bg-card-hi);color:var(--text-dim);}
+  .mini-chip.roxo{background:var(--roxo-soft);color:var(--roxo);}
+  .card-maquina-chips-sec{margin-top:-.4rem;}
   .card-maquina-barra-trilho{height:.45rem;background:var(--bg-void);border-radius:100px;overflow:visible;margin-bottom:.7rem;position:relative;}
   .card-maquina-barra-fill{height:100%;border-radius:100px;transition:width .5s ease;position:relative;filter:drop-shadow(0 0 4px currentColor);}
   .card-maquina-barra-fill.indeterminado{background:transparent;}
@@ -1324,6 +1326,8 @@
   .resp-card:active{transform:scale(.98);border-color:var(--border-hi);}
   .resp-card[data-status="concluido"]{border-left-color:var(--success);}
   .resp-card[data-status="concluido"]:active{transform:scale(.98);}
+  .resp-card.atrasado{border-left-color:var(--danger);box-shadow:0 0 0 1px var(--danger) inset;}
+  .resp-card-atraso-aviso{display:flex;align-items:center;gap:.3rem;color:var(--danger);font-size:.72rem;font-weight:800;margin-top:.4rem;}
   .resp-card-maquina{font-weight:800;font-size:1.15rem;color:var(--text);letter-spacing:-.01em;}
   .resp-card-motivo{color:var(--text-dim);font-size:.85rem;margin-top:.3rem;line-height:1.4;}
   .resp-avatar-mini{
@@ -1346,6 +1350,9 @@
   .resp-linha[data-status="concluido"]{opacity:.85;}
   .resp-linha-status{width:.6rem;height:.6rem;border-radius:100%;background:var(--roxo);flex-shrink:0;}
   .resp-linha[data-status="concluido"] .resp-linha-status{background:var(--success);}
+  .resp-linha.atrasado{border-color:var(--danger);}
+  .resp-linha.atrasado .resp-linha-status{background:var(--danger);}
+  .resp-linha.atrasado .resp-linha-meta{color:var(--danger);font-weight:800;}
   .resp-linha-corpo{flex:1;min-width:0;}
   .resp-linha-maquina{font-weight:800;font-size:1.02rem;color:var(--text);}
   .resp-linha-motivo-inline{font-weight:500;color:var(--text-faint);}
@@ -6580,8 +6587,15 @@ document.getElementById('btn-chamar-responsavel').addEventListener('contextmenu'
 async function verificarChamadoPendente(){
   if(!state.maquina) return;
   try{
+    // só um chamado criado DENTRO desta sessão (desde que ela começou) — sem esse filtro, um
+    // chamado antigo sem resposta (operador anterior encerrou o turno e o responsável nunca
+    // foi até a máquina) "grudava" no PRÓXIMO operador que começasse a produzir ali, fazendo a
+    // tela dele piscar por um chamado que nem é dele e que ele não tem como cancelar. Esse
+    // chamado velho continua existindo e pendente pro responsável — só não é mais problema
+    // do operador novo.
     const { data, error } = await db.from('chamados').select('*')
       .eq('maquina', state.maquina).eq('status', 'pendente')
+      .gte('criado_em', new Date(state.inicioMs).toISOString())
       .order('criado_em', { ascending:false }).limit(1).maybeSingle();
     if(error){ console.error('[Supabase] erro ao checar chamado pendente:', error); return; }
     if(data){
@@ -6655,12 +6669,17 @@ function iniciaisOperador(nome){
   if(partes.length === 1) return partes[0].slice(0,2).toUpperCase();
   return (partes[0][0] + partes[partes.length-1][0]).toUpperCase();
 }
+const LIMIAR_CHAMADO_ATRASADO_MIN = 30; // acima disso, o chamado pendente ganha destaque vermelho pro responsável não deixar passar — mesmo que o operador que abriu já tenha trocado de turno ou saído
 function cardChamadoHTML(c, idx){
   const rodapeResolvido = c.status === 'concluido' && c.responsavel_resolveu
     ? `<div class="resp-card-resolvido-por">Resolvido por <strong>${c.responsavel_resolveu}</strong></div>` : '';
-  return `<div class="resp-card" data-id="${c.id}" data-status="${c.status}" style="animation-delay:${Math.min(idx*35,350)}ms">
+  const minutosAberto = (Date.now() - new Date(c.criado_em).getTime()) / 60000;
+  const atrasado = c.status === 'pendente' && minutosAberto > LIMIAR_CHAMADO_ATRASADO_MIN;
+  const avisoAtrasado = atrasado ? `<div class="resp-card-atraso-aviso">⚠ Pendente há muito tempo — ainda ninguém resolveu</div>` : '';
+  return `<div class="resp-card${atrasado?' atrasado':''}" data-id="${c.id}" data-status="${c.status}" style="animation-delay:${Math.min(idx*35,350)}ms">
     <div class="resp-card-maquina">${c.maquina}</div>
     <div class="resp-card-motivo">${c.motivo}${c.detalhe ? ' — ' + c.detalhe : ''}</div>
+    ${avisoAtrasado}
     ${rodapeResolvido}
     <div class="resp-card-rodape">
       <span class="resp-avatar-mini">${iniciaisOperador(c.operador)}</span>
@@ -6670,12 +6689,15 @@ function cardChamadoHTML(c, idx){
   </div>`;
 }
 function linhaChamadoHTML(c, idx){
-  return `<div class="resp-linha" data-id="${c.id}" data-status="${c.status}" style="animation-delay:${Math.min(idx*35,350)}ms">
+  const minutosAberto = (Date.now() - new Date(c.criado_em).getTime()) / 60000;
+  const atrasado = c.status === 'pendente' && minutosAberto > LIMIAR_CHAMADO_ATRASADO_MIN;
+  return `<div class="resp-linha${atrasado?' atrasado':''}" data-id="${c.id}" data-status="${c.status}" style="animation-delay:${Math.min(idx*35,350)}ms">
     <div class="resp-linha-status"></div>
     <div class="resp-linha-corpo">
       <div class="resp-linha-maquina">${c.maquina} <span class="resp-linha-motivo-inline">— ${c.motivo}${c.detalhe ? ': ' + c.detalhe : ''}</span></div>
       <div class="resp-linha-operador-sub"><span class="resp-avatar-mini">${iniciaisOperador(c.operador)}</span>${c.operador || 'Sem operador'}</div>
       ${c.status === 'concluido' && c.responsavel_resolveu ? `<div class="resp-linha-resolvido-por">Resolvido por <strong>${c.responsavel_resolveu}</strong></div>` : ''}
+      ${atrasado ? `<div class="resp-card-atraso-aviso">⚠ Pendente há muito tempo</div>` : ''}
     </div>
     <div class="resp-linha-meta">${c.status === 'pendente' ? formatarTempoRelativo(c.criado_em) : 'Concluído ' + formatarTempoRelativo(c.resolvido_em)}</div>
   </div>`;
@@ -6785,6 +6807,7 @@ function pararRealtimeChamadosResponsavel(){
   if(canalChamadosResponsavel){ db.removeChannel(canalChamadosResponsavel); canalChamadosResponsavel = null; }
 }
 let respRefreshHandle = null;
+let respRelogioAtrasoHandle = null; // só reconta e redesenha os já carregados (sem rebuscar) pra pegar quando um chamado CRUZA o limiar de atrasado, mesmo sem nenhum dado novo
 document.querySelectorAll('.resp-view-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     respViewAtual = btn.getAttribute('data-resp-view');
@@ -6802,10 +6825,13 @@ document.getElementById('btn-modo-responsavel').addEventListener('click', ()=>{
   // só cobre o caso do WebSocket cair sem avisar (troca de rede do tablet, sono, etc.)
   clearInterval(respRefreshHandle);
   respRefreshHandle = setInterval(carregarChamados, 25000);
+  clearInterval(respRelogioAtrasoHandle);
+  respRelogioAtrasoHandle = setInterval(renderChamados, 60000);
 });
 document.getElementById('btn-back-responsavel').addEventListener('click', ()=>{
   pararRealtimeChamadosResponsavel();
   clearInterval(respRefreshHandle);
+  clearInterval(respRelogioAtrasoHandle);
 });
 
 function abrirModalResolver(id){
@@ -7228,13 +7254,18 @@ async function renderCardsMaquinas(){
     const aguardandoResponsavel = cacheMaquinasAguardandoResponsavel.has(m);
     const pausaJantar = cacheSituacaoManual[m] === 'pausa_jantar';
     const paradaGenerica = cacheSituacaoManual[m] === 'parada';
-    // aguardando responsável pisca roxo (mesma cor do pendente em todo o resto do app) e
-    // tem prioridade sobre parada/pausa piscando amarelo — esperar o responsável é mais
-    // urgente. Manutenção não pisca (já é uma explicação definitiva).
-    const classeBlink = aguardandoResponsavel ? 'piscar-aguardando'
-      : ((paradaGenerica || pausaJantar) && !emManutencao ? 'piscar-parada' : '');
     const inicioSessao = cacheProducoesAtivas[m]; // timestamp de início, ou undefined se não tem sessão ativa
     const operando = inicioSessao !== undefined;
+    // Pisca só enquanto a máquina está ATIVA — se o operador já encerrou a produção e o
+    // responsável nunca foi até lá, o chamado continua pendente (isso é real, não é bug), mas
+    // o card não deveria continuar piscando urgente por algo que não está mais "acontecendo
+    // agora": vira uma nota parada/estática mais abaixo, no corpo do card "Livre pra nova
+    // produção". Aguardando responsável pisca roxo (mesma cor do pendente em todo o resto do
+    // app) e tem prioridade sobre parada/pausa piscando amarelo — esperar o responsável é mais
+    // urgente. Manutenção não pisca (já é uma explicação definitiva).
+    const classeBlink = !operando ? ''
+      : aguardandoResponsavel ? 'piscar-aguardando'
+      : ((paradaGenerica || pausaJantar) && !emManutencao ? 'piscar-parada' : '');
     const indicadorOperacional = `<span class="indicador-operacional ${operando?'operando':'parada'}">${operando?'Operando agora':'Parada'}</span>`;
 
     if(!operando){
@@ -7243,10 +7274,17 @@ async function renderCardsMaquinas(){
       // mesma OP aberta" quando na real uma já tinha sido encerrada). Mostra a máquina como
       // livre, com só uma referência histórica mínima de quando foi a última vez que rodou.
       const ultimaHistorica = cacheCaixasBanco.filter(c => c.maquina === m).sort((a,b)=>b.timestamp-a.timestamp)[0];
+      // se ainda tem chamado pendente desta máquina (produção já encerrou, mas ninguém
+      // resolveu), avisa em texto — sem piscar, mas sem deixar cair no esquecimento também
+      const chamadoPendenteParada = cacheChamadosPendentesDetalhe.find(c => c.maquina === m);
+      const avisoChamadoPendente = chamadoPendenteParada
+        ? `<div class="item-admin-sub" style="padding:.5rem .6rem;margin-bottom:.5rem;border-radius:var(--radius-admin-sm);background:var(--roxo-soft);color:var(--roxo);font-weight:700;white-space:normal;line-height:1.4">Chamado pendente aberto ${formatarTempoRelativo(new Date(chamadoPendenteParada.criadoEm).toISOString())} — o responsável ainda não resolveu.</div>`
+        : '';
       return `
       <div class="card-maquina sem-dados ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
         <div class="card-maquina-status ${emManutencao?'manutencao':aguardandoResponsavel?'aguardando':pausaJantar?'pausa_jantar':'neutro'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:ICO_STATUS_MAQUINA.neutro}<span>${emManutencao?'Em manutenção':aguardandoResponsavel?'Aguardando responsável':pausaJantar?'Pausa (jantar)':'Parada'}</span></div>
         <div class="card-maquina-nome">${m}</div>
+        ${avisoChamadoPendente}
         <div class="item-admin-sub" style="padding:.3rem 0;white-space:normal;line-height:1.4">Livre pra nova produção.${ultimaHistorica ? ` Última: ${ultimaHistorica.peca} (${ultimaHistorica.operador}), ${new Date(ultimaHistorica.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}.` : ' Sem histórico registrado ainda.'}</div>
       </div>`;
     }
@@ -7341,15 +7379,15 @@ async function renderCardsMaquinas(){
           ${metricaHTML('produzido', 'Produzido (OP)', produzidoTexto, 'var(--success)')}
           ${metricaHTML('saldo', 'Saldo (OP)', saldoTexto)}
         </div>
-        <div class="card-maquina-detalhe-grid" style="grid-template-columns:1fr">
-          ${metricaHTML('execucao', 'Tempo em execução (sessão)', formatarDuracaoMs(tempoExecucaoMs), 'var(--success)')}
-          ${metricaHTML('jantar', 'Parado p/ jantar (sessão)', formatarDuracaoMs(tempoJantarSessaoMs))}
-          ${metricaHTML('aguardando', 'Média espera responsável (histórico)', mediaAguardandoHistoricoMs !== null ? formatarDuracaoMs(mediaAguardandoHistoricoMs) : '— (sem chamado resolvido ainda)', esperandoAgoraMs>0?'var(--roxo)':undefined)}
-        </div>
         <div class="card-maquina-chips">
           <div class="mini-chip ${zonaRefugo}"><span class="num">${refugoPct}%</span><span class="lbl">Refugo</span></div>
           <div class="mini-chip ${zona}"><span class="num">${desempenhoDisponivel ? desempenhoPct+'%' : '···'}</span><span class="lbl">Desemp.</span></div>
           <div class="mini-chip neutro"><span class="num">${d.registros}</span><span class="lbl">Caixas</span></div>
+        </div>
+        <div class="card-maquina-chips card-maquina-chips-sec">
+          <div class="mini-chip verde"><span class="num">${formatarDuracaoMs(tempoExecucaoMs)}</span><span class="lbl">Execução</span></div>
+          <div class="mini-chip neutro"><span class="num">${formatarDuracaoMs(tempoJantarSessaoMs)}</span><span class="lbl">Jantar</span></div>
+          <div class="mini-chip ${esperandoAgoraMs>0?'roxo':'neutro'}"><span class="num">${mediaAguardandoHistoricoMs !== null ? formatarDuracaoMs(mediaAguardandoHistoricoMs) : '—'}</span><span class="lbl">Espera</span></div>
         </div>
         <div class="card-maquina-barra-trilho"><div class="card-maquina-barra-fill${desempenhoDisponivel?'':' indeterminado'}" style="${desempenhoDisponivel ? `width:${Math.min(100,desempenhoPct)}%;background:${corBarra};color:${corBarra}` : `color:${corBarra}`}"></div></div>
         <div style="font-size:1.15rem;font-weight:800;margin-bottom:.2rem">${fmtInt(d.pecasBoas)} <span style="font-size:.72rem;font-weight:700;color:var(--text-faint);text-transform:uppercase">peças produzidas (boas)</span></div>
