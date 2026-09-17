@@ -851,11 +851,9 @@
     50%{box-shadow:0 0 0 5px rgba(220,38,38,0);}
   }
   .card-maquina-status.neutro{background:var(--bg-card-hi);color:var(--text-dim);}
-  .card-maquina-nome{font-weight:700;font-size:.95rem;margin-bottom:.35rem;}
+  .card-maquina-nome{font-weight:700;font-size:.9rem;margin-bottom:.5rem;}
   .card-maquina-contexto{margin-bottom:.7rem;}
   .contexto-peca{font-size:.85rem;font-weight:700;color:var(--text);}
-  .contexto-peca-linha{font-size:.83rem;color:var(--text-dim);margin-bottom:.55rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .contexto-peca-linha b{color:var(--text);font-weight:700;}
   .contexto-operador-linha{display:flex;align-items:center;gap:.45rem;margin-top:.45rem;}
   .contexto-avatar{
     width:1.4rem;height:1.4rem;border-radius:100%;background:var(--accent-soft);color:var(--accent);
@@ -863,41 +861,35 @@
   }
   .contexto-operador-nome{font-size:.85rem;font-weight:800;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .contexto-meta-extra{font-size:.68rem;color:var(--text-faint);margin-top:.3rem;}
-  /* card-maquina-hero: o anel de desempenho (anelSVG, já existia mas nunca era chamado em
-     lugar nenhum) + o número de peças produzidas NESTA sessão lado a lado — vira o elemento
-     principal do card, no lugar da grade de 6 campos + 2 fileiras de chips de antes. */
-  .card-maquina-hero{display:flex;align-items:center;gap:.9rem;margin:.9rem 0;padding:.8rem .85rem;background:var(--bg-void);border-radius:var(--radius-admin-md);}
-  .anel-wrap{position:relative;width:3.4rem;height:3.4rem;flex-shrink:0;}
-  .anel-wrap-hero{width:4rem;height:4rem;}
-  .anel-svg{width:100%;height:100%;display:block;}
-  .anel-progresso{transition:stroke-dashoffset .6s cubic-bezier(.2,.7,.3,1);filter:drop-shadow(0 0 3px currentColor);}
-  .anel-calculando circle{transform-box:fill-box;transform-origin:50% 50%;animation:girar-anel 1.4s linear infinite;}
-  @keyframes girar-anel{to{transform:rotate(360deg);}}
-  .anel-num-central{
-    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-weight:800;font-size:.72rem;font-variant-numeric:tabular-nums;
+  .card-maquina-detalhe-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:0;
+    background:var(--bg-void);border-radius:var(--radius-admin-sm);padding:.2rem .85rem;margin-bottom:1rem;
   }
-  .anel-num-hero{font-size:.92rem;}
-  .card-maquina-hero-corpo{min-width:0;}
-  .hero-num{font-size:1.5rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}
-  .hero-lbl{font-size:.6rem;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;font-weight:700;margin-top:.3rem;line-height:1.3;}
-  .hero-sub{font-size:.72rem;color:var(--text-dim);margin-top:.35rem;}
-  .card-maquina-progresso{margin-bottom:.85rem;}
-  .progresso-topo{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.4rem;gap:.5rem;}
-  .progresso-lbl{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-faint);white-space:nowrap;}
-  .progresso-valor{font-size:.72rem;font-weight:700;color:var(--text-dim);font-variant-numeric:tabular-nums;white-space:nowrap;}
-  .card-maquina-tags{display:flex;gap:.45rem;flex-wrap:wrap;margin-bottom:.7rem;}
-  .tag-stat{display:inline-flex;align-items:center;gap:.32rem;padding:.32rem .55rem;border-radius:100px;font-size:.68rem;font-weight:700;white-space:nowrap;}
-  .tag-stat.verde{background:var(--success-soft);color:var(--success);}
-  .tag-stat.amarelo{background:var(--warning-soft);color:var(--warning);}
-  .tag-stat.vermelho{background:var(--danger-soft);color:var(--danger);}
-  .tag-stat.calculando{background:var(--azul-soft);color:var(--azul);}
-  .tag-stat.neutro{background:var(--bg-card-hi);color:var(--text-dim);}
-  .tag-stat.roxo{background:var(--roxo-soft);color:var(--roxo);}
+  .metrica-linha{display:flex;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid var(--border);}
+  .card-maquina-detalhe-grid .metrica-linha:nth-last-child(-n+2){border-bottom:none;}
+  .metrica-icone{
+    width:1.7rem;height:1.7rem;border-radius:var(--radius-admin-sm);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);
+  }
+  .metrica-icone svg{width:.95rem;height:.95rem;}
+  .metrica-corpo{display:flex;flex-direction:column;min-width:0;}
+  .metrica-corpo .lbl{display:block;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-faint);line-height:1.25;}
+  .metrica-corpo .valor{display:block;font-size:.82rem;font-weight:700;color:var(--text);margin-top:.1rem;font-variant-numeric:tabular-nums;}
+  .card-maquina-chips{display:flex;gap:.5rem;margin-bottom:.9rem;align-items:stretch;}
+  .mini-chip{flex:1;text-align:center;padding:.4rem .3rem;border-radius:var(--radius-admin-sm);min-width:0;}
+  .mini-chip .num{display:block;font-size:.95rem;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;}
+  .mini-chip .lbl{display:block;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mini-chip.verde{background:var(--success-soft);color:var(--success);}
+  .mini-chip.amarelo{background:var(--warning-soft);color:var(--warning);}
+  .mini-chip.vermelho{background:var(--danger-soft);color:var(--danger);}
+  .mini-chip.calculando{background:var(--azul-soft);color:var(--azul);}
+  .mini-chip.neutro{background:var(--bg-card-hi);color:var(--text-dim);}
+  .mini-chip.roxo{background:var(--roxo-soft);color:var(--roxo);}
+  .card-maquina-chips-sec{margin-top:-.4rem;}
   .card-maquina-barra-trilho{height:.45rem;background:var(--bg-void);border-radius:100px;overflow:visible;margin-bottom:.7rem;position:relative;}
   .card-maquina-barra-fill{height:100%;border-radius:100px;transition:width .5s ease;position:relative;filter:drop-shadow(0 0 4px currentColor);}
   .card-maquina-barra-fill.indeterminado{background:transparent;}
-  .card-maquina-rodape{font-size:.7rem;color:var(--text-faint);padding-top:.65rem;border-top:1px solid var(--border);line-height:1.5;}
+  .card-maquina-rodape{font-size:.72rem;color:var(--text-faint);padding-top:.7rem;border-top:1px solid var(--border);}
   .card-maquina.sem-dados{opacity:.85;}
   .card-maquina.sem-dados .card-maquina-nome{margin-bottom:.4rem;color:var(--text-dim);}
   @keyframes entrada-card-maquina{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
@@ -1214,9 +1206,9 @@
   }
   #toast.show{transform:translate(-50%,0);opacity:1;visibility:visible;transition:transform .22s ease,opacity .22s ease;}
 
-  /* impressão de etiqueta via PrintNode agora — ver enviarEtiquetaParaImpressao() no JS.
-     Sem CSS de @media print aqui: o navegador nunca abre diálogo de impressão nesse fluxo,
-     quem imprime de fato é a função no Supabase, que gera o PDF e manda pra PrintNode. */
+  /* impressão de etiqueta via PrintNode — ver enviarEtiquetaParaImpressao() no JS, que já
+     monta o ZPL (montarZplEtiqueta) e manda direto pra API da PrintNode. Sem CSS de @media
+     print aqui porque o navegador nunca abre diálogo de impressão nesse fluxo. */
 
   @media (max-width:900px){
     .screen-pad{padding:1.4rem 1.3rem;}
@@ -4736,6 +4728,39 @@ let INTERVALO_APONTAMENTO_MIN = 60; // editável em Configurações
 // travada com JS antigo em memória (recarregar a página não basta olhar — precisa comparar
 // esse número com o que aparece nos outros tablets/no admin).
 const BUILD_VERSION = 'v2026.09.17-01';
+
+// ---- checagem automática de versão nova ----
+// O problema real por trás da etiqueta "não atualizar": esse app é UM arquivo HTML estático.
+// Subir uma versão nova no GitHub Pages não faz as abas JÁ ABERTAS pegarem o código novo
+// sozinhas — o JS de uma aba fica todo carregado na memória do navegador e só é trocado se
+// a página for recarregada. Pedir pra recarregar manualmente cada tablet, toda vez que algo
+// for corrigido, não é confiável (é fácil esquecer, ou nem saber que precisa). Isso resolve
+// sozinho: busca a própria página (cache:'no-store' pra nunca pegar cópia velha do cache do
+// navegador), procura o BUILD_VERSION dentro do HTML baixado e compara com o desta aba.
+let versaoNovaDisponivel = null;
+async function verificarVersaoNova(){
+  try{
+    const resp = await fetch(window.location.href, { cache: 'no-store' });
+    if(!resp.ok) return;
+    const texto = await resp.text();
+    const m = texto.match(/const BUILD_VERSION = '([^']+)'/);
+    if(!m || m[1] === BUILD_VERSION) return;
+    versaoNovaDisponivel = m[1];
+    console.warn(`[versão] atualização disponível nesta aba: ${BUILD_VERSION} → ${m[1]}`);
+    aplicarAtualizacaoSePossivel();
+  } catch(err){
+    console.warn('[versão] não consegui checar atualização (offline?):', err);
+  }
+}
+// só recarrega sozinho quando está na tela inicial — em qualquer outra tela pode ter dado de
+// formulário no meio (produção rodando, modal aberto) que se perderia com o reload forçado
+function aplicarAtualizacaoSePossivel(){
+  if(!versaoNovaDisponivel) return;
+  const inicial = document.getElementById('screen-inicial');
+  if(inicial && inicial.classList.contains('active')) location.reload();
+}
+setInterval(verificarVersaoNova, 3 * 60 * 1000); // a cada 3min
+verificarVersaoNova(); // e uma vez já de cara, sem esperar o primeiro intervalo
 let apontamentoTimerHandle = null; // checagem a cada 1min contra apontamentoProximoAlvoMs — ver iniciarTimerApontamento
 let apontamentoProximoAlvoMs = null; // quando o próximo apontamento DEVERIA abrir — ver iniciarTimerApontamento
 let aptInjetadasAtual = 0, aptRefugoAtual = 0;
@@ -5320,6 +5345,7 @@ let pesoMP = 0, pesoSobraMP = 0, refugoArame = 0;
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  if(id === 'screen-inicial') aplicarAtualizacaoSePossivel();
 }
 document.querySelectorAll('[data-voltar]').forEach(btn=>{
   btn.addEventListener('click', ()=> showScreen(btn.getAttribute('data-voltar')));
@@ -7087,6 +7113,23 @@ function anelSVG(pct, cor, disponivel){
       stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round" transform="rotate(-90 ${tam/2} ${tam/2})"/>
   </svg>`;
 }
+const ICO_METRICA = {
+  material: '<path d="M12 2l8 4.5v9L12 20l-8-4.5v-9z"/>',
+  cavidades: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  refugo: '<path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/>',
+  total: '<rect x="6" y="3.5" width="12" height="17" rx="2"/><path d="M9 3.5V2.3a1 1 0 011-1h4a1 1 0 011 1V3.5"/><path d="M9 10.5h6M9 14.5h6"/>',
+  produzido: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  saldo: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/>',
+  execucao: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  jantar: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+};
+function metricaHTML(icone, label, valor, corValor){
+  return `<div class="metrica-linha">
+    <span class="metrica-icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICO_METRICA[icone]}</svg></span>
+    <span class="metrica-corpo"><span class="lbl">${label}</span><span class="valor"${corValor?` style="color:${corValor}"`:''}>${valor}</span></span>
+  </div>`;
+}
+
 function agregarUmaMaquina(registros){
   const d = {refugo:0, qtdPecas:0, pecasBoas:0, injetadas:0, esperado:0, duracaoTotalMs:0, registros:0, ultimaAtividade:0, ultimoRegistro:null};
   registros.forEach(r => {
@@ -7309,8 +7352,8 @@ async function renderCardsMaquinas(){
     // mais checar "operando" aqui, isso já filtrou lá em cima
     const opRef = cacheOrdensBanco.find(o => o.op === u.op);
     const totalTexto = opRef ? fmtInt(opRef.qtdTotal) : '—';
-    const produzidoOpTexto = opRef ? fmtInt(Math.max(0, opRef.qtdTotal - opRef.qtdRestante)) : '—';
-    const pctOP = opRef && opRef.qtdTotal > 0 ? Math.min(100, Math.max(0, Math.round(((opRef.qtdTotal - opRef.qtdRestante) / opRef.qtdTotal) * 100))) : 0;
+    const produzidoTexto = opRef ? fmtInt(Math.max(0, opRef.qtdTotal - opRef.qtdRestante)) : '—';
+    const saldoTexto = opRef ? fmtInt(opRef.qtdRestante) : '—';
 
     // ---- 3 métricas de tempo desta sessão: execução líquida, parado pro jantar e espera
     // do responsável. "Execução" aqui é o tempo TOTAL da sessão MENOS jantar e MENOS espera
@@ -7327,8 +7370,7 @@ async function renderCardsMaquinas(){
     const tempoExecucaoMs = Math.max(0, (Date.now() - inicioSessao) - tempoJantarSessaoMs - tempoAguardandoSessaoMs);
     // média HISTÓRICA (todo o período, não só esta sessão) de quanto tempo ESTA máquina
     // específica costuma ficar esperando o responsável quando chama — sobre os chamados
-    // dela já resolvidos algum dia. Não vira mais um chip fixo (ficava grande demais e a
-    // maioria das máquinas nunca teve chamado) — só aparece no rodapé quando existe.
+    // dela já resolvidos algum dia, pra dar um número estável mesmo em sessões sem chamado
     const chamadosResolvidosDaMaquina = cacheChamadosResolvidosTodos.filter(c => c.maquina === m);
     const mediaAguardandoHistoricoMs = chamadosResolvidosDaMaquina.length > 0
       ? chamadosResolvidosDaMaquina.reduce((soma,c) => soma + (c.resolvidoEm - c.criadoEm), 0) / chamadosResolvidosDaMaquina.length
@@ -7342,45 +7384,39 @@ async function renderCardsMaquinas(){
       : cacheSituacaoManual[m]==='parada' ? 'Parada'
       : zona === 'calculando' ? `Calculando... (~${minutosFaltando}min)`
       : LABEL_STATUS_MAQUINA[zona];
-    // tags secundárias: refugo e execução sempre aparecem; jantar só quando de fato houve
-    // pausa nesta sessão — antes aparecia "0min" pra toda máquina, mesmo quem nunca pausou
-    const tagsSecundarias = [
-      `<span class="tag-stat ${zonaRefugo}">${refugoPct}% refugo</span>`,
-      `<span class="tag-stat neutro">${formatarDuracaoMs(tempoExecucaoMs)} em execução</span>`,
-    ];
-    if(tempoJantarSessaoMs > 0) tagsSecundarias.push(`<span class="tag-stat amarelo">${formatarDuracaoMs(tempoJantarSessaoMs)} jantar</span>`);
-    const rodapeEspera = mediaAguardandoHistoricoMs !== null ? ` · espera média resp. ${formatarDuracaoMs(mediaAguardandoHistoricoMs)}` : '';
     return `
       <div class="card-maquina ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
         <div class="card-maquina-status ${classeStatus}">${iconeStatus}<span>${labelStatus}</span></div>
         <div class="card-maquina-nome">${m}</div>
         ${notaChamadoPendenteSePausado}
-        <div class="contexto-peca-linha"><b>${u.peca}</b> · ${u.material || '—'} · ${u.cavidades} cav.</div>
-        <div class="contexto-operador-linha">
-          <span class="contexto-avatar">${iniciaisOperador(u.operador)}</span>
-          <span class="contexto-operador-nome">${u.operador}</span>
-        </div>
-
-        <div class="card-maquina-hero">
-          <div class="anel-wrap anel-wrap-hero">
-            ${anelSVG(desempenhoPct, corBarra, desempenhoDisponivel)}
-            <div class="anel-num-central anel-num-hero" style="color:${corBarra}">${desempenhoDisponivel ? desempenhoPct+'%' : '···'}</div>
-          </div>
-          <div class="card-maquina-hero-corpo">
-            <div class="hero-num">${fmtInt(d.pecasBoas)}</div>
-            <div class="hero-lbl">produzidas nesta sessão</div>
-            <div class="hero-sub">${d.registros} caixa${d.registros===1?'':'s'} fechada${d.registros===1?'':'s'}</div>
+        <div class="card-maquina-contexto">
+          <div class="contexto-peca">${u.peca}</div>
+          <div class="contexto-operador-linha">
+            <span class="contexto-avatar">${iniciaisOperador(u.operador)}</span>
+            <span class="contexto-operador-nome">${u.operador}</span>
           </div>
         </div>
-
-        <div class="card-maquina-progresso">
-          <div class="progresso-topo"><span class="progresso-lbl">Progresso da OP</span><span class="progresso-valor">${produzidoOpTexto} / ${totalTexto}</span></div>
-          <div class="card-maquina-barra-trilho"><div class="card-maquina-barra-fill" style="width:${pctOP}%;background:var(--accent);color:var(--accent)"></div></div>
+        <div class="card-maquina-detalhe-grid">
+          ${metricaHTML('material', 'Matéria-prima', u.material || '—')}
+          ${metricaHTML('cavidades', 'Cavidades', u.cavidades)}
+          ${metricaHTML('refugo', 'Refugo (peças)', fmtInt(d.refugo), 'var(--danger)')}
+          ${metricaHTML('total', 'Total (OP)', totalTexto)}
+          ${metricaHTML('produzido', 'Produzido (OP)', produzidoTexto, 'var(--success)')}
+          ${metricaHTML('saldo', 'Saldo (OP)', saldoTexto)}
         </div>
-
-        <div class="card-maquina-tags">${tagsSecundarias.join('')}</div>
-
-        <div class="card-maquina-rodape">Última caixa fechada nesta sessão: ${new Date(d.ultimaAtividade).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}${rodapeEspera}</div>
+        <div class="card-maquina-chips">
+          <div class="mini-chip ${zonaRefugo}"><span class="num">${refugoPct}%</span><span class="lbl">Refugo</span></div>
+          <div class="mini-chip ${zona}"><span class="num">${desempenhoPct}%</span><span class="lbl">Desemp.</span></div>
+          <div class="mini-chip neutro"><span class="num">${d.registros}</span><span class="lbl">Caixas</span></div>
+        </div>
+        <div class="card-maquina-chips card-maquina-chips-sec">
+          <div class="mini-chip verde"><span class="num">${formatarDuracaoMs(tempoExecucaoMs)}</span><span class="lbl">Execução</span></div>
+          <div class="mini-chip neutro"><span class="num">${formatarDuracaoMs(tempoJantarSessaoMs)}</span><span class="lbl">Jantar</span></div>
+          <div class="mini-chip ${esperandoAgoraMs>0?'roxo':'neutro'}"><span class="num">${mediaAguardandoHistoricoMs !== null ? formatarDuracaoMs(mediaAguardandoHistoricoMs) : '—'}</span><span class="lbl">Espera</span></div>
+        </div>
+        <div class="card-maquina-barra-trilho"><div class="card-maquina-barra-fill${desempenhoDisponivel?'':' indeterminado'}" style="${desempenhoDisponivel ? `width:${Math.min(100,desempenhoPct)}%;background:${corBarra};color:${corBarra}` : `color:${corBarra}`}"></div></div>
+        <div style="font-size:1.15rem;font-weight:800;margin-bottom:.2rem">${fmtInt(d.pecasBoas)} <span style="font-size:.72rem;font-weight:700;color:var(--text-faint);text-transform:uppercase">peças produzidas (boas)</span></div>
+        <div class="card-maquina-rodape">Última caixa fechada nesta sessão: ${new Date(d.ultimaAtividade).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
       </div>`;
   }).join('');
 
