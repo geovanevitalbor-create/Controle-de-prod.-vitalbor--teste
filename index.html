@@ -7260,13 +7260,22 @@ async function renderCardsMaquinas(){
     // responsável nunca foi até lá, o chamado continua pendente (isso é real, não é bug), mas
     // o card não deveria continuar piscando urgente por algo que não está mais "acontecendo
     // agora": vira uma nota parada/estática mais abaixo, no corpo do card "Livre pra nova
-    // produção". Aguardando responsável pisca roxo (mesma cor do pendente em todo o resto do
-    // app) e tem prioridade sobre parada/pausa piscando amarelo — esperar o responsável é mais
-    // urgente. Manutenção não pisca (já é uma explicação definitiva).
+    // produção". PAUSA PRO JANTAR tem prioridade sobre aguardando responsável — pedido
+    // explícito: enquanto o operador está pausado pro jantar, é isso que está acontecendo
+    // AGORA (pisca azul, não roxo); o chamado pendente não desaparece, só vira uma nota
+    // dentro do card em vez de tomar o status principal. Quando a pausa acabar, volta
+    // automaticamente a mostrar "Aguardando responsável" como principal (se ainda pendente).
+    // Manutenção não pisca (já é uma explicação definitiva).
     const classeBlink = !operando ? ''
+      : pausaJantar && !emManutencao ? 'piscar-parada'
       : aguardandoResponsavel ? 'piscar-aguardando'
-      : ((paradaGenerica || pausaJantar) && !emManutencao ? 'piscar-parada' : '');
+      : (paradaGenerica && !emManutencao ? 'piscar-parada' : '');
     const indicadorOperacional = `<span class="indicador-operacional ${operando?'operando':'parada'}">${operando?'Operando agora':'Parada'}</span>`;
+    // nota secundária — some quando o motivo primário some, mas o chamado continua visível
+    // enquanto realmente estiver pendente (isso não muda por causa da pausa pro jantar)
+    const notaChamadoPendenteSePausado = (pausaJantar && aguardandoResponsavel)
+      ? `<div class="item-admin-sub" style="padding:.4rem .55rem;margin:.4rem 0;border-radius:var(--radius-admin-sm);background:var(--roxo-soft);color:var(--roxo);font-weight:700;white-space:normal;line-height:1.35;font-size:.72rem">Tem também um chamado pendente aguardando o responsável.</div>`
+      : '';
 
     if(!operando){
       // PARADA — sem sessão ativa. Não mostra estatísticas acumuladas de uma sessão que já
@@ -7282,7 +7291,7 @@ async function renderCardsMaquinas(){
         : '';
       return `
       <div class="card-maquina sem-dados ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
-        <div class="card-maquina-status ${emManutencao?'manutencao':aguardandoResponsavel?'aguardando':pausaJantar?'pausa_jantar':'neutro'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:ICO_STATUS_MAQUINA.neutro}<span>${emManutencao?'Em manutenção':aguardandoResponsavel?'Aguardando responsável':pausaJantar?'Pausa (jantar)':'Parada'}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':pausaJantar?'pausa_jantar':aguardandoResponsavel?'aguardando':'neutro'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:ICO_STATUS_MAQUINA.neutro}<span>${emManutencao?'Em manutenção':pausaJantar?'Pausa (jantar)':aguardandoResponsavel?'Aguardando responsável':'Parada'}</span></div>
         <div class="card-maquina-nome">${m}</div>
         ${avisoChamadoPendente}
         <div class="item-admin-sub" style="padding:.3rem 0;white-space:normal;line-height:1.4">Livre pra nova produção.${ultimaHistorica ? ` Última: ${ultimaHistorica.peca} (${ultimaHistorica.operador}), ${new Date(ultimaHistorica.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}.` : ' Sem histórico registrado ainda.'}</div>
@@ -7302,9 +7311,10 @@ async function renderCardsMaquinas(){
         : 'Em produção agora — ainda sem caixa fechada nesta sessão.';
       return `
       <div class="card-maquina sem-dados ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
-        <div class="card-maquina-status ${emManutencao?'manutencao':aguardandoResponsavel?'aguardando':pausaJantar?'pausa_jantar':paradaManual?'neutro':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:paradaManual?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção':aguardandoResponsavel?'Aguardando responsável':pausaJantar?'Pausa (jantar)':paradaManual?'Parada':'Em produção'}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':pausaJantar?'pausa_jantar':aguardandoResponsavel?'aguardando':paradaManual?'neutro':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:paradaManual?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção':pausaJantar?'Pausa (jantar)':aguardandoResponsavel?'Aguardando responsável':paradaManual?'Parada':'Em produção'}</span></div>
         <div class="card-maquina-nome">${m}</div>
         <div class="item-admin-sub" style="padding:.3rem 0">${textoCorpo}</div>
+        ${notaChamadoPendenteSePausado}
       </div>`;
     }
     // Desempenho (só o %, não refugo/produzido) agora vem do apontamento de hora a hora desta
@@ -7351,11 +7361,11 @@ async function renderCardsMaquinas(){
       ? chamadosResolvidosDaMaquina.reduce((soma,c) => soma + (c.resolvidoEm - c.criadoEm), 0) / chamadosResolvidosDaMaquina.length
       : null;
 
-    const classeStatus = emManutencao ? 'manutencao' : aguardandoResponsavel ? 'aguardando' : pausaJantar ? 'pausa_jantar' : cacheSituacaoManual[m]==='parada' ? 'neutro' : zona;
-    const iconeStatus = emManutencao ? ICO_STATUS_MAQUINA.manutencao : aguardandoResponsavel ? ICO_STATUS_MAQUINA.aguardando : pausaJantar ? ICO_STATUS_MAQUINA.pausa_jantar : cacheSituacaoManual[m]==='parada' ? ICO_STATUS_MAQUINA.neutro : ICO_STATUS_MAQUINA[zona];
+    const classeStatus = emManutencao ? 'manutencao' : pausaJantar ? 'pausa_jantar' : aguardandoResponsavel ? 'aguardando' : cacheSituacaoManual[m]==='parada' ? 'neutro' : zona;
+    const iconeStatus = emManutencao ? ICO_STATUS_MAQUINA.manutencao : pausaJantar ? ICO_STATUS_MAQUINA.pausa_jantar : aguardandoResponsavel ? ICO_STATUS_MAQUINA.aguardando : cacheSituacaoManual[m]==='parada' ? ICO_STATUS_MAQUINA.neutro : ICO_STATUS_MAQUINA[zona];
     const labelStatus = emManutencao ? 'Em manutenção'
-      : aguardandoResponsavel ? 'Aguardando responsável'
       : pausaJantar ? 'Pausa (jantar)'
+      : aguardandoResponsavel ? 'Aguardando responsável'
       : cacheSituacaoManual[m]==='parada' ? 'Parada'
       : zona === 'calculando' ? `Calculando... (~${minutosFaltando}min)`
       : LABEL_STATUS_MAQUINA[zona];
@@ -7363,6 +7373,7 @@ async function renderCardsMaquinas(){
       <div class="card-maquina ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
         <div class="card-maquina-status ${classeStatus}">${iconeStatus}<span>${labelStatus}</span></div>
         <div class="card-maquina-nome">${m}</div>
+        ${notaChamadoPendenteSePausado}
         <div class="card-maquina-contexto">
           <div class="contexto-peca">${u.peca}</div>
           <div class="contexto-operador-linha">
