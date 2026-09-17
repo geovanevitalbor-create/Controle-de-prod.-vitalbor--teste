@@ -730,6 +730,7 @@
   .fab-admin.oculto{display:none;}
 
   .kpi-row{display:grid;grid-template-columns:.85fr .85fr .65fr .65fr 1fr;gap:1rem;margin-bottom:1.4rem;align-items:stretch;}
+  .kpi-row-maquinas{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:1.2rem;}
   .kpi-gauge-card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-admin-lg);padding:1.1rem 1rem .9rem;box-shadow:var(--elev-1);display:flex;flex-direction:column;align-items:center;}
   .kpi-gauge-titulo{align-self:flex-start;font-size:.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin-bottom:.2rem;}
   .kpi-gauge-valor{font-family:var(--font-admin-mono);font-size:1.5rem;font-weight:700;margin-top:-1.1rem;font-variant-numeric:tabular-nums;}
@@ -1209,6 +1210,8 @@
   .et2-qr{margin:.5rem 0;width:4.6rem;height:4.6rem;}
   .et2-qr svg{width:100%;height:100%;display:block;}
   .et2-rodape-linha{border-top:2px solid #000;margin-top:1rem;}
+  .et2-linha-manual-linha{display:flex;justify-content:space-between;gap:1rem;margin-top:.9rem;}
+  .et2-linha-manual-linha .et2-linha-manual{margin-top:0;}
 
   /* toast — bug real encontrado aqui: o método antigo escondia com transform:translateY(120%),
      mas 120% é relativo à ALTURA DO PRÓPRIO ELEMENTO, e não considerava o bottom:1.6rem fixo.
@@ -4148,6 +4151,7 @@ var qrcode = function() {
             <button type="button" class="filtro-desempenho-btn amarelo ativo" data-zona="amarelo">Médio</button>
             <button type="button" class="filtro-desempenho-btn vermelho ativo" data-zona="vermelho">Ruim</button>
           </div>
+          <div class="kpi-row-maquinas" id="kpi-row-maquinas"></div>
           <div class="filtro-maquina-dropdown" id="filtro-maquina-dropdown">
             <button type="button" class="filtro-maquina-btn" id="btn-filtro-maquina-toggle">
               <span id="filtro-maquina-btn-texto">Todas as máquinas</span>
@@ -4736,7 +4740,8 @@ const HISTORICO_CAIXAS = []; // só escrita local agora — a aba Máquinas lê 
 // já foi usado 2 min só durante os testes).
 // ============================================================
 let INTERVALO_APONTAMENTO_MIN = 60; // editável em Configurações
-let apontamentoTimerHandle = null;
+let apontamentoTimerHandle = null; // checagem a cada 1min contra apontamentoProximoAlvoMs — ver iniciarTimerApontamento
+let apontamentoProximoAlvoMs = null; // quando o próximo apontamento DEVERIA abrir — ver iniciarTimerApontamento
 let aptInjetadasAtual = 0, aptRefugoAtual = 0;
 
 /* ============================================================
@@ -5152,15 +5157,20 @@ let cacheProducoesAtivas = {}; // {nomeMaquina: timestamp de início da sessão 
 let cacheApontamentosHora = []; // registros de apontamento de hora a hora de TODAS as máquinas — alimenta o Desempenho/Refugo ao vivo do Dashboard (turno ativo agora), mesmo recorte por sessão do cacheCaixasBanco
 let cacheSituacaoManual = {}; // {nomeMaquina: 'manutencao'} — override manual do admin
 let cacheMaquinasAguardandoResponsavel = new Set(); // nomes de máquina com chamado pendente agora
+let cacheChamadosHoje = []; // chamados criados HOJE (qualquer status) — usado pro tempo médio de resolução
+let cachePausasJantarHoje = []; // pausas pro jantar de HOJE + qualquer uma ainda aberta (mesmo se começou ontem) — tempo parado pro jantar
 async function buscarDadosMaquinasDoBanco(){
+  const hojeInicioISO = new Date(new Date().setHours(0,0,0,0)).toISOString();
   try{
-    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }, { data: chamadosPendentes, error: e5 }, { data: apontamentos, error: e6 }] = await Promise.all([
+    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }, { data: chamadosPendentes, error: e5 }, { data: apontamentos, error: e6 }, { data: chamadosHoje, error: e7 }, { data: pausasJantar, error: e8 }] = await Promise.all([
       db.from('historico_caixas').select('*').order('fechado_em', {ascending:true}),
       db.from('ordens_producao').select('*'),
       db.from('producoes_ativas').select('maquina, inicio_em'),
       db.from('maquinas').select('nome,situacao_manual'),
       db.from('chamados').select('maquina').eq('status', 'pendente'),
-      db.from('apontamentos_hora').select('*').order('registrado_em', {ascending:true})
+      db.from('apontamentos_hora').select('*').order('registrado_em', {ascending:true}),
+      db.from('chamados').select('maquina,criado_em,resolvido_em,status').gte('criado_em', hojeInicioISO),
+      db.from('pausas_jantar').select('maquina,operador,iniciado_em,finalizado_em').or(`finalizado_em.is.null,iniciado_em.gte.${hojeInicioISO}`)
     ]);
     if(e1) throw e1;
     if(e2) throw e2;
@@ -5168,6 +5178,8 @@ async function buscarDadosMaquinasDoBanco(){
     if(e4) throw e4;
     if(e5) throw e5;
     if(e6) throw e6;
+    if(e7) throw e7;
+    if(e8) throw e8;
     cacheCaixasBanco = (caixas||[]).map(c => ({
       maquina:c.maquina, operador:c.operador, peca:c.peca, op:c.op, material:c.material,
       cavidades:c.cavidades, refugo:c.refugo, qtdPecas:c.qtd_pecas, injetadas:c.injetadas,
@@ -5191,6 +5203,16 @@ async function buscarDadosMaquinasDoBanco(){
     (maquinasDb||[]).forEach(m => { if(m.situacao_manual) cacheSituacaoManual[m.nome] = m.situacao_manual; });
     // quais máquinas têm chamado esperando o responsável agora — usado pro card piscar roxo
     cacheMaquinasAguardandoResponsavel = new Set((chamadosPendentes||[]).map(c => c.maquina));
+    cacheChamadosHoje = (chamadosHoje||[]).map(c => ({
+      maquina:c.maquina, status:c.status,
+      criadoEm:new Date(c.criado_em).getTime(),
+      resolvidoEm:c.resolvido_em ? new Date(c.resolvido_em).getTime() : null
+    }));
+    cachePausasJantarHoje = (pausasJantar||[]).map(p => ({
+      maquina:p.maquina, operador:p.operador,
+      iniciadoEm:new Date(p.iniciado_em).getTime(),
+      finalizadoEm:p.finalizado_em ? new Date(p.finalizado_em).getTime() : null
+    }));
     return true;
   } catch(err){
     console.error('[Supabase] falha ao buscar dados de máquinas:', err);
@@ -5225,6 +5247,7 @@ function iniciarRealtimeMaquinas(){
     .on('postgres_changes', {event:'UPDATE', schema:'public', table:'maquinas'}, agendarAtualizacaoMaquinas)
     .on('postgres_changes', {event:'*', schema:'public', table:'chamados'}, agendarAtualizacaoMaquinas)
     .on('postgres_changes', {event:'INSERT', schema:'public', table:'apontamentos_hora'}, agendarAtualizacaoMaquinas)
+    .on('postgres_changes', {event:'*', schema:'public', table:'pausas_jantar'}, agendarAtualizacaoMaquinas)
     .subscribe((status)=> console.log('[Supabase] canal realtime de máquinas:', status));
 }
 iniciarRealtimeMaquinas();
@@ -5541,6 +5564,7 @@ function atualizarCronometro(){
    ============================================================ */
 let pausaInicioMs = null;
 let pausaTimerHandle = null;
+let pausaJantarRegistroId = null; // id da linha em pausas_jantar desta pausa — usado pra fechar (finalizado_em) na retomada
 
 document.getElementById('btn-parada-jantar').addEventListener('click', ()=>{
   pausaInicioMs = Date.now();
@@ -5567,6 +5591,16 @@ document.getElementById('btn-parada-jantar').addEventListener('click', ()=>{
   } else {
     console.error('[pausa jantar] state.maquina está vazio/nulo no momento do clique — a gravação no banco nem foi tentada.');
   }
+  // registro histórico da pausa (pra dar pra ver, depois, quanto tempo cada máquina ficou
+  // parada pro jantar) — separado do situacao_manual acima, que é só o estado ATUAL; sem isso
+  // não tinha como saber quando cada pausa começou de verdade, só que "está pausada agora"
+  pausaJantarRegistroId = null;
+  db.from('pausas_jantar').insert({
+    maquina: state.maquina, operador: state.operador, turno: state.turno?.nome || null,
+  }).select().single().then(({data, error})=>{
+    if(error){ console.error('[Supabase] falha ao registrar início da pausa jantar:', error); return; }
+    pausaJantarRegistroId = data.id;
+  });
 });
 
 function atualizarPausaCronometro(){
@@ -5599,6 +5633,23 @@ document.getElementById('btn-retomar-producao').addEventListener('click', ()=>{
         else if(!data || data.length === 0) console.error('[Supabase] retomar pausa: update rodou sem erro, mas 0 linhas afetadas — nome "' + state.maquina + '" não existe na tabela maquinas com esse texto exato.');
       });
   }
+  // fecha o registro histórico da pausa com quanto tempo durou de verdade
+  const finalizadoEm = new Date().toISOString();
+  if(pausaJantarRegistroId){
+    db.from('pausas_jantar').update({ finalizado_em: finalizadoEm }).eq('id', pausaJantarRegistroId)
+      .then(({error})=>{ if(error) console.error('[Supabase] falha ao fechar pausa jantar:', error); });
+  } else if(state.maquina){
+    // raro: o insert do início ainda não tinha voltado do banco quando clicou em retomar —
+    // busca a pausa aberta mais recente dessa máquina em vez de simplesmente desistir
+    db.from('pausas_jantar').select('id').eq('maquina', state.maquina).is('finalizado_em', null)
+      .order('iniciado_em', {ascending:false}).limit(1).maybeSingle()
+      .then(({data, error})=>{
+        if(error || !data){ console.error('[Supabase] não achei a pausa jantar aberta pra fechar:', error); return; }
+        db.from('pausas_jantar').update({ finalizado_em: finalizadoEm }).eq('id', data.id)
+          .then(({error:e2})=>{ if(e2) console.error('[Supabase] falha ao fechar pausa jantar (fallback):', e2); });
+      });
+  }
+  pausaJantarRegistroId = null;
 });
 
 /* ============================================================
@@ -5609,14 +5660,34 @@ document.getElementById('btn-retomar-producao').addEventListener('click', ()=>{
    (tenta de novo no próximo intervalo) pra não empilhar modal.
    ============================================================ */
 function iniciarTimerApontamento(){
+  apontamentoProximoAlvoMs = Date.now() + INTERVALO_APONTAMENTO_MIN * 60 * 1000;
+  // Antes: um setInterval no intervalo CHEIO chamando abrirApontamentoHora direto. Se essa
+  // chamada caísse com QUALQUER modal aberto (mesmo um modal de admin esquecido aberto nesta
+  // mesma aba), abrirApontamentoHora saía sem fazer nada — e como só tentava de novo depois
+  // de mais um intervalo INTEIRO, bastava azarar a coincidência uma vez pra passar o resto do
+  // turno inteiro sem perguntar, sem erro nenhum no console.
+  // Agora: confere a cada minuto se já passou do horário-alvo. Se passou e tem modal
+  // bloqueando, NÃO empurra o alvo pra frente — tenta de novo no próximo minuto (autocura,
+  // não fica preso esperando a hora cheia de novo) e loga qual modal está travando, pra dar
+  // pra diagnosticar se acontecer de novo.
   clearInterval(apontamentoTimerHandle);
-  apontamentoTimerHandle = setInterval(abrirApontamentoHora, INTERVALO_APONTAMENTO_MIN * 60 * 1000);
+  apontamentoTimerHandle = setInterval(verificarApontamentoPendente, 60 * 1000);
+}
+
+function verificarApontamentoPendente(){
+  if(!apontamentoProximoAlvoMs || Date.now() < apontamentoProximoAlvoMs) return;
+  const producaoAtiva = document.getElementById('screen-producao').classList.contains('active');
+  if(!producaoAtiva) return; // não é a tela ativa agora — só espera, sem consumir o alvo
+  const modalBloqueando = document.querySelector('.modal-overlay.open');
+  if(modalBloqueando){
+    console.warn('[apontamento hora] pulou este minuto — modal "' + modalBloqueando.id + '" está aberto. Tenta de novo em até 1min.');
+    return; // NÃO reagenda o alvo — continua tentando a cada minuto até conseguir
+  }
+  apontamentoProximoAlvoMs = Date.now() + INTERVALO_APONTAMENTO_MIN * 60 * 1000;
+  abrirApontamentoHora();
 }
 
 function abrirApontamentoHora(){
-  const producaoAtiva = document.getElementById('screen-producao').classList.contains('active');
-  const outroModalAberto = document.querySelector('.modal-overlay.open') !== null;
-  if(!producaoAtiva || outroModalAberto) return; // tenta de novo no próximo ciclo
   aptInjetadasAtual = 0;
   aptRefugoAtual = 0;
   document.getElementById('apt-injetadas-valor').textContent = '0';
@@ -6264,27 +6335,51 @@ function montarHtmlEtiqueta(d, qrId){
         <div class="et2-campo"><b>OP:</b> ${d.operador}</div>
         <div class="et2-campo"><b>QTD:</b> ${d.qtd}</div>
         <div class="et2-campo"><b>DATA:</b> ${d.data}</div>
+        <div class="et2-campo"><b>ARAME:</b> ${d.loteArame}</div>
         <div class="et2-campo"><b>Nº ORDEM:</b> ${d.ordem}</div>
-        <div class="et2-linha-manual">LIMP:<span class="et2-branco"></span></div>
       </div>
       <div>
-        <div class="et2-campo"><b>LOTE M.P.:</b> ${d.loteMP}</div>
-        <div class="et2-campo"><b>LOTE ARAME:</b> ${d.loteArame}</div>
+        <div class="et2-campo"><b>LOTE:</b> ${d.loteMP}</div>
         <div class="et2-qr" id="${qrId}"></div>
-        <div class="et2-linha-manual">QTDE:<span class="et2-branco"></span></div>
       </div>
     </div>
-    <div class="et2-rodape-linha"></div>
+    <div class="et2-linha-manual-linha">
+      <span class="et2-linha-manual">LIMP:<span class="et2-branco"></span></span>
+      <span class="et2-linha-manual">QTDE:<span class="et2-branco"></span></span>
+    </div>
   `;
+}
+
+// número de caixa que vai impresso na etiqueta — PERSISTENTE neste tablet/máquina, nunca
+// reseta a cada início de produção ou troca de turno (antes usava state.caixasFechadas, que
+// sempre voltava pro 001). Fica em localStorage, então não depende de rede: mesmo espírito
+// "sem trava" do resto do app — o Fechar Caixa não pode ficar esperando o Supabase responder
+// pra poder imprimir. Não é um contador único da fábrica inteira (cada tablet tem o seu).
+function proximoNumeroCaixaGlobal(){
+  const CHAVE = 'vitalbor_contador_caixas_global';
+  let atual = 0;
+  try{ atual = parseInt(localStorage.getItem(CHAVE) || '0', 10) || 0; } catch(e){ console.warn('[localStorage] não consegui ler o contador de caixas:', e); }
+  atual += 1;
+  try{ localStorage.setItem(CHAVE, String(atual)); } catch(e){ console.warn('[localStorage] não consegui salvar o contador de caixas:', e); }
+  return atual;
 }
 
 let ultimaEtiquetaDados = null; // guarda os dados da última etiqueta preparada — o botão "Imprimir etiqueta" lê daqui pra montar o envio pra PrintNode
 function prepararEtiqueta(qtd){
   const agora = new Date();
   const dataHora = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const caixaNum = String(state.caixasFechadas).padStart(3,'0');
+  const caixaNum = String(proximoNumeroCaixaGlobal()).padStart(3,'0');
+  // título = nome da peça; só emenda a matéria-prima se ela ainda NÃO aparecer no nome da
+  // peça — evita duplicar quando o cadastro já inclui o material no próprio nome (ex.: "PBA-75
+  // EPDM" + matéria-prima "EPDM" virava "PBA-75 EPDM EPDM"), mas preserva a informação pras
+  // peças cujo nome cadastrado é só o código, sem o material.
+  const pecaNome = (state.op.peca || '').trim();
+  const materiaPrima = (state.op.materiaPrima || '').trim();
+  const titulo = materiaPrima && !pecaNome.toLowerCase().includes(materiaPrima.toLowerCase())
+    ? `${pecaNome} ${materiaPrima}`.trim()
+    : pecaNome;
   const d = {
-    titulo: `${state.op.peca} ${state.op.materiaPrima || ''}`.trim(),
+    titulo,
     caixaNum,
     operador: state.operador,
     qtd: fmtInt(qtd),
@@ -6331,22 +6426,22 @@ function montarZplEtiqueta(d){
     '^PW560', '^LL800', '^CI28',
     // título (até 2 linhas) + número da caixa no canto direito
     `^FO24,20^A0N,32,32^FB400,2,4,L^FD${titulo}^FS`,
-    `^FO464,20^A0N,24,24^FD No:${escaparZpl(d.caixaNum)}^FS`,
+    `^FO464,20^A0N,24,24^FDNº:${escaparZpl(d.caixaNum)}^FS`,
     // coluna esquerda
     `^FO24,150^A0N,22,22^FB250,2,4,L^FD${campo('OP:', d.operador)}^FS`,
     `^FO24,220^A0N,22,22^FB250,1,0,L^FD${campo('QTD:', d.qtd)}^FS`,
     `^FO24,270^A0N,22,22^FB250,2,4,L^FD${campo('DATA:', d.data)}^FS`,
-    `^FO24,340^A0N,22,22^FB250,2,4,L^FD${campo('No ORDEM:', d.ordem)}^FS`,
-    '^FO24,420^A0N,20,20^FDLIMP:^FS',
-    '^FO24,450^GB170,2,2^FS',
+    `^FO24,340^A0N,22,22^FB250,2,4,L^FD${campo('ARAME:', d.loteArame)}^FS`,
+    `^FO24,410^A0N,22,22^FB250,2,4,L^FD${campo('Nº ORDEM:', d.ordem)}^FS`,
     // coluna direita
-    `^FO300,150^A0N,22,22^FB240,2,4,L^FD${campo('LOTE M.P.:', d.loteMP)}^FS`,
-    `^FO300,220^A0N,22,22^FB240,2,4,L^FD${campo('LOTE ARAME:', d.loteArame)}^FS`,
-    `^FO300,290^BQN,2,6^FDQA,${qr}^FS`,
-    '^FO300,480^A0N,20,20^FDQTDE:^FS',
-    '^FO300,510^GB170,2,2^FS',
-    // linha final
-    '^FO24,540^GB512,3,3^FS',
+    `^FO300,150^A0N,22,22^FB240,2,4,L^FD${campo('LOTE:', d.loteMP)}^FS`,
+    `^FO300,220^BQN,2,6^FDQA,${qr}^FS`,
+    // linha de preenchimento manual, LIMP e QTDE lado a lado — deixada bem abaixo de onde o QR
+    // pode terminar (magnificação 6 gera um QR grande; já vinha ficando por cima do QTDE antes)
+    '^FO24,560^A0N,20,20^FDLIMP:^FS',
+    '^FO24,590^GB170,2,2^FS',
+    '^FO300,560^A0N,20,20^FDQTDE:^FS',
+    '^FO300,590^GB170,2,2^FS',
     '^XZ',
   ].join('\n');
 }
@@ -6532,6 +6627,15 @@ function formatarTempoRelativo(iso){
   const h = Math.floor(diffMin/60);
   if(h < 24) return `há ${h}h`;
   return `há ${Math.floor(h/24)}d`;
+}
+// formata uma duração em ms como "1h 12min" (ou só "12min" se for menos de 1h) — usado nos
+// dois KPIs novos da aba Ao Vivo (tempo de resolução de chamado e tempo parado pro jantar)
+function formatarDuracaoMs(ms){
+  if(!ms || ms <= 0) return '0min';
+  const totalMin = Math.round(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const min = totalMin % 60;
+  return h > 0 ? `${h}h ${min}min` : `${min}min`;
 }
 function iniciaisOperador(nome){
   if(!nome) return '?';
@@ -7057,6 +7161,34 @@ document.querySelectorAll('.filtro-desempenho-btn').forEach(btn=>{
 
 let maquinasCarregouUmaVez = false;
 let ultimoHtmlMaquinas = '';
+// dois KPIs novos da aba Ao Vivo — tempo médio de resolução de chamado e tempo parado pro
+// jantar, os dois de HOJE, recalculados a cada atualização (realtime já escuta chamados e
+// pausas_jantar via agendarAtualizacaoMaquinas)
+function renderKpiRowMaquinas(){
+  const resolvidosHoje = cacheChamadosHoje.filter(c => c.resolvidoEm !== null);
+  const mttrMs = resolvidosHoje.length > 0
+    ? resolvidosHoje.reduce((soma,c) => soma + (c.resolvidoEm - c.criadoEm), 0) / resolvidosHoje.length
+    : null;
+  const pendentesHoje = cacheChamadosHoje.filter(c => c.resolvidoEm === null).length;
+
+  // pausa em andamento conta o tempo até AGORA (live) — não só as já fechadas; assim o
+  // total sobe em tempo real enquanto alguém ainda está parado pro jantar
+  const totalPausaJantarMs = cachePausasJantarHoje.reduce((soma,p) => soma + ((p.finalizadoEm || Date.now()) - p.iniciadoEm), 0);
+  const pausasEmAndamento = cachePausasJantarHoje.filter(p => p.finalizadoEm === null).length;
+
+  document.getElementById('kpi-row-maquinas').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-lbl">Tempo médio p/ responsável resolver</div>
+      <div class="kpi-valor">${mttrMs !== null ? formatarDuracaoMs(mttrMs) : '—'}</div>
+      <div class="kpi-hero-sub">${resolvidosHoje.length} resolvido${resolvidosHoje.length===1?'':'s'} hoje${pendentesHoje>0 ? ` · ${pendentesHoje} ainda pendente${pendentesHoje===1?'':'s'}` : ''}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-lbl">Parado p/ jantar hoje (todas as máquinas)</div>
+      <div class="kpi-valor">${formatarDuracaoMs(totalPausaJantarMs)}</div>
+      <div class="kpi-hero-sub">${cachePausasJantarHoje.length} pausa${cachePausasJantarHoje.length===1?'':'s'}${pausasEmAndamento>0 ? ` · ${pausasEmAndamento} em andamento agora` : ''}</div>
+    </div>`;
+}
+
 async function renderCardsMaquinas(){
   renderFiltroMaquinaEspecifica();
   const el = document.getElementById('grid-maquinas');
@@ -7072,6 +7204,7 @@ async function renderCardsMaquinas(){
     el.innerHTML = '<div class="item-admin-sub" style="padding:1rem 0;color:var(--danger)">Não consegui buscar os dados do banco. Abra o console (F12) pra ver o erro exato.</div>';
     return;
   }
+  renderKpiRowMaquinas();
   const listaMaquinas = filtroMaquinasSelecionadas.size === 0 ? MAQUINAS : MAQUINAS.filter(m => filtroMaquinasSelecionadas.has(m));
 
   const cardsHtml = listaMaquinas.map((m, idx) => {
@@ -7104,7 +7237,8 @@ async function renderCardsMaquinas(){
     }
 
     // OPERANDO — agrega só as caixas fechadas DENTRO desta sessão (desde que ela começou),
-    // não o histórico inteiro da máquina desde sempre
+    // não o histórico inteiro da máquina desde sempre. Usada pra refugo/produzido/contexto —
+    // contagem exata, vem do fechamento de caixa mesmo (isso não mudou).
     const registrosDaSessao = cacheCaixasBanco.filter(c => c.maquina === m && c.timestamp >= inicioSessao);
     const d = agregarUmaMaquina(registrosDaSessao);
 
@@ -7120,26 +7254,17 @@ async function renderCardsMaquinas(){
         <div class="item-admin-sub" style="padding:.3rem 0">${textoCorpo}</div>
       </div>`;
     }
-    // GUARDA CONTRA O BUG DE 120890%: a fórmula (injetadas ÷ esperado) é matematicamente
-    // correta, mas "esperado" cresce com o TEMPO REAL decorrido — com pouquíssimo tempo de
-    // sessão (ex: 1ª caixa fechada segundos depois de abrir a produção), esperado fica perto
-    // de zero e a divisão explode. Mas nem toda leitura cedo é ruim: 2 peças em 1min29 pode
-    // dar uma % totalmente plausível se a meta/hora for compatível — não faz sentido esconder
-    // isso só por ainda não ter batido um relógio arbitrário. Por isso são DUAS regras, não uma:
-    // (1) abaixo de 20s SEMPRE calculando — tempo tão curto que qualquer conta é ruído puro;
-    // (2) entre 20s e 2min, só esconde se o número em si vier implausível (>300%) — nesse caso
-    // ainda pode ser só o timing de digitação, dá mais alguns segundos pra se estabilizar.
-    const TEMPO_MINIMO_ABSOLUTO_MS = 20000;
-    const TEMPO_CONFORTAVEL_MS = 2 * 60000;
+    // Desempenho (só o %, não refugo/produzido) agora vem do apontamento de hora a hora desta
+    // sessão, não mais das caixas fechadas — a cadência de fechar caixa varia demais (pode sair
+    // 8 numa hora ou nenhuma), enquanto o apontamento periódico dá uma leitura regular e também
+    // pega máquina "rodando" que parou de fechar caixa mas ninguém percebeu ainda.
+    const apontamentosDaSessao = cacheApontamentosHora.filter(a => a.maquina === m && a.timestamp >= inicioSessao);
+    const dHora = agregarUmaMaquina(apontamentosDaSessao);
     const refugoPct = d.qtdPecas > 0 ? Math.round((d.refugo / d.qtdPecas) * 1000) / 10 : 0;
-    const desempenhoPctBruto = d.esperado > 0 ? Math.round((d.injetadas / d.esperado) * 100) : 0;
-    const desempenhoPct = Math.min(desempenhoPctBruto, 999); // teto de exibição — trava de segurança pra qualquer outro caso extremo
-    const numeroImplausível = desempenhoPctBruto > 300;
-    const desempenhoDisponivel = d.duracaoTotalMs >= TEMPO_CONFORTAVEL_MS
-      || (d.duracaoTotalMs >= TEMPO_MINIMO_ABSOLUTO_MS && !numeroImplausível);
-    const minutosFaltando = d.duracaoTotalMs < TEMPO_MINIMO_ABSOLUTO_MS
-      ? Math.max(1, Math.ceil((TEMPO_MINIMO_ABSOLUTO_MS - d.duracaoTotalMs) / 1000)) + 's'
-      : `${Math.max(1, Math.ceil((TEMPO_CONFORTAVEL_MS - d.duracaoTotalMs) / 60000))}min`;
+    const desempenhoPctBruto = dHora.esperado > 0 ? Math.round((dHora.injetadas / dHora.esperado) * 100) : 0;
+    const desempenhoPct = Math.min(desempenhoPctBruto, 999); // teto de exibição — trava de segurança pra qualquer caso extremo
+    const desempenhoDisponivel = dHora.registros > 0; // já teve pelo menos 1 apontamento nesta sessão
+    const minutosFaltando = Math.max(1, INTERVALO_APONTAMENTO_MIN - Math.floor((Date.now() - inicioSessao) / 60000));
     const zona = desempenhoDisponivel ? classificarGauge(desempenhoPct) : 'calculando';
     if(!filtroMaquinasZonas.has(zona) && zona !== 'calculando') return ''; // escondida pelo filtro de desempenho (não filtra "calculando" — some da tela de vez em quando senão)
     const corBarra = zona==='verde' ? 'var(--success)' : zona==='amarelo' ? 'var(--warning)' : zona==='calculando' ? 'var(--azul)' : 'var(--danger)';
@@ -7157,7 +7282,7 @@ async function renderCardsMaquinas(){
       : aguardandoResponsavel ? 'Aguardando responsável'
       : pausaJantar ? 'Pausa (jantar)'
       : cacheSituacaoManual[m]==='parada' ? 'Parada'
-      : zona === 'calculando' ? `Calculando... (~${minutosFaltando})`
+      : zona === 'calculando' ? `Calculando... (~${minutosFaltando}min)`
       : LABEL_STATUS_MAQUINA[zona];
     return `
       <div class="card-maquina ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
