@@ -4751,12 +4751,16 @@ async function verificarVersaoNova(){
     console.warn('[versão] não consegui checar atualização (offline?):', err);
   }
 }
-// só recarrega sozinho quando está na tela inicial — em qualquer outra tela pode ter dado de
-// formulário no meio (produção rodando, modal aberto) que se perderia com o reload forçado
+// Recarrega sozinho sempre que não tiver nenhum modal aberto (produção em andamento é
+// reconstruída do banco ao recarregar — ver tentarRestaurarSessaoAtiva — então não perde
+// nada; só evita recarregar EXATAMENTE enquanto o operador está digitando algo num modal).
+// Antes só recarregava na tela inicial, o que numa aba aberta o turno inteiro podia levar
+// horas pra pegar uma correção — inaceitável quando o que tá sendo corrigido é justamente
+// essa aba não pegar correção nenhuma.
 function aplicarAtualizacaoSePossivel(){
   if(!versaoNovaDisponivel) return;
-  const inicial = document.getElementById('screen-inicial');
-  if(inicial && inicial.classList.contains('active')) location.reload();
+  if(document.querySelector('.modal-overlay.open')) return; // tenta de novo no próximo check
+  location.reload();
 }
 setInterval(verificarVersaoNova, 3 * 60 * 1000); // a cada 3min
 verificarVersaoNova(); // e uma vez já de cara, sem esperar o primeiro intervalo
