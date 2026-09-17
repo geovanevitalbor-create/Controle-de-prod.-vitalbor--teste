@@ -6424,7 +6424,12 @@ function prepararEtiqueta(qtd){
     loteMP: state.loteMP || '—',
     loteArame: state.loteArame || '—'
   };
-  const textoQR = `VITALBOR | Ordem:${d.ordem} | Peça:${state.op.peca} | Caixa:${caixaNum} | ${dataHora}`;
+  // texto do QR — CURTO de propósito e sem o nome da peça (que já está grande e legível no
+  // topo da etiqueta, não precisa duplicar). Isso importa de verdade: o tamanho do QR em ZPL
+  // não é fixo, cresce junto com a quantidade de dados dentro dele (confirmado na doc da
+  // Zebra), e a peça é o único campo aqui que varia MUITO de tamanho — era isso que fazia o
+  // QR crescer o suficiente pra atropelar o LIMP/QTDE em algumas OPs e não em outras.
+  const textoQR = `VITALBOR|OP${d.ordem}|CX${caixaNum}|${dataHora}`;
   ultimaEtiquetaDados = { ...d, qrData: textoQR };
 
   document.getElementById('etiqueta-fisica-preview').innerHTML = montarHtmlEtiqueta(d, 'et2-qr-preview');
@@ -6471,13 +6476,15 @@ function montarZplEtiqueta(d){
     `^FO24,410^A0N,22,22^FB250,2,4,L^FD${campo('Nº ORDEM:', d.ordem)}^FS`,
     // coluna direita
     `^FO300,150^A0N,22,22^FB240,2,4,L^FD${campo('LOTE:', d.loteMP)}^FS`,
-    `^FO300,220^BQN,2,6^FDQA,${qr}^FS`,
-    // linha de preenchimento manual, LIMP e QTDE lado a lado — deixada bem abaixo de onde o QR
-    // pode terminar (magnificação 6 gera um QR grande; já vinha ficando por cima do QTDE antes)
-    '^FO24,560^A0N,20,20^FDLIMP:^FS',
-    '^FO24,590^GB170,2,2^FS',
-    '^FO300,560^A0N,20,20^FDQTDE:^FS',
-    '^FO300,590^GB170,2,2^FS',
+    `^FO300,220^BQN,2,6^FDMA,${qr}^FS`,
+    // linha de preenchimento manual, LIMP e QTDE lado a lado. Não depende mais de "adivinhar"
+    // até onde o QR vai — com o texto do QR agora curto e de tamanho estável (ver textoQR em
+    // prepararEtiqueta), ele não passa de ~220-380 nesta coluna, então y=520 sobra folga real,
+    // não só um chute maior.
+    '^FO24,520^A0N,20,20^FDLIMP:^FS',
+    '^FO24,550^GB170,2,2^FS',
+    '^FO300,520^A0N,20,20^FDQTDE:^FS',
+    '^FO300,550^GB170,2,2^FS',
     '^XZ',
   ].join('\n');
 }
