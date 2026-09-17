@@ -6451,12 +6451,13 @@ function escaparZpl(texto){
   return String(texto ?? '').replace(/[\^~\\]/g, ' ');
 }
 
-// monta a etiqueta em ZPL (70x100mm = 560x800 dots a 203dpi) — usa ^FB (Field Block) pra
-// deixar a PRÓPRIA impressora quebrar linha automaticamente, já que não dá pra medir
-// largura de texto em JS puro sem depender de canvas/biblioteca. Por isso cada campo reserva
-// uma altura FIXA generosa (assume até 2 linhas), em vez de calcular a altura real como fazia
-// a versão em PDF — usa um pouco mais de espaço em troca de não precisar de biblioteca nenhuma
-// rodando no tablet do operador.
+// monta a etiqueta em ZPL. Etiqueta física: 100mm de LARGURA x 70mm de ALTURA (deitada), a
+// 8,0 dpmm (203dpi) — confirmado direto nas Preferências de impressão do driver da Elgin
+// L42 Pro Full (antes eu tinha isso invertido: assumia 70 largura x 100 altura, em pé — por
+// isso o conteúdo de baixo, LIMP/QTDE, ficava fora da área física real da etiqueta e nem
+// chegava a imprimir). 100mm x 8 = 800 dots de largura, 70mm x 8 = 560 dots de altura.
+// Usa ^FB (Field Block) pra deixar a PRÓPRIA impressora quebrar linha automaticamente, já que
+// não dá pra medir largura de texto em JS puro sem depender de canvas/biblioteca.
 function montarZplEtiqueta(d){
   const titulo = escaparZpl(d.titulo).slice(0, 46);
   const qr = escaparZpl(d.qrData);
@@ -6464,27 +6465,27 @@ function montarZplEtiqueta(d){
 
   return [
     '^XA',
-    '^PW560', '^LL800', '^CI28',
-    // título (até 2 linhas) + número da caixa no canto direito
-    `^FO24,20^A0N,32,32^FB400,2,4,L^FD${titulo}^FS`,
-    `^FO464,20^A0N,24,24^FDNº:${escaparZpl(d.caixaNum)}^FS`,
-    // coluna esquerda
-    `^FO24,150^A0N,22,22^FB250,2,4,L^FD${campo('OP:', d.operador)}^FS`,
-    `^FO24,220^A0N,22,22^FB250,1,0,L^FD${campo('QTD:', d.qtd)}^FS`,
-    `^FO24,270^A0N,22,22^FB250,2,4,L^FD${campo('DATA:', d.data)}^FS`,
-    `^FO24,340^A0N,22,22^FB250,2,4,L^FD${campo('ARAME:', d.loteArame)}^FS`,
-    `^FO24,410^A0N,22,22^FB250,2,4,L^FD${campo('Nº ORDEM:', d.ordem)}^FS`,
+    '^CI28', // quem define tamanho da etiqueta agora é a própria impressora, não o ZPL
+    // título (até 2 linhas) + número da caixa no canto direito — usa a largura extra (800)
+    `^FO24,16^A0N,34,34^FB560,2,4,L^FD${titulo}^FS`,
+    `^FO620,20^A0N,26,26^FDNº:${escaparZpl(d.caixaNum)}^FS`,
+    // coluna esquerda — 4 linhas em vez de 5: DATA e ARAME dividem a largura extra numa
+    // linha só, o que sobra de altura vira fonte maior em tudo
+    `^FO24,105^A0N,26,26^FB400,2,4,L^FD${campo('OP:', d.operador)}^FS`,
+    `^FO24,175^A0N,26,26^FB230,1,0,L^FD${campo('QTD:', d.qtd)}^FS`,
+    `^FO24,235^A0N,26,26^FB400,2,4,L^FD${campo('DATA:', d.data)}^FS`,
+    `^FO24,300^A0N,26,26^FB400,2,4,L^FD${campo('ARAME:', d.loteArame)}^FS`,
+    `^FO24,365^A0N,26,26^FB400,2,4,L^FD${campo('Nº ORDEM:', d.ordem)}^FS`,
     // coluna direita
-    `^FO300,150^A0N,22,22^FB240,2,4,L^FD${campo('LOTE:', d.loteMP)}^FS`,
-    `^FO300,220^BQN,2,6^FDMA,${qr}^FS`,
-    // linha de preenchimento manual, LIMP e QTDE lado a lado. Não depende mais de "adivinhar"
-    // até onde o QR vai — com o texto do QR agora curto e de tamanho estável (ver textoQR em
-    // prepararEtiqueta), ele não passa de ~220-380 nesta coluna, então y=520 sobra folga real,
-    // não só um chute maior.
-    '^FO24,520^A0N,20,20^FDLIMP:^FS',
-    '^FO24,550^GB170,2,2^FS',
-    '^FO300,520^A0N,20,20^FDQTDE:^FS',
-    '^FO300,550^GB170,2,2^FS',
+    `^FO450,105^A0N,26,26^FB320,2,4,L^FD${campo('LOTE:', d.loteMP)}^FS`,
+    `^FO450,175^BQN,2,5^FDMA,${qr}^FS`,
+    // linha de preenchimento manual, LIMP e QTDE lado a lado, agora dentro da altura real
+    // (560) com folga de verdade — antes disso ficava em y=520/550, quase no limite físico
+    // de uma etiqueta que na real só tem 560 de altura, não 800
+    '^FO24,460^A0N,24,24^FDLIMP:^FS',
+    '^FO24,494^GB200,2,2^FS',
+    '^FO450,460^A0N,24,24^FDQTDE:^FS',
+    '^FO450,494^GB200,2,2^FS',
     '^XZ',
   ].join('\n');
 }
