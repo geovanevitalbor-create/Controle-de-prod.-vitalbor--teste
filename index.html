@@ -820,6 +820,44 @@
   .filtro-maquina-opcao.sel .filtro-maquina-check svg{display:block;}
 
   .grid-maquinas{display:grid;grid-template-columns:repeat(auto-fill,minmax(15.5rem,1fr));gap:1.1rem;}
+
+  /* ---- Histórico ---- */
+  .hist-subabas{display:flex;gap:.5rem;margin-bottom:1rem;}
+  .hist-subaba-btn{padding:.5rem 1rem;border-radius:var(--radius-admin-md);border:1px solid var(--border);background:var(--bg-card);color:var(--text-dim);font-weight:700;font-size:.85rem;cursor:pointer;}
+  .hist-subaba-btn.ativo{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);}
+  .hist-filtros-row{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:1.2rem;}
+  .hist-filtro-select,.hist-filtro-data{
+    background:var(--bg-card);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-admin-sm);
+    padding:.5rem .7rem;font-size:.82rem;font-family:var(--font-admin);
+  }
+  .btn-limpar-filtro-hist{padding:.5rem 1rem;border-radius:var(--radius-admin-sm);border:1px solid var(--border);background:var(--bg-card-hi);color:var(--text-dim);font-weight:700;font-size:.82rem;cursor:pointer;}
+  .hist-totais-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.4rem;}
+  .hist-total-card{background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--radius-admin-lg);padding:1rem 1.2rem;text-align:center;}
+  .hist-total-lbl{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);opacity:.85;}
+  .hist-total-valor{font-size:1.7rem;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;margin-top:.2rem;}
+  .hist-bloco-turno{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-admin-lg);padding:1.2rem;margin-bottom:1.2rem;}
+  .hist-bloco-turno-header{font-size:1rem;font-weight:800;margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem;}
+  .hist-bloco-turno-top{display:flex;flex-wrap:wrap;gap:1.4rem;align-items:center;margin-bottom:1rem;}
+  .hist-stat-chips{display:flex;flex-wrap:wrap;gap:.6rem;}
+  .hist-stat-chip{background:var(--bg-card-hi);border-radius:var(--radius-admin-sm);padding:.5rem .8rem;font-size:.7rem;color:var(--text-faint);font-weight:700;text-align:center;min-width:5.5rem;}
+  .hist-stat-chip strong{display:block;font-size:1rem;color:var(--text);margin-top:.15rem;}
+  .hist-bloco-turno-gauges{display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:center;margin-left:auto;}
+  .hist-tabela-wrap{overflow-x:auto;}
+  .hist-tabela-operador,.hist-tabela-registros{width:100%;border-collapse:collapse;font-size:.78rem;white-space:nowrap;}
+  .hist-tabela-operador th,.hist-tabela-registros th{
+    text-align:left;padding:.55rem .7rem;color:var(--text-faint);font-size:.66rem;text-transform:uppercase;letter-spacing:.03em;
+    border-bottom:1px solid var(--border-hi);cursor:pointer;user-select:none;position:sticky;top:0;background:var(--bg-card);
+  }
+  .hist-tabela-operador th:hover,.hist-tabela-registros th:hover{color:var(--text);}
+  .hist-tabela-operador th.ordenado-asc::after{content:" ▲";font-size:.6rem;}
+  .hist-tabela-operador th.ordenado-desc::after{content:" ▼";font-size:.6rem;}
+  .hist-tabela-registros th.ordenado-asc::after{content:" ▲";font-size:.6rem;}
+  .hist-tabela-registros th.ordenado-desc::after{content:" ▼";font-size:.6rem;}
+  .hist-tabela-operador td,.hist-tabela-registros td{padding:.55rem .7rem;border-bottom:1px solid var(--border);color:var(--text-dim);}
+  .hist-tabela-operador tr:last-child td,.hist-tabela-registros tr:last-child td{border-bottom:none;}
+  .hist-pct-verde{color:var(--success);font-weight:700;}
+  .hist-pct-amarelo{color:var(--warning);font-weight:700;}
+  .hist-pct-vermelho{color:var(--danger);font-weight:700;}
   .card-maquina{
     background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-admin-lg);
     padding:0 1.2rem 1.2rem;box-shadow:var(--elev-1);cursor:pointer;
@@ -4021,6 +4059,10 @@ var qrcode = function() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v16M4 9h5M4 15h5"/><circle cx="15.5" cy="9.5" r="1.6"/><path d="M13 16.5l1.8-2.3 1.7 1.5 1.5-2"/></svg>
           <span>Ao Vivo</span>
         </button>
+        <button class="nav-admin-item" data-secao="historico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5"/><path d="M9 2h6"/></svg>
+          <span>Histórico</span>
+        </button>
         <button class="nav-admin-item" data-secao="configuracoes">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
           <span>Configurações</span>
@@ -4143,6 +4185,70 @@ var qrcode = function() {
             <div class="filtro-maquina-painel" id="filtro-maquina-painel"></div>
           </div>
           <div class="grid-maquinas" id="grid-maquinas"></div>
+        </div>
+
+        <!-- ---- HISTÓRICO ---- -->
+        <div class="admin-secao" id="admin-secao-historico">
+          <div class="admin-secao-titulo">Histórico</div>
+          <div class="admin-secao-sub">Turnos já finalizados — desempenho por operador e registros individuais.</div>
+
+          <div class="hist-subabas">
+            <button type="button" class="hist-subaba-btn ativo" data-hist-view="operador">Por Operador</button>
+            <button type="button" class="hist-subaba-btn" data-hist-view="registros">Registros</button>
+          </div>
+
+          <div class="hist-filtros-row">
+            <select class="hist-filtro-select" id="hist-filtro-peca"><option value="">Todas as peças</option></select>
+            <select class="hist-filtro-select" id="hist-filtro-turno"><option value="">Todos os turnos</option></select>
+            <select class="hist-filtro-select" id="hist-filtro-operador"><option value="">Todos os operadores</option></select>
+            <input type="date" class="hist-filtro-data" id="hist-filtro-data-inicio">
+            <input type="date" class="hist-filtro-data" id="hist-filtro-data-fim">
+            <button type="button" class="btn-limpar-filtro-hist" id="btn-hist-limpar">Limpar</button>
+          </div>
+
+          <div id="historico-conteudo-operador">
+            <div class="hist-totais-row">
+              <div class="hist-total-card">
+                <div class="hist-total-lbl">Total Previsto</div>
+                <div class="hist-total-valor" id="hist-total-previsto">0</div>
+              </div>
+              <div class="hist-total-card">
+                <div class="hist-total-lbl">Total Fabricado</div>
+                <div class="hist-total-valor" id="hist-total-fabricado">0</div>
+              </div>
+              <div class="hist-total-card">
+                <div class="hist-total-lbl">Total Refugo</div>
+                <div class="hist-total-valor" id="hist-total-refugo">0</div>
+              </div>
+            </div>
+            <div id="hist-blocos-turno"></div>
+          </div>
+
+          <div id="historico-conteudo-registros" style="display:none">
+            <div class="hist-tabela-wrap">
+              <table class="hist-tabela-registros">
+                <thead>
+                  <tr>
+                    <th data-campo="timestamp">Data e hora</th>
+                    <th data-campo="operador">Operador</th>
+                    <th data-campo="turno">Turno</th>
+                    <th data-campo="maquina">Máquina</th>
+                    <th data-campo="peca">Peça</th>
+                    <th data-campo="material">Matéria</th>
+                    <th data-campo="injetadas">Injetadas</th>
+                    <th data-campo="_prevista">Injetadas prevista</th>
+                    <th data-campo="refugo">Refugo</th>
+                    <th data-campo="cavidades">Cavidades</th>
+                    <th data-campo="qtdPecas">Produção real</th>
+                    <th data-campo="_horasDisp">Tempo disponível</th>
+                    <th data-campo="horaExtra">Hora extra</th>
+                    <th data-campo="_obs">Observações</th>
+                  </tr>
+                </thead>
+                <tbody id="hist-registros-tbody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
         <!-- ---- CONFIGURAÇÕES ---- -->
@@ -7112,6 +7218,7 @@ function irParaSecaoAdmin(secao){
     maquinasRefreshHandle = setInterval(renderCardsMaquinas, 25000); // rede de segurança — o realtime é quem atualiza de verdade agora
   }
   if(secao === 'configuracoes') renderConfiguracoes();
+  if(secao === 'historico') renderHistorico();
 }
 document.getElementById('fab-admin-add').addEventListener('click', ()=>{
   const alvo = FAB_ALVO_POR_SECAO[secaoAdminAtiva];
@@ -7372,7 +7479,14 @@ async function renderCardsMaquinas(){
       </div>`;
     }
     const refugoPct = d.qtdPecas > 0 ? Math.round((d.refugo / d.qtdPecas) * 1000) / 10 : 0;
-    const desempenhoPctBruto = dHora.esperado > 0 ? Math.round((dHora.injetadas / dHora.esperado) * 100) : 0;
+    // mesma sistemática do operador (calcularDesempenhoGeral): meta FIXA por apontamento ×
+    // quantidade de apontamentos, não meta × duração real decorrida. Um apontamento que
+    // dispara cedo (ex.: 20min por conta de um intervalo de teste curto) não deve fazer o
+    // esperado cair pra 1/3 disso — o operador digita pensando em "uma hora de meta", então
+    // aqui também conta cada apontamento como valendo uma meta cheia.
+    const metaHoraSessao = dHora.ultimoRegistro ? (dHora.ultimoRegistro.metaHora || 0) : 0;
+    const esperadoAoVivo = metaHoraSessao * dHora.registros;
+    const desempenhoPctBruto = esperadoAoVivo > 0 ? Math.round((dHora.injetadas / esperadoAoVivo) * 100) : 0;
     const desempenhoPct = Math.min(desempenhoPctBruto, 999); // teto de exibição — trava de segurança pra qualquer caso extremo
     const desempenhoDisponivel = dHora.registros > 0; // já teve pelo menos 1 apontamento nesta sessão
     const minutosFaltando = Math.max(1, INTERVALO_APONTAMENTO_MIN - Math.floor((Date.now() - inicioSessao) / 60000));
@@ -8135,6 +8249,248 @@ function renderGauge(containerId, value, opts){
       <circle cx="${cx}" cy="${cy}" r="4.5" fill="var(--text)"/>
     </svg>`;
 }
+
+// ============================================================
+// HISTÓRICO — turnos já finalizados (HISTORICO_TURNOS, já carregado por inteiro no início
+// do app). Duas visões: "Por Operador" (cards de total + um bloco por turno com gauges de
+// arco e tabela) e "Registros" (tabela única, bruta, com todos os campos, ordenável).
+// ============================================================
+let historicoSubView = 'operador';
+let filtroHistorico = { peca:'', turno:'', operador:'', dataInicio:'', dataFim:'' };
+let ordenacaoHistOperador = { campo:'timestamp', dir:'desc' };
+let ordenacaoHistRegistros = { campo:'timestamp', dir:'desc' };
+
+// arco de progresso semicircular (0-100%) com o número no centro — usado nos gauges de
+// desempenho/refugo por turno. Diferente do renderGauge (agulha): aqui é só o arco colorido
+// preenchendo proporcionalmente, do jeito que veio pedido.
+function renderArcoProgresso(containerId, pct, cor, escalaMax){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const max = escalaMax || 100;
+  const cx=110, cy=110, r=82, sw=16;
+  const pctClamped = Math.max(0, Math.min(max, pct||0));
+  const angFinal = 180 - (180 * pctClamped/max);
+  const trilho = arcPath(cx,cy,r,180,0);
+  const preenchido = pctClamped > 0 ? arcPath(cx,cy,r,180,angFinal) : '';
+  el.innerHTML = `
+    <svg viewBox="0 0 220 130" style="width:100%;max-width:170px;display:block;margin:0 auto;">
+      <path d="${trilho}" stroke="var(--bg-void)" stroke-width="${sw}" fill="none" stroke-linecap="round"/>
+      ${preenchido ? `<path d="${preenchido}" stroke="${cor}" stroke-width="${sw}" fill="none" stroke-linecap="round"/>` : ''}
+      <text x="110" y="102" text-anchor="middle" font-size="30" font-weight="800" fill="var(--text)" font-family="var(--font-admin-mono)">${fmtInt(pct||0)}%</text>
+    </svg>
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text-faint);font-family:var(--font-admin-mono);max-width:170px;margin:0 auto;padding:0 .4rem;"><span>0%</span><span>${max}%</span></div>`;
+}
+
+function previstaDoRegistroHist(h){ return (h.metaHora||0) * ((h.duracaoMs||0)/3600000); }
+function desempenhoDoRegistroHist(h){ const p = previstaDoRegistroHist(h); return p>0 ? (h.totalProduzido||0)/p*100 : 0; }
+function refugoPctDoRegistroHist(h){ return (h.qtdPecas||0)>0 ? (h.refugo||0)/h.qtdPecas*100 : 0; }
+function observacaoDoRegistroHist(h){
+  return h.paradaDetalhe || h.motivoParada || h.motivoRefugoDetalhe || h.motivoRefugo || 'Não';
+}
+function zonaPct(pct){ return pct>=80 ? 'verde' : pct>=50 ? 'amarelo' : 'vermelho'; }
+
+function registrosFiltradosHistorico(){
+  return HISTORICO_TURNOS.filter(h => {
+    if(filtroHistorico.peca && h.peca !== filtroHistorico.peca) return false;
+    if(filtroHistorico.turno && h.turno !== filtroHistorico.turno) return false;
+    if(filtroHistorico.operador && h.operador !== filtroHistorico.operador) return false;
+    if(filtroHistorico.dataInicio && h.timestamp < new Date(filtroHistorico.dataInicio+'T00:00:00').getTime()) return false;
+    if(filtroHistorico.dataFim && h.timestamp > new Date(filtroHistorico.dataFim+'T23:59:59').getTime()) return false;
+    return true;
+  });
+}
+
+function popularFiltrosHistorico(){
+  const selPeca = document.getElementById('hist-filtro-peca');
+  if(selPeca.options.length <= 1){
+    [...new Set(HISTORICO_TURNOS.map(h=>h.peca).filter(Boolean))].sort().forEach(p=>
+      selPeca.insertAdjacentHTML('beforeend', `<option value="${p}">${p}</option>`));
+  }
+  const selTurno = document.getElementById('hist-filtro-turno');
+  if(selTurno.options.length <= 1){
+    TURNOS.forEach(t => selTurno.insertAdjacentHTML('beforeend', `<option value="${t.nome}">${t.nome}</option>`));
+  }
+  const selOperador = document.getElementById('hist-filtro-operador');
+  if(selOperador.options.length <= 1){
+    [...new Set(OPERADORES.map(o=>o.nome))].sort().forEach(n=>
+      selOperador.insertAdjacentHTML('beforeend', `<option value="${n}">${n}</option>`));
+  }
+}
+
+function renderHistorico(){
+  popularFiltrosHistorico();
+  document.getElementById('historico-conteudo-operador').style.display = historicoSubView==='operador' ? '' : 'none';
+  document.getElementById('historico-conteudo-registros').style.display = historicoSubView==='registros' ? '' : 'none';
+  const registros = registrosFiltradosHistorico();
+  if(historicoSubView === 'operador') renderHistoricoPorOperador(registros);
+  else renderHistoricoRegistros(registros);
+}
+
+function ordenarHist(lista, ordenacao, getters){
+  const get = getters[ordenacao.campo] || (h => h[ordenacao.campo]);
+  const sinal = ordenacao.dir === 'asc' ? 1 : -1;
+  return lista.slice().sort((a,b)=>{
+    const va = get(a), vb = get(b);
+    if(typeof va === 'string') return va.localeCompare(vb) * sinal;
+    return ((va||0) - (vb||0)) * sinal;
+  });
+}
+
+function renderHistoricoPorOperador(registros){
+  const totalPrevisto = registros.reduce((s,h)=>s+previstaDoRegistroHist(h),0);
+  const totalFabricado = registros.reduce((s,h)=>s+(h.totalProduzido||0),0);
+  const totalRefugo = registros.reduce((s,h)=>s+(h.refugo||0),0);
+  document.getElementById('hist-total-previsto').textContent = fmtInt(totalPrevisto);
+  document.getElementById('hist-total-fabricado').textContent = fmtInt(totalFabricado);
+  document.getElementById('hist-total-refugo').textContent = fmtInt(totalRefugo);
+
+  const turnosPresentes = [...new Set(registros.map(h=>h.turno).filter(Boolean))];
+  const container = document.getElementById('hist-blocos-turno');
+  if(turnosPresentes.length === 0){
+    container.innerHTML = '<div class="item-admin-sub" style="padding:1rem 0">Nenhum registro encontrado com esses filtros.</div>';
+    return;
+  }
+  const idsGauge = []; // {idDesemp, idRefugo, desempPct, refugoPct} — desenhados DEPOIS do innerHTML existir
+  container.innerHTML = turnosPresentes.map((turno, idx) => {
+    const doTurno = registros.filter(h=>h.turno===turno);
+    const prevista = doTurno.reduce((s,h)=>s+previstaDoRegistroHist(h),0);
+    const fabricado = doTurno.reduce((s,h)=>s+(h.totalProduzido||0),0);
+    const refugo = doTurno.reduce((s,h)=>s+(h.refugo||0),0);
+    const pecasTotal = doTurno.reduce((s,h)=>s+(h.qtdPecas||0),0);
+    const desempPct = prevista>0 ? (fabricado/prevista*100) : 0;
+    const refugoPct = pecasTotal>0 ? (refugo/pecasTotal*100) : 0;
+    const idDesemp = `hist-gauge-desemp-${idx}`, idRefugo = `hist-gauge-refugo-${idx}`;
+    idsGauge.push({idDesemp, idRefugo, desempPct, refugoPct});
+    const ordenados = ordenarHist(doTurno, ordenacaoHistOperador, {
+      timestamp: h=>h.timestamp, operador: h=>h.operador||'', peca: h=>h.peca||'', material: h=>h.material||'',
+      totalProduzido: h=>h.totalProduzido||0, _prevista: h=>previstaDoRegistroHist(h),
+      _desempenho: h=>desempenhoDoRegistroHist(h), _refugoPct: h=>refugoPctDoRegistroHist(h),
+    });
+    const linhas = ordenados.map(h => {
+      const desemp = desempenhoDoRegistroHist(h), refPct = refugoPctDoRegistroHist(h);
+      return `<tr>
+        <td>${new Date(h.timestamp).toLocaleDateString('pt-BR')}</td>
+        <td>${h.operador||'—'}</td>
+        <td>${h.peca||'—'}</td>
+        <td>${h.material||'—'}</td>
+        <td>${fmtInt(h.totalProduzido||0)}</td>
+        <td>${fmtInt(previstaDoRegistroHist(h))}</td>
+        <td>${observacaoDoRegistroHist(h)}</td>
+        <td class="hist-pct-${zonaPct(desemp)}">${fmtInt(desemp)}%</td>
+        <td class="hist-pct-${zonaPct(100-refPct)}">${refPct.toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+    const setaOperador = c => ordenacaoHistOperador.campo===c ? (ordenacaoHistOperador.dir==='asc'?'ordenado-asc':'ordenado-desc') : '';
+    return `<div class="hist-bloco-turno">
+      <div class="hist-bloco-turno-header">${turno}</div>
+      <div class="hist-bloco-turno-top">
+        <div class="hist-stat-chips">
+          <div class="hist-stat-chip">Peças<strong>${new Set(doTurno.map(h=>h.peca)).size}</strong></div>
+          <div class="hist-stat-chip">Máquinas<strong>${new Set(doTurno.map(h=>h.maquina)).size}</strong></div>
+          <div class="hist-stat-chip">Operadores<strong>${new Set(doTurno.map(h=>h.operador)).size}</strong></div>
+        </div>
+        <div class="hist-bloco-turno-gauges">
+          <div id="${idDesemp}"></div>
+          <div id="${idRefugo}"></div>
+        </div>
+      </div>
+      <div class="hist-tabela-wrap">
+        <table class="hist-tabela-operador" data-turno-idx="${idx}">
+          <thead><tr>
+            <th data-campo="timestamp" class="${setaOperador('timestamp')}">Data</th>
+            <th data-campo="operador" class="${setaOperador('operador')}">Operador</th>
+            <th data-campo="peca" class="${setaOperador('peca')}">Peças</th>
+            <th data-campo="material" class="${setaOperador('material')}">Matéria</th>
+            <th data-campo="totalProduzido" class="${setaOperador('totalProduzido')}">Boas</th>
+            <th data-campo="_prevista" class="${setaOperador('_prevista')}">Prevista</th>
+            <th>Observações</th>
+            <th data-campo="_desempenho" class="${setaOperador('_desempenho')}">Desempenho</th>
+            <th data-campo="_refugoPct" class="${setaOperador('_refugoPct')}">Refugo</th>
+          </tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+  idsGauge.forEach(g => {
+    renderArcoProgresso(g.idDesemp, Math.round(g.desempPct), g.desempPct>=80?'var(--success)':g.desempPct>=50?'var(--warning)':'var(--danger)');
+    renderArcoProgresso(g.idRefugo, Math.round(g.refugoPct), 'var(--warning)', 10);
+  });
+}
+
+function renderHistoricoRegistros(registros){
+  const getters = {
+    timestamp: h=>h.timestamp, operador: h=>h.operador||'', turno: h=>h.turno||'', maquina: h=>h.maquina||'',
+    peca: h=>h.peca||'', material: h=>h.material||'', injetadas: h=>h.injetadas||0,
+    _prevista: h=>previstaDoRegistroHist(h), refugo: h=>h.refugo||0, cavidades: h=>h.cavidades||0,
+    qtdPecas: h=>h.qtdPecas||0, _horasDisp: h=>(h.duracaoMs||0)/3600000, horaExtra: h=>h.horaExtra?1:0,
+    _obs: h=>observacaoDoRegistroHist(h),
+  };
+  const ordenados = ordenarHist(registros, ordenacaoHistRegistros, getters);
+  document.querySelectorAll('.hist-tabela-registros th').forEach(th=>{
+    th.classList.remove('ordenado-asc','ordenado-desc');
+    if(th.getAttribute('data-campo') === ordenacaoHistRegistros.campo) th.classList.add(ordenacaoHistRegistros.dir==='asc'?'ordenado-asc':'ordenado-desc');
+  });
+  document.getElementById('hist-registros-tbody').innerHTML = ordenados.length ? ordenados.map(h => `<tr>
+    <td>${new Date(h.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+    <td>${h.operador||'—'}</td>
+    <td>${h.turno||'—'}</td>
+    <td>${h.maquina||'—'}</td>
+    <td>${h.peca||'—'}</td>
+    <td>${h.material||'—'}</td>
+    <td>${fmtInt(h.injetadas||0)}</td>
+    <td>${fmtInt(previstaDoRegistroHist(h))}</td>
+    <td>${fmtInt(h.refugo||0)}</td>
+    <td>${h.cavidades||'—'}</td>
+    <td>${fmtInt(h.qtdPecas||0)}</td>
+    <td>${((h.duracaoMs||0)/3600000).toFixed(2)}h</td>
+    <td>${h.horaExtra ? 'Sim' : 'Não'}</td>
+    <td>${observacaoDoRegistroHist(h)}</td>
+  </tr>`).join('') : '<tr><td colspan="14" style="text-align:center;padding:1rem">Nenhum registro encontrado com esses filtros.</td></tr>';
+}
+
+document.querySelectorAll('.hist-subaba-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    historicoSubView = btn.getAttribute('data-hist-view');
+    document.querySelectorAll('.hist-subaba-btn').forEach(b=>b.classList.toggle('ativo', b===btn));
+    renderHistorico();
+  });
+});
+['hist-filtro-peca','hist-filtro-turno','hist-filtro-operador'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', (e)=>{
+    const chave = id.replace('hist-filtro-','');
+    filtroHistorico[chave] = e.target.value;
+    renderHistorico();
+  });
+});
+document.getElementById('hist-filtro-data-inicio').addEventListener('change', e=>{ filtroHistorico.dataInicio = e.target.value; renderHistorico(); });
+document.getElementById('hist-filtro-data-fim').addEventListener('change', e=>{ filtroHistorico.dataFim = e.target.value; renderHistorico(); });
+document.getElementById('btn-hist-limpar').addEventListener('click', ()=>{
+  filtroHistorico = { peca:'', turno:'', operador:'', dataInicio:'', dataFim:'' };
+  ['hist-filtro-peca','hist-filtro-turno','hist-filtro-operador'].forEach(id=> document.getElementById(id).value='');
+  document.getElementById('hist-filtro-data-inicio').value = '';
+  document.getElementById('hist-filtro-data-fim').value = '';
+  renderHistorico();
+});
+// clique no cabeçalho ordena — delega no container pai porque a tabela "por operador" é
+// recriada a cada render (um bloco por turno) e a de "registros" tem cabeçalho fixo
+document.getElementById('hist-blocos-turno').addEventListener('click', (e)=>{
+  const th = e.target.closest('th[data-campo]');
+  if(!th) return;
+  const campo = th.getAttribute('data-campo');
+  if(ordenacaoHistOperador.campo === campo) ordenacaoHistOperador.dir = ordenacaoHistOperador.dir==='asc' ? 'desc' : 'asc';
+  else { ordenacaoHistOperador.campo = campo; ordenacaoHistOperador.dir = 'desc'; }
+  renderHistoricoPorOperador(registrosFiltradosHistorico());
+});
+document.querySelector('.hist-tabela-registros thead').addEventListener('click', (e)=>{
+  const th = e.target.closest('th[data-campo]');
+  if(!th) return;
+  const campo = th.getAttribute('data-campo');
+  if(ordenacaoHistRegistros.campo === campo) ordenacaoHistRegistros.dir = ordenacaoHistRegistros.dir==='asc' ? 'desc' : 'asc';
+  else { ordenacaoHistRegistros.campo = campo; ordenacaoHistRegistros.dir = 'desc'; }
+  renderHistoricoRegistros(registrosFiltradosHistorico());
+});
+
 async function renderDashboard(){
   // datas padrão do mapa de calor: do dia 1 do mês atual até hoje — só na primeira vez
   // que a dashboard é aberta, não sobrescreve se o usuário já mexeu no filtro
