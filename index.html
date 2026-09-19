@@ -5194,6 +5194,20 @@ async function tentarRestaurarSessaoAtiva(){
   });
   state.ultimoFechamentoMs = (caixasDaSessao && caixasDaSessao.length) ? new Date(caixasDaSessao[caixasDaSessao.length-1].fechado_em).getTime() : state.inicioMs;
 
+  // idem pros apontamentos de hora já feitos nesta sessão — sem isso, depois de um reload o
+  // "Desempenho: X%" do próprio operador esquecia tudo que já tinha sido apontado (voltava a
+  // mostrar "sem dados ainda" mesmo já tendo 2-3 apontamentos), e o próximo alvo do timer
+  // (ver iniciarTimerApontamento) não tinha como saber quando foi o último de verdade.
+  const { data: apontamentosDaSessao } = await db.from('apontamentos_hora').select('*').eq('maquina', sessao.maquina).gte('registrado_em', sessao.inicio_em).order('registrado_em', {ascending:true});
+  state.apontamentosHora = (apontamentosDaSessao||[]).map(a => ({
+    injetadas: a.injetadas, refugo: a.refugo, motivo: a.motivo,
+    hora: new Date(a.registrado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+    op: a.op, peca: a.peca, turno: a.turno, operador: a.operador, maquina: a.maquina,
+    material: a.material, cavidades: a.cavidades, qtdPecas: a.qtd_pecas, metaHora: a.meta_hora,
+    duracaoMs: a.duracao_ms, timestamp: new Date(a.registrado_em).getTime()
+  }));
+  state.ultimoApontamentoMs = state.apontamentosHora.length ? state.apontamentosHora[state.apontamentosHora.length-1].timestamp : null;
+
   iniciarProducao(true);
   toast('Produção restaurada — você continua de onde parou.');
   return true;
@@ -5812,7 +5826,13 @@ document.getElementById('btn-retomar-producao').addEventListener('click', ()=>{
    (tenta de novo no próximo intervalo) pra não empilhar modal.
    ============================================================ */
 function iniciarTimerApontamento(){
-  apontamentoProximoAlvoMs = Date.now() + INTERVALO_APONTAMENTO_MIN * 60 * 1000;
+  // base = último apontamento de verdade (ou início da produção, se ainda não teve nenhum) —
+  // NÃO "agora". Antes usava sempre "agora + intervalo", o que reiniciava a contagem do zero
+  // a cada recarregada de página (inclusive as do auto-update, que agora rodam sozinhas a
+  // cada poucos minutos) — bastava a aba recarregar umas 3-4 vezes num dia de deploy ativo
+  // pra nunca fechar uma hora cheia sem interrupção, e o apontamento nunca disparava.
+  const base = state.ultimoApontamentoMs || state.inicioMs;
+  apontamentoProximoAlvoMs = base + INTERVALO_APONTAMENTO_MIN * 60 * 1000;
   // Antes: um setInterval no intervalo CHEIO chamando abrirApontamentoHora direto. Se essa
   // chamada caísse com QUALQUER modal aberto (mesmo um modal de admin esquecido aberto nesta
   // mesma aba), abrirApontamentoHora saía sem fazer nada — e como só tentava de novo depois
