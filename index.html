@@ -4225,24 +4225,42 @@ var qrcode = function() {
           </div>
 
           <div id="historico-conteudo-registros" style="display:none">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:.8rem;">
+              <button type="button" class="btn-limpar-filtro-hist" id="btn-hist-baixar-csv">Baixar CSV (abre no Excel)</button>
+            </div>
             <div class="hist-tabela-wrap">
               <table class="hist-tabela-registros">
                 <thead>
                   <tr>
                     <th data-campo="timestamp">Data e hora</th>
-                    <th data-campo="operador">Operador</th>
-                    <th data-campo="turno">Turno</th>
-                    <th data-campo="maquina">Máquina</th>
+                    <th data-campo="op">OP</th>
                     <th data-campo="peca">Peça</th>
+                    <th data-campo="turno">Turno</th>
+                    <th data-campo="operador">Operador</th>
+                    <th data-campo="maquina">Máquina</th>
                     <th data-campo="material">Matéria</th>
                     <th data-campo="injetadas">Injetadas</th>
                     <th data-campo="_prevista">Injetadas prevista</th>
                     <th data-campo="refugo">Refugo</th>
                     <th data-campo="cavidades">Cavidades</th>
-                    <th data-campo="qtdPecas">Produção real</th>
+                    <th data-campo="qtdPecas">Qtd peças (bruto)</th>
+                    <th data-campo="totalProduzido">Total produzido (boas)</th>
+                    <th data-campo="caixasFechadas">Caixas fechadas</th>
+                    <th data-campo="metaHora">Meta/h</th>
                     <th data-campo="_horasDisp">Tempo disponível</th>
+                    <th data-campo="motivoRefugo">Motivo refugo</th>
+                    <th data-campo="motivoRefugoDetalhe">Detalhe refugo</th>
+                    <th data-campo="loteMP">Lote MP</th>
+                    <th data-campo="loteArame">Lote arame</th>
+                    <th data-campo="pesoMP">Peso MP</th>
+                    <th data-campo="pesoSobraMP">Peso sobra MP</th>
+                    <th data-campo="refugoArame">Refugo arame</th>
                     <th data-campo="horaExtra">Hora extra</th>
-                    <th data-campo="_obs">Observações</th>
+                    <th data-campo="horaExtraDetalhe">Detalhe hora extra</th>
+                    <th data-campo="motivoParada">Motivo parada</th>
+                    <th data-campo="paradaDetalhe">Detalhe parada</th>
+                    <th data-campo="liberacao1">Liberação 1</th>
+                    <th data-campo="liberacao2">Liberação 2</th>
                   </tr>
                 </thead>
                 <tbody id="hist-registros-tbody"></tbody>
@@ -8438,36 +8456,75 @@ function renderHistoricoPorOperador(registros){
   });
 }
 
+const CABECALHOS_HIST_REGISTROS = [
+  'Data e hora','OP','Peça','Turno','Operador','Máquina','Matéria','Injetadas','Injetadas prevista',
+  'Refugo','Cavidades','Qtd peças (bruto)','Total produzido (boas)','Caixas fechadas','Meta/h',
+  'Tempo disponível (h)','Motivo refugo','Detalhe refugo','Lote MP','Lote arame','Peso MP','Peso sobra MP',
+  'Refugo arame','Hora extra','Detalhe hora extra','Motivo parada','Detalhe parada','Liberação 1','Liberação 2',
+];
+// uma função só gera os valores de cada linha — usada tanto pra desenhar a tabela na tela
+// quanto pro CSV, pra não duplicar (e não desalinhar) a lista de campos nos dois lugares
+function camposCompletosHistorico(h){
+  return [
+    new Date(h.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    h.op || '', h.peca || '', h.turno || '', h.operador || '', h.maquina || '', h.material || '',
+    h.injetadas || 0, Math.round(previstaDoRegistroHist(h)), h.refugo || 0, h.cavidades || '',
+    h.qtdPecas || 0, h.totalProduzido || 0, h.caixasFechadas || 0, h.metaHora || 0,
+    ((h.duracaoMs||0)/3600000).toFixed(2), h.motivoRefugo || '', h.motivoRefugoDetalhe || '',
+    h.loteMP || '', h.loteArame || '', h.pesoMP ?? '', h.pesoSobraMP ?? '', h.refugoArame || '',
+    h.horaExtra ? 'Sim' : 'Não', h.horaExtraDetalhe || '', h.motivoParada || '', h.paradaDetalhe || '',
+    h.liberacao1 || '', h.liberacao2 || '',
+  ];
+}
 function renderHistoricoRegistros(registros){
   const getters = {
-    timestamp: h=>h.timestamp, operador: h=>h.operador||'', turno: h=>h.turno||'', maquina: h=>h.maquina||'',
-    peca: h=>h.peca||'', material: h=>h.material||'', injetadas: h=>h.injetadas||0,
+    timestamp: h=>h.timestamp, op: h=>h.op||'', operador: h=>h.operador||'', turno: h=>h.turno||'',
+    maquina: h=>h.maquina||'', peca: h=>h.peca||'', material: h=>h.material||'', injetadas: h=>h.injetadas||0,
     _prevista: h=>previstaDoRegistroHist(h), refugo: h=>h.refugo||0, cavidades: h=>h.cavidades||0,
-    qtdPecas: h=>h.qtdPecas||0, _horasDisp: h=>(h.duracaoMs||0)/3600000, horaExtra: h=>h.horaExtra?1:0,
-    _obs: h=>observacaoDoRegistroHist(h),
+    qtdPecas: h=>h.qtdPecas||0, totalProduzido: h=>h.totalProduzido||0, caixasFechadas: h=>h.caixasFechadas||0,
+    metaHora: h=>h.metaHora||0, _horasDisp: h=>(h.duracaoMs||0)/3600000, motivoRefugo: h=>h.motivoRefugo||'',
+    motivoRefugoDetalhe: h=>h.motivoRefugoDetalhe||'', loteMP: h=>h.loteMP||'', loteArame: h=>h.loteArame||'',
+    pesoMP: h=>h.pesoMP||0, pesoSobraMP: h=>h.pesoSobraMP||0, refugoArame: h=>h.refugoArame||'',
+    horaExtra: h=>h.horaExtra?1:0, horaExtraDetalhe: h=>h.horaExtraDetalhe||'', motivoParada: h=>h.motivoParada||'',
+    paradaDetalhe: h=>h.paradaDetalhe||'', liberacao1: h=>h.liberacao1||'', liberacao2: h=>h.liberacao2||'',
   };
   const ordenados = ordenarHist(registros, ordenacaoHistRegistros, getters);
   document.querySelectorAll('.hist-tabela-registros th').forEach(th=>{
     th.classList.remove('ordenado-asc','ordenado-desc');
     if(th.getAttribute('data-campo') === ordenacaoHistRegistros.campo) th.classList.add(ordenacaoHistRegistros.dir==='asc'?'ordenado-asc':'ordenado-desc');
   });
-  document.getElementById('hist-registros-tbody').innerHTML = ordenados.length ? ordenados.map(h => `<tr>
-    <td>${new Date(h.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
-    <td>${h.operador||'—'}</td>
-    <td>${h.turno||'—'}</td>
-    <td>${h.maquina||'—'}</td>
-    <td>${h.peca||'—'}</td>
-    <td>${h.material||'—'}</td>
-    <td>${fmtInt(h.injetadas||0)}</td>
-    <td>${fmtInt(previstaDoRegistroHist(h))}</td>
-    <td>${fmtInt(h.refugo||0)}</td>
-    <td>${h.cavidades||'—'}</td>
-    <td>${fmtInt(h.qtdPecas||0)}</td>
-    <td>${((h.duracaoMs||0)/3600000).toFixed(2)}h</td>
-    <td>${h.horaExtra ? 'Sim' : 'Não'}</td>
-    <td>${observacaoDoRegistroHist(h)}</td>
-  </tr>`).join('') : '<tr><td colspan="14" style="text-align:center;padding:1rem">Nenhum registro encontrado com esses filtros.</td></tr>';
+  document.getElementById('hist-registros-tbody').innerHTML = ordenados.length ? ordenados.map(h =>
+    `<tr>${camposCompletosHistorico(h).map(v => `<td>${v === '' || v == null ? '—' : v}</td>`).join('')}</tr>`
+  ).join('') : `<tr><td colspan="${CABECALHOS_HIST_REGISTROS.length}" style="text-align:center;padding:1rem">Nenhum registro encontrado com esses filtros.</td></tr>`;
 }
+
+// CSV — abre direto no Excel, com tudo filtrável/ordenável/tabela dinâmica; não gera .xlsx de
+// verdade de propósito, pra não precisar embutir uma biblioteca pesada (o app já é um arquivo
+// único sem CDN nenhum, de propósito) só por causa de um botão de exportação.
+function escaparCampoCSV(v){
+  const s = String(v ?? '');
+  return /[",\n;]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+function baixarHistoricoCSV(){
+  const registros = ordenarHist(registrosFiltradosHistorico(), ordenacaoHistRegistros, {
+    timestamp: h=>h.timestamp, op: h=>h.op||'', operador: h=>h.operador||'', turno: h=>h.turno||'',
+    maquina: h=>h.maquina||'', peca: h=>h.peca||'', material: h=>h.material||'',
+  });
+  const linhas = [CABECALHOS_HIST_REGISTROS, ...registros.map(camposCompletosHistorico)]
+    .map(linha => linha.map(escaparCampoCSV).join(';'))
+    .join('\r\n');
+  const blob = new Blob(['\uFEFF' + linhas], { type: 'text/csv;charset=utf-8;' }); // BOM — Excel só acerta acento com isso
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `historico-producao-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+document.getElementById('btn-hist-baixar-csv').addEventListener('click', baixarHistoricoCSV);
+
 
 document.querySelectorAll('.hist-subaba-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
