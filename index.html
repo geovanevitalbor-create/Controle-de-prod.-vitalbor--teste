@@ -926,6 +926,9 @@
   .hist-tabela-registros th.ordenado-desc::after{content:" ▼";font-size:.6rem;}
   .hist-tabela-operador td,.hist-tabela-registros td{padding:.55rem .7rem;border-bottom:1px solid var(--border);color:var(--text-dim);}
   .hist-tabela-operador tr:last-child td,.hist-tabela-registros tr:last-child td{border-bottom:none;}
+  .hist-linha-clicavel{cursor:pointer;transition:background .12s ease;}
+  .hist-linha-clicavel:hover{background:var(--bg-card-hi);}
+  .analise-etiquetas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;}
   .hist-pct-verde{color:var(--success);font-weight:700;}
   .hist-pct-amarelo{color:var(--warning);font-weight:700;}
   .hist-pct-vermelho{color:var(--danger);font-weight:700;}
@@ -4115,7 +4118,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-48</div>
+    <div class="versao-build-canto">v2026.09.03-49</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -4328,7 +4331,7 @@ var qrcode = function() {
                     <th data-campo="maquina">Máquina</th>
                     <th data-campo="material">Matéria</th>
                     <th data-campo="injetadas">Injetadas</th>
-                    <th data-campo="_prevista">Injetadas prevista</th>
+                    <th data-campo="_prevista">Peças previstas</th>
                     <th data-campo="refugo">Refugo</th>
                     <th data-campo="cavidades">Cavidades</th>
                     <th data-campo="qtdPecas">Qtd peças (bruto)</th>
@@ -4658,6 +4661,34 @@ var qrcode = function() {
       <div id="detalhe-maquina-historico"></div>
       <div class="linha-botoes-modal">
         <button class="btn-secundario" id="btn-detalhe-maquina-fechar" style="width:100%">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: ANÁLISE DA SESSÃO DO OPERADOR (resumo + etiquetas geradas) ===================== -->
+  <div class="modal-overlay" id="modal-analise-sessao">
+    <div class="modal-sheet">
+      <div class="modal-titulo" id="analise-sessao-titulo">Sessão</div>
+      <div class="modal-sub" id="analise-sessao-sub" style="margin-top:-1rem">—</div>
+      <div class="hist-totais-row" style="margin-bottom:1.2rem">
+        <div class="hist-total-card">
+          <div class="hist-total-lbl">Produzido</div>
+          <div class="hist-total-valor" id="analise-sessao-produzido">0</div>
+        </div>
+        <div class="hist-total-card">
+          <div class="hist-total-lbl">Previsto</div>
+          <div class="hist-total-valor" id="analise-sessao-previsto">0</div>
+        </div>
+        <div class="hist-total-card">
+          <div class="hist-total-lbl">Refugo</div>
+          <div class="hist-total-valor" id="analise-sessao-refugo">0</div>
+        </div>
+      </div>
+      <div class="config-bloco-titulo-sm">Etiquetas geradas nesta sessão</div>
+      <div id="analise-sessao-etiquetas-aviso" class="item-admin-sub" style="padding:.3rem 0"></div>
+      <div id="analise-sessao-etiquetas-grid" class="analise-etiquetas-grid"></div>
+      <div class="linha-botoes-modal">
+        <button class="btn-secundario" id="btn-analise-sessao-fechar" style="width:100%">Fechar</button>
       </div>
     </div>
   </div>
@@ -5418,7 +5449,8 @@ async function gravarCaixaNoBanco(registro){
       material: registro.material, cavidades: registro.cavidades,
       refugo: registro.refugo, qtd_pecas: registro.qtdPecas,
       injetadas: registro.injetadas, meta_hora: registro.metaHora,
-      duracao_ms: registro.duracaoMs
+      duracao_ms: registro.duracaoMs, caixa_num: registro.caixaNum,
+      turno: registro.turno, lote_mp: registro.loteMP, lote_arame: registro.loteArame
     });
     if(error) console.error('[Supabase] falha ao gravar caixa:', error);
   } catch(err){
@@ -6334,17 +6366,24 @@ const ICONES_DESEMPENHO = {
   'neutro': '<line x1="5" y1="12" x2="19" y2="12"></line>',
 };
 
-// desempenho da pessoa no turno até agora: soma tudo que ela já apontou contra o total esperado
-// nesses mesmos períodos (não é média das porcentagens — é injetadas reais ÷ esperado real).
-// null quando não dá pra calcular (sem meta na OP ou nenhum apontamento enviado ainda).
+// desempenho da pessoa no turno até agora: MÉDIA da % de cada apontamento individual —
+// 1ª hora bateu 100% da meta, 2ª hora bateu 50%, desempenho = 75% (média simples, não peças
+// reais ÷ esperado real somados). Cada apontamento guarda a SUA PRÓPRIA meta (metaHora) de
+// quando foi enviado — se o operador trocar de OP no meio do turno (peça/meta diferente), cada
+// hora continua sendo julgada pela meta que valia nela, não pela meta da OP atual aplicada em
+// tudo. Mesmo formato de registro (injetadas/metaHora) serve tanto o state.apontamentosHora do
+// operador quanto o cacheApontamentosHora do admin (Ao Vivo) — uma função só pros dois.
+// null quando não dá pra calcular (nenhum apontamento com meta válida ainda).
+function mediaDesempenhoApontamentos(registros){
+  const pcts = (registros||[]).map(a => {
+    const metaNoPeriodo = (a.metaHora||0) * (INTERVALO_APONTAMENTO_MIN / 60);
+    return metaNoPeriodo > 0 ? (a.injetadas / metaNoPeriodo * 100) : null;
+  }).filter(p => p !== null);
+  if(pcts.length === 0) return null;
+  return { pct: Math.round(pcts.reduce((s,p)=>s+p,0) / pcts.length), n: pcts.length };
+}
 function calcularDesempenhoGeral(){
-  const meta = state.op && state.op.metaHora || 0;
-  if(meta <= 0 || state.apontamentosHora.length === 0) return null;
-  const metaNoPeriodo = meta * (INTERVALO_APONTAMENTO_MIN / 60);
-  const totalInjetadas = state.apontamentosHora.reduce((s,a) => s + a.injetadas, 0);
-  const totalEsperado = metaNoPeriodo * state.apontamentosHora.length;
-  const pct = totalEsperado > 0 ? Math.round((totalInjetadas / totalEsperado) * 100) : 0;
-  return { pct, n: state.apontamentosHora.length };
+  return mediaDesempenhoApontamentos(state.apontamentosHora);
 }
 
 // badge fixo no cabeçalho da tela de produção — reflete o desempenho geral em tempo real,
@@ -6844,12 +6883,17 @@ document.getElementById('btn-fc-confirmar').addEventListener('click', ()=>{
   // da produção, na primeira caixa), usada pra calcular o desempenho daquele intervalo específico.
   const duracaoDestaCaixaMs = Date.now() - (state.ultimoFechamentoMs || state.inicioMs);
   state.ultimoFechamentoMs = Date.now();
+  // número da caixa calculado UMA VEZ aqui (não mais dentro de prepararEtiqueta) — precisa ir
+  // pro banco também agora (pra reconstituir a etiqueta depois, em "ver etiquetas geradas"),
+  // então tem que existir antes do registroCaixa ser montado, não só na hora de imprimir.
+  const caixaNum = String(proximoNumeroCaixaGlobal()).padStart(3,'0');
   const registroCaixa = {
     maquina: state.maquina, operador: state.operador, peca: state.op.peca, op: state.op.op,
     material: state.op.materiaPrima, cavidades: state.cavidades,
     refugo: fcRefugoAtual, qtdPecas: state.injetadasCaixa * state.cavidades,
     injetadas: state.injetadasCaixa, metaHora: state.op.metaHora || 0,
-    duracaoMs: duracaoDestaCaixaMs, timestamp: Date.now()
+    duracaoMs: duracaoDestaCaixaMs, timestamp: Date.now(),
+    caixaNum, turno: state.turno ? state.turno.nome : null, loteMP: state.loteMP || null, loteArame: state.loteArame || null
   };
   HISTORICO_CAIXAS.push(registroCaixa);
   // grava no Supabase em paralelo — não trava o fluxo do operador se a rede falhar,
@@ -6857,7 +6901,7 @@ document.getElementById('btn-fc-confirmar').addEventListener('click', ()=>{
   gravarCaixaNoBanco(registroCaixa);
   if(opNoCadastro) atualizarSaldoOpNoBanco(state.op.op, opNoCadastro.qtdRestante);
 
-  prepararEtiqueta(producao);
+  prepararEtiqueta(producao, caixaNum);
   state.injetadasCaixa = 0;
   state.refugoCaixa = 0;
   atualizarCards();
@@ -6881,6 +6925,30 @@ function gerarQRCode(elementId, texto){
     console.error('[QR] falha ao gerar QR code:', err);
     alvo.innerHTML = '<div style="font-size:8px;color:#999;border:1px dashed #999;width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center">QR indisponível</div>';
   }
+}
+
+// gera o texto do QR — TUDO que existe sobre essa caixa. "OP" aqui é Ordem de Produção (não
+// confundir com "OPR" = operador). Cada campo variável tem um teto de caracteres (não corta em
+// uso normal, só protege o pior caso) pra garantir um tamanho MÁXIMO previsível de QR — testado
+// pro pior caso plausível (todo campo no limite), não passa de 49 módulos com correção de erro
+// L. Extraída de dentro de prepararEtiqueta pra poder reconstituir a MESMA etiqueta depois, a
+// partir de dados salvos em historico_caixas (ver abrirAnaliseSessao) — mesma função, os dois
+// lugares nunca podem divergir no formato do QR.
+function montarTextoQREtiqueta(d, dataHora){
+  const cortar = (texto, max) => String(texto || '').slice(0, max);
+  return [
+    'VITALBOR',
+    `OP${d.ordem}`,
+    `PC:${cortar(d.peca, 22)}`,
+    `MT:${cortar(d.material, 8)}`,
+    `MQ:${cortar(d.maquina, 13)}`,
+    `TN:${cortar(d.turno, 12)}`,
+    `OPR:${cortar(d.operador, 18)}`,
+    `LOTE BORR:${cortar(d.loteMP, 8)}`,
+    `LOTE ARA:${cortar(d.loteArame, 8)}`,
+    `CX${d.caixaNum}`,
+    dataHora,
+  ].join('|');
 }
 
 // gera o HTML da etiqueta — usado IGUAL tanto na prévia da tela quanto no bloco de
@@ -6927,10 +6995,12 @@ function proximoNumeroCaixaGlobal(){
 }
 
 let ultimaEtiquetaDados = null; // guarda os dados da última etiqueta preparada — o botão "Imprimir etiqueta" lê daqui pra montar o envio pra PrintNode
-function prepararEtiqueta(qtd){
+function prepararEtiqueta(qtd, caixaNum){
   const agora = new Date();
   const dataHora = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const caixaNum = String(proximoNumeroCaixaGlobal()).padStart(3,'0');
+  // caixaNum agora vem de quem chamou (calculado uma vez só, junto do registroCaixa que vai pro
+  // banco) — antes era recalculado aqui, o que não tinha problema quando só servia pra imprimir,
+  // mas agora esse mesmo número precisa bater com o que foi salvo em historico_caixas.
   // título = nome da peça; só emenda a matéria-prima se ela ainda NÃO aparecer no nome da
   // peça — evita duplicar quando o cadastro já inclui o material no próprio nome (ex.: "PBA-75
   // EPDM" + matéria-prima "EPDM" virava "PBA-75 EPDM EPDM"), mas preserva a informação pras
@@ -6942,6 +7012,7 @@ function prepararEtiqueta(qtd){
     : pecaNome;
   const d = {
     titulo,
+    peca: pecaNome,
     caixaNum,
     operador: state.operador,
     qtd: fmtInt(qtd),
@@ -6959,20 +7030,7 @@ function prepararEtiqueta(qtd){
   // MÁXIMO previsível de QR — testei o pior caso plausível (todo campo no limite) e não passa
   // de 49 módulos com correção de erro L, o que cabe no espaço reservado pro QR (aumentado
   // nesta versão — ver montarZplEtiqueta).
-  const cortar = (texto, max) => String(texto || '').slice(0, max);
-  const textoQR = [
-    'VITALBOR',
-    `OP${d.ordem}`,
-    `PC:${cortar(state.op.peca, 22)}`,
-    `MT:${cortar(d.material, 8)}`,
-    `MQ:${cortar(d.maquina, 13)}`,
-    `TN:${cortar(d.turno, 12)}`,
-    `OPR:${cortar(d.operador, 18)}`,
-    `LOTE BORR:${cortar(d.loteMP, 8)}`,
-    `LOTE ARA:${cortar(d.loteArame, 8)}`,
-    `CX${caixaNum}`,
-    dataHora,
-  ].join('|');
+  const textoQR = montarTextoQREtiqueta(d, dataHora);
   ultimaEtiquetaDados = { ...d, qrData: textoQR };
 
   document.getElementById('etiqueta-fisica-preview').innerHTML = montarHtmlEtiqueta(d, 'et2-qr-preview');
@@ -7900,16 +7958,12 @@ async function renderCardsMaquinas(){
       </div>`;
     }
     const refugoPct = d.qtdPecas > 0 ? Math.round((d.refugo / d.qtdPecas) * 1000) / 10 : 0;
-    // mesma sistemática do operador (calcularDesempenhoGeral): meta FIXA por apontamento ×
-    // quantidade de apontamentos, não meta × duração real decorrida. Um apontamento que
-    // dispara cedo (ex.: 20min por conta de um intervalo de teste curto) não deve fazer o
-    // esperado cair pra 1/3 disso — o operador digita pensando em "uma hora de meta", então
-    // aqui também conta cada apontamento como valendo uma meta cheia.
-    const metaHoraSessao = dHora.ultimoRegistro ? (dHora.ultimoRegistro.metaHora || 0) : 0;
-    const esperadoAoVivo = metaHoraSessao * dHora.registros;
-    const desempenhoPctBruto = esperadoAoVivo > 0 ? Math.round((dHora.injetadas / esperadoAoVivo) * 100) : 0;
-    const desempenhoPct = Math.min(desempenhoPctBruto, 999); // teto de exibição — trava de segurança pra qualquer caso extremo
-    const desempenhoDisponivel = dHora.registros > 0; // já teve pelo menos 1 apontamento nesta sessão
+    // mesma fórmula do operador (mediaDesempenhoApontamentos): média da % de cada apontamento
+    // individual, cada um julgado pela SUA PRÓPRIA meta — não soma tudo dividido por uma meta
+    // única (isso quebrava se a OP mudasse no meio da sessão).
+    const resultadoDesempenho = mediaDesempenhoApontamentos(apontamentosDaSessao);
+    const desempenhoPct = resultadoDesempenho ? Math.min(resultadoDesempenho.pct, 999) : 0; // teto de exibição — trava de segurança pra qualquer caso extremo
+    const desempenhoDisponivel = resultadoDesempenho !== null; // já teve pelo menos 1 apontamento com meta válida nesta sessão
     const minutosFaltando = Math.max(1, INTERVALO_APONTAMENTO_MIN - Math.floor((Date.now() - inicioSessao) / 60000));
     const zona = desempenhoDisponivel ? classificarGauge(desempenhoPct) : 'calculando';
     if(!filtroMaquinasZonas.has(zona) && zona !== 'calculando') return ''; // escondida pelo filtro de desempenho (não filtra "calculando" — some da tela de vez em quando senão)
@@ -8750,7 +8804,12 @@ function renderArcoProgresso(containerId, pct, cor, escalaMax){
     <div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--text-faint);font-family:var(--font-admin-mono);max-width:170px;margin:0 auto;padding:0 .4rem;"><span>0%</span><span>${max}%</span></div>`;
 }
 
-function previstaDoRegistroHist(h){ return (h.metaHora||0) * ((h.duracaoMs||0)/3600000); }
+// "esperado" em PEÇAS (não injetadas) — precisa multiplicar por cavidades, senão compara peça
+// boa (já multiplicada) contra injetadas cru: numa OP de 4 cavidades isso inflava o desempenho
+// em ~4x (o "380%"/"600%" impossível que aparecia nessa tela). duracaoMs já é o tempo líquido
+// de produção real daquela sessão (pausas e manutenção já descontadas em state.inicioMs) — não
+// precisa saber o horário nominal do turno pra isso, o dado real da sessão já resolve.
+function previstaDoRegistroHist(h){ return (h.metaHora||0) * ((h.duracaoMs||0)/3600000) * (h.cavidades||1); }
 function desempenhoDoRegistroHist(h){ const p = previstaDoRegistroHist(h); return p>0 ? (h.totalProduzido||0)/p*100 : 0; }
 function refugoPctDoRegistroHist(h){ return (h.qtdPecas||0)>0 ? (h.refugo||0)/h.qtdPecas*100 : 0; }
 function observacaoDoRegistroHist(h){
@@ -8833,11 +8892,15 @@ function renderHistoricoPorOperador(registros){
     const ordenados = ordenarHist(doTurno, ordenacaoHistOperador, {
       timestamp: h=>h.timestamp, operador: h=>h.operador||'', peca: h=>h.peca||'', material: h=>h.material||'',
       totalProduzido: h=>h.totalProduzido||0, _prevista: h=>previstaDoRegistroHist(h),
-      _desempenho: h=>desempenhoDoRegistroHist(h), _refugoPct: h=>refugoPctDoRegistroHist(h),
+      _desempenho: h=>desempenhoDoRegistroHist(h), refugo: h=>h.refugo||0, _refugoPct: h=>refugoPctDoRegistroHist(h),
     });
     const linhas = ordenados.map(h => {
       const desemp = desempenhoDoRegistroHist(h), refPct = refugoPctDoRegistroHist(h);
-      return `<tr>
+      return `<tr class="hist-linha-clicavel" data-abrir-etiquetas
+        data-op-operador="${h.operador||''}" data-op-maquina="${h.maquina||''}" data-op-op="${h.op||''}"
+        data-op-turno="${h.turno||''}" data-op-timestamp="${h.timestamp}" data-op-duracao="${h.duracaoMs||0}"
+        data-op-peca="${h.peca||''}" data-op-produzido="${h.totalProduzido||0}" data-op-refugo="${h.refugo||0}"
+        data-op-prevista="${Math.round(previstaDoRegistroHist(h))}">
         <td>${new Date(h.timestamp).toLocaleDateString('pt-BR')}</td>
         <td>${h.operador||'—'}</td>
         <td>${h.peca||'—'}</td>
@@ -8846,6 +8909,7 @@ function renderHistoricoPorOperador(registros){
         <td>${fmtInt(previstaDoRegistroHist(h))}</td>
         <td>${observacaoDoRegistroHist(h)}</td>
         <td class="hist-pct-${zonaPct(desemp)}">${fmtInt(desemp)}%</td>
+        <td>${fmtInt(h.refugo||0)}</td>
         <td class="hist-pct-${zonaPct(100-refPct)}">${refPct.toFixed(1)}%</td>
       </tr>`;
     }).join('');
@@ -8871,10 +8935,11 @@ function renderHistoricoPorOperador(registros){
             <th data-campo="peca" class="${setaOperador('peca')}">Peças</th>
             <th data-campo="material" class="${setaOperador('material')}">Matéria</th>
             <th data-campo="totalProduzido" class="${setaOperador('totalProduzido')}">Boas</th>
-            <th data-campo="_prevista" class="${setaOperador('_prevista')}">Prevista</th>
+            <th data-campo="_prevista" class="${setaOperador('_prevista')}">Peças previstas</th>
             <th>Observações</th>
             <th data-campo="_desempenho" class="${setaOperador('_desempenho')}">Desempenho</th>
-            <th data-campo="_refugoPct" class="${setaOperador('_refugoPct')}">Refugo</th>
+            <th data-campo="refugo" class="${setaOperador('refugo')}">Refugo (peças)</th>
+            <th data-campo="_refugoPct" class="${setaOperador('_refugoPct')}">Refugo (%)</th>
           </tr></thead>
           <tbody>${linhas}</tbody>
         </table>
@@ -8888,7 +8953,7 @@ function renderHistoricoPorOperador(registros){
 }
 
 const CABECALHOS_HIST_REGISTROS = [
-  'Data e hora','OP','Peça','Turno','Operador','Máquina','Matéria','Injetadas','Injetadas prevista',
+  'Data e hora','OP','Peça','Turno','Operador','Máquina','Matéria','Injetadas','Peças previstas',
   'Refugo','Cavidades','Qtd peças (bruto)','Total produzido (boas)','Caixas fechadas','Meta/h',
   'Tempo disponível (h)','Motivo refugo','Detalhe refugo','Lote MP','Lote arame','Peso MP','Peso sobra MP',
   'Refugo arame','Hora extra','Detalhe hora extra','Motivo parada','Detalhe parada','Liberação 1','Liberação 2',
@@ -8984,11 +9049,23 @@ document.getElementById('btn-hist-limpar').addEventListener('click', ()=>{
 // recriada a cada render (um bloco por turno) e a de "registros" tem cabeçalho fixo
 document.getElementById('hist-blocos-turno').addEventListener('click', (e)=>{
   const th = e.target.closest('th[data-campo]');
-  if(!th) return;
-  const campo = th.getAttribute('data-campo');
-  if(ordenacaoHistOperador.campo === campo) ordenacaoHistOperador.dir = ordenacaoHistOperador.dir==='asc' ? 'desc' : 'asc';
-  else { ordenacaoHistOperador.campo = campo; ordenacaoHistOperador.dir = 'desc'; }
-  renderHistoricoPorOperador(registrosFiltradosHistorico());
+  if(th){
+    const campo = th.getAttribute('data-campo');
+    if(ordenacaoHistOperador.campo === campo) ordenacaoHistOperador.dir = ordenacaoHistOperador.dir==='asc' ? 'desc' : 'asc';
+    else { ordenacaoHistOperador.campo = campo; ordenacaoHistOperador.dir = 'desc'; }
+    renderHistoricoPorOperador(registrosFiltradosHistorico());
+    return;
+  }
+  const linha = e.target.closest('tr[data-abrir-etiquetas]');
+  if(linha){
+    abrirAnaliseSessao({
+      operador: linha.getAttribute('data-op-operador'), maquina: linha.getAttribute('data-op-maquina'),
+      op: linha.getAttribute('data-op-op'), turno: linha.getAttribute('data-op-turno'),
+      timestamp: Number(linha.getAttribute('data-op-timestamp')), duracaoMs: Number(linha.getAttribute('data-op-duracao')),
+      peca: linha.getAttribute('data-op-peca'), produzido: Number(linha.getAttribute('data-op-produzido')),
+      refugo: Number(linha.getAttribute('data-op-refugo')), previsto: Number(linha.getAttribute('data-op-prevista')),
+    });
+  }
 });
 document.querySelector('.hist-tabela-registros thead').addEventListener('click', (e)=>{
   const th = e.target.closest('th[data-campo]');
@@ -8998,6 +9075,68 @@ document.querySelector('.hist-tabela-registros thead').addEventListener('click',
   else { ordenacaoHistRegistros.campo = campo; ordenacaoHistRegistros.dir = 'desc'; }
   renderHistoricoRegistros(registrosFiltradosHistorico());
 });
+
+/* ============================================================
+   ANÁLISE DA SESSÃO DO OPERADOR — resumo + etiquetas geradas naquela sessão, reconstituídas
+   a partir de historico_caixas (mesma função montarHtmlEtiqueta/montarTextoQREtiqueta que
+   monta a etiqueta de verdade na tela do operador, pra nunca divergir do que foi impresso).
+   ============================================================ */
+async function abrirAnaliseSessao(dados){
+  document.getElementById('analise-sessao-titulo').textContent = `${dados.operador} — ${dados.peca}`;
+  document.getElementById('analise-sessao-sub').textContent =
+    `${dados.turno||'—'} · ${dados.maquina||'—'} · OP ${dados.op||'—'} · ${new Date(dados.timestamp).toLocaleDateString('pt-BR')}`;
+  document.getElementById('analise-sessao-produzido').textContent = fmtInt(dados.produzido);
+  document.getElementById('analise-sessao-previsto').textContent = fmtInt(dados.previsto);
+  document.getElementById('analise-sessao-refugo').textContent = fmtInt(dados.refugo);
+  document.getElementById('analise-sessao-etiquetas-aviso').textContent = 'Carregando etiquetas...';
+  document.getElementById('analise-sessao-etiquetas-grid').innerHTML = '';
+  toggleModal('modal-analise-sessao', true);
+
+  // mesma máquina/operador/OP, no mesmo dia calendário do fim da sessão — não dá pra saber o
+  // horário exato de início por causa de pausas/manutenção no meio (duracaoMs é tempo líquido
+  // de produção, não intervalo de relógio corrido), mas essa combinação já isola a sessão certa
+  // na prática (repetir a mesma OP na mesma máquina com o mesmo operador 2x no mesmo dia, em
+  // sessões separadas, é raro — e mesmo nesse caso raro, mostrar as duas juntas não é errado).
+  const dia = new Date(dados.timestamp);
+  const inicioDia = new Date(dia.getFullYear(), dia.getMonth(), dia.getDate(), 0, 0, 0).toISOString();
+  const fimDia = new Date(dia.getFullYear(), dia.getMonth(), dia.getDate(), 23, 59, 59).toISOString();
+  const { data: caixas, error } = await db.from('historico_caixas').select('*')
+    .eq('operador', dados.operador).eq('maquina', dados.maquina).eq('op', dados.op)
+    .gte('fechado_em', inicioDia).lte('fechado_em', fimDia)
+    .order('fechado_em', {ascending:true});
+
+  const aviso = document.getElementById('analise-sessao-etiquetas-aviso');
+  const grid = document.getElementById('analise-sessao-etiquetas-grid');
+  if(error){ aviso.textContent = 'Erro ao buscar etiquetas: ' + error.message; console.error('[Supabase]', error); return; }
+  if(!caixas || caixas.length === 0){ aviso.textContent = 'Nenhuma caixa fechada encontrada pra essa sessão.'; return; }
+
+  // caixas fechadas antes da migração de turno/lote/número não têm como reconstituir a
+  // etiqueta (o dado nunca foi salvo) — mostra as que dá, avisa quantas ficaram de fora
+  const comDados = caixas.filter(c => c.caixa_num);
+  const semDados = caixas.length - comDados.length;
+  aviso.textContent = semDados > 0
+    ? `${comDados.length} de ${caixas.length} etiqueta${caixas.length>1?'s':''} — ${semDados} caixa${semDados>1?'s foram fechadas':' foi fechada'} antes de guardarmos os dados da etiqueta, não dá pra reconstituir.`
+    : `${comDados.length} etiqueta${comDados.length===1?'':'s'}.`;
+  if(comDados.length === 0) return;
+
+  const etiquetas = comDados.map((c, i) => {
+    const dataHora = new Date(c.fechado_em).toLocaleDateString('pt-BR') + ' ' + new Date(c.fechado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const pecaNome = (c.peca||'').trim();
+    const materiaPrima = (c.material||'').trim();
+    const titulo = materiaPrima && !pecaNome.toLowerCase().includes(materiaPrima.toLowerCase())
+      ? `${pecaNome} ${materiaPrima}`.trim() : pecaNome;
+    const producaoNet = Math.max(0, (c.qtd_pecas||0) - (c.refugo||0)); // mesma conta de "Fechar Caixa": injetadas×cavidades − refugo
+    const d = {
+      titulo, peca: pecaNome, caixaNum: c.caixa_num, operador: c.operador, qtd: fmtInt(producaoNet),
+      data: dataHora, ordem: c.op, maquina: c.maquina, turno: c.turno || '—',
+      material: materiaPrima || '—', loteMP: c.lote_mp || '—', loteArame: c.lote_arame || '—'
+    };
+    return { d, dataHora, qrId: `analise-et-qr-${i}` };
+  });
+  grid.innerHTML = etiquetas.map(({d,qrId}) => `<div class="etiqueta-fisica">${montarHtmlEtiqueta(d, qrId)}</div>`).join('');
+  etiquetas.forEach(({d,dataHora,qrId}) => gerarQRCode(qrId, montarTextoQREtiqueta(d, dataHora)));
+}
+document.getElementById('btn-analise-sessao-fechar').addEventListener('click', ()=> toggleModal('modal-analise-sessao', false));
 
 async function renderDashboard(){
   // datas padrão do mapa de calor: do dia 1 do mês atual até hoje — só na primeira vez
