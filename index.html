@@ -620,6 +620,27 @@
   /* mesma ideia pro modal de manutenção, mas só na fase ATIVA (a fase de digitar o motivo, antes
      de confirmar o início, fica parada — nada está "acontecendo" ainda nesse momento) */
   #modal-manutencao .modal-sheet.ativa{animation:subir .18s ease, piscar-amarelo 2.2s ease-in-out infinite;}
+  /* título "Observações" dentro do modal de manutenção herdaria o verde padrão de
+     .secao-titulo (usado em todo o resto do app) — aqui destoava do resto do modal, que é
+     todo ambarado (ícone, cronômetro). Realinha só aqui pra não quebrar a identidade amarela
+     do estado "em manutenção". */
+  #modal-manutencao .secao-titulo{color:var(--warning);}
+  .lista-observacoes-manutencao{max-height:7.5rem;overflow-y:auto;margin-bottom:.7rem;}
+  .observacao-item{
+    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);
+    padding:.55rem .7rem;margin-bottom:.5rem;font-size:.85rem;line-height:1.4;
+  }
+  .observacao-item .observacao-meta{color:var(--text-faint);font-size:.72rem;display:block;margin-bottom:.15rem;}
+  .observacao-vazia{color:var(--text-faint);font-size:.85rem;padding:.3rem 0;}
+  .linha-add-observacao{display:flex;gap:.6rem;}
+  .linha-add-observacao .campo-texto{flex:1;margin-top:0;margin-bottom:0;}
+  .btn-add-icone{
+    width:2.9rem;flex-shrink:0;border-radius:var(--radius-md);
+    background:var(--bg-card);border:1px solid var(--border);color:var(--text-dim);
+    display:flex;align-items:center;justify-content:center;transition:background .15s ease;
+  }
+  .btn-add-icone:active{background:var(--bg-card-hi);}
+  .btn-add-icone svg{width:1.35rem;height:1.35rem;}
   @keyframes subir{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
   .modal-titulo{font-size:1.3rem;font-weight:800;margin-bottom:1.2rem;}
   .modal-sub{color:var(--text-dim);font-size:.88rem;margin-top:-.8rem;margin-bottom:1.2rem;}
@@ -4094,7 +4115,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-47</div>
+    <div class="versao-build-canto">v2026.09.03-48</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -4680,10 +4701,10 @@ var qrcode = function() {
         <div class="modal-sub" id="manutencao-motivo-display" style="text-align:center;margin-bottom:.4rem">—</div>
         <div class="pausa-cronometro num" id="manutencao-cronometro-display">00:00:00</div>
         <div class="secao-titulo" style="margin-top:1.1rem">Observações</div>
-        <div id="manutencao-lista-observacoes" style="max-height:7rem;overflow-y:auto;margin-bottom:.6rem"></div>
-        <div style="display:flex;gap:.5rem">
-          <input type="text" class="campo-texto" id="manutencao-nova-observacao" placeholder="Nova observação..." style="flex:1;margin-top:0">
-          <button class="btn-secundario" id="btn-manutencao-add-observacao" style="flex-shrink:0">Add</button>
+        <div id="manutencao-lista-observacoes" class="lista-observacoes-manutencao"></div>
+        <div class="linha-add-observacao">
+          <input type="text" class="campo-texto" id="manutencao-nova-observacao" placeholder="Nova observação...">
+          <button class="btn-add-icone" id="btn-manutencao-add-observacao" aria-label="Adicionar observação"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
         <button class="btn-confirmar" id="btn-manutencao-finalizar" style="width:100%;margin-top:1.1rem">Finalizar Manutenção</button>
       </div>
@@ -6002,7 +6023,7 @@ document.getElementById('btn-manutencao-iniciar').addEventListener('click', ()=>
   clearInterval(timerHandle);
   clearInterval(apontamentoTimerHandle); // não pergunta apontamento de hora durante a manutenção
   document.getElementById('manutencao-motivo-display').textContent = motivo;
-  document.getElementById('manutencao-lista-observacoes').innerHTML = '';
+  document.getElementById('manutencao-lista-observacoes').innerHTML = '<div class="observacao-vazia">Nenhuma observação ainda.</div>';
   atualizarManutencaoCronometro();
   manutencaoTimerHandle = setInterval(atualizarManutencaoCronometro, 1000);
   document.getElementById('manutencao-fase-iniciar').style.display = 'none';
@@ -6046,10 +6067,12 @@ function atualizarManutencaoCronometro(){
 // vira uma linha em manutencoes_maquina_notas, mais recente primeiro na lista visível
 function renderizarObservacaoManutencao(nota, noTopo){
   const wrap = document.getElementById('manutencao-lista-observacoes');
+  const vazia = wrap.querySelector('.observacao-vazia');
+  if(vazia) vazia.remove();
   const linha = document.createElement('div');
-  linha.style.cssText = 'font-size:.82rem;padding:.35rem 0;border-bottom:1px solid var(--border);line-height:1.4';
+  linha.className = 'observacao-item';
   const quando = new Date(nota.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-  linha.innerHTML = `<span style="color:var(--text-faint)">${quando}${nota.autor?' · '+nota.autor:''}</span><br>${nota.texto}`;
+  linha.innerHTML = `<span class="observacao-meta">${quando}${nota.autor?' · '+nota.autor:''}</span>${nota.texto}`;
   if(noTopo) wrap.prepend(linha); else wrap.appendChild(linha);
 }
 document.getElementById('btn-manutencao-add-observacao').addEventListener('click', ()=>{
@@ -6200,31 +6223,30 @@ function dispararAlarmeApontamentoSeAplicavel(){
   tocarAlarmeApontamento();
 }
 
-// PLACEHOLDER — não consegui ver/ouvir o vídeo que você mandou (link deu erro ao abrir e a
-// busca não achou nada sobre esse vídeo específico). Botei uma sirene clássica (sobe/desce
-// entre dois tons, ~1.4s) em vez dos bipes de antes. Me descreve o som do vídeo (contínuo?
-// curto e repetido? grave ou agudo?) que eu ajusto pra ficar parecido.
+// "sirene que fica pah pah pah de atenção" — 3 pulsos curtos e secos do mesmo tom (ataque
+// rápido, corte seco), com silêncio de verdade entre eles. Trocado do sweep contínuo de antes
+// (sobe/desce tipo ambulância) porque não é o que foi pedido: isso aqui é mais parecido com um
+// alarme industrial pulsando do que com uma sirene "cantada".
 function tocarAlarmeApontamento(){
   if(!audioCtxAlarme) destravarAudioAlarme();
   if(!audioCtxAlarme) return; // sem gesto do usuário ainda — sem áudio, mas o pisca-pisca continua valendo
   if(audioCtxAlarme.state === 'suspended') audioCtxAlarme.resume();
   const t0 = audioCtxAlarme.currentTime;
-  const osc = audioCtxAlarme.createOscillator();
-  const gain = audioCtxAlarme.createGain();
-  osc.type = 'sawtooth'; // mais "sirene industrial" que uma onda pura
-  const duracaoCiclo = .35, ciclos = 4; // 4 subidas/descidas ≈ 1.4s por toque do loop
-  gain.gain.setValueAtTime(0, t0);
-  gain.gain.linearRampToValueAtTime(.3, t0 + .05);
-  for(let i=0;i<ciclos;i++){
-    const inicio = t0 + i*duracaoCiclo;
-    osc.frequency.setValueAtTime(i % 2 === 0 ? 600 : 900, inicio);
-    osc.frequency.linearRampToValueAtTime(i % 2 === 0 ? 900 : 600, inicio + duracaoCiclo);
+  const duracaoPulso = .16, silencio = .11, pulsos = 3;
+  for(let i=0;i<pulsos;i++){
+    const inicio = t0 + i*(duracaoPulso+silencio);
+    const osc = audioCtxAlarme.createOscillator();
+    const gain = audioCtxAlarme.createGain();
+    osc.type = 'sawtooth'; // mais "sirene" que uma onda pura
+    osc.frequency.setValueAtTime(900, inicio);
+    gain.gain.setValueAtTime(0, inicio);
+    gain.gain.linearRampToValueAtTime(.4, inicio + .012); // ataque bem rápido — cada "pah" nasce seco, não crescendo
+    gain.gain.setValueAtTime(.4, inicio + duracaoPulso - .02);
+    gain.gain.linearRampToValueAtTime(0, inicio + duracaoPulso);
+    osc.connect(gain).connect(audioCtxAlarme.destination);
+    osc.start(inicio);
+    osc.stop(inicio + duracaoPulso + .02);
   }
-  gain.gain.setValueAtTime(.3, t0 + ciclos*duracaoCiclo - .05);
-  gain.gain.linearRampToValueAtTime(0, t0 + ciclos*duracaoCiclo);
-  osc.connect(gain).connect(audioCtxAlarme.destination);
-  osc.start(t0);
-  osc.stop(t0 + ciclos*duracaoCiclo + .05);
 }
 
 document.getElementById('apt-campo-injetadas').addEventListener('click', ()=>{
