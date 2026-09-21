@@ -458,6 +458,12 @@
   /* últimos 60s antes do apontamento abrir: vira amarelo pra avisar antes do alarme tocar */
   .badge-proximo-apontamento.urgente{background:var(--warning-soft);border-color:var(--warning);color:var(--warning);}
   .badge-proximo-apontamento.urgente .badge-proximo-apontamento-dot{background:var(--warning);animation:pulsar-icone 1.2s ease-in-out infinite;}
+  /* apontamento represado por um chamado pendente (manutenção): mesma cor de aviso do
+     "urgente", mas SEM pulsar — de propósito, pra não parecer mais um alarme em cima do que já
+     está acontecendo de errado na máquina. É só um lembrete parado de que a resposta continua
+     pendente e vai voltar a tocar sozinho assim que o chamado for resolvido. */
+  .badge-proximo-apontamento.pendente-silencioso{background:var(--warning-soft);border-color:var(--warning);color:var(--warning);font-size:.76rem;}
+  .badge-proximo-apontamento.pendente-silencioso .badge-proximo-apontamento-dot{background:var(--warning);animation:none;}
   .barra-progresso-trilho{height:.5rem;background:var(--bg-card);border-radius:100px;overflow:hidden;}
   .barra-progresso-fill{height:100%;border-radius:100px;background:var(--accent);transition:width .3s ease;}
   /* saldo bateu a meta: a faixa inteira pisca vermelho pra sinalizar que a OP está completa */
@@ -490,7 +496,7 @@
   .btn-lapis svg{width:1.1rem;height:1.1rem;}
   .btn-lapis:active{background:var(--accent-soft);color:var(--accent-hi);border-color:var(--accent);}
 
-  .acoes-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.1rem;margin-top:auto;}
+  .acoes-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1.1rem;margin-top:auto;}
   .btn-acao{
     position:relative;
     border-radius:var(--radius-lg);
@@ -532,6 +538,9 @@
   .btn-jantar{background:var(--card-bg);border:1px solid var(--border);}
   .btn-jantar.pausando{animation:piscar-azul 1.3s ease-in-out infinite;}
   .btn-jantar .icone{background:var(--azul-soft);color:var(--azul);}
+  .btn-manutencao{background:var(--card-bg);border:1px solid var(--border);}
+  .btn-manutencao.ativa{animation:piscar-amarelo 1.3s ease-in-out infinite;border-color:var(--warning);}
+  .btn-manutencao .icone{background:var(--warning-soft);color:var(--warning);}
   /* alerta do apontamento de hora em hora: reaproveita a mesma camada ::after do chamado
      pendente (roxo), mas com prioridade — enquanto o app está exigindo essa resposta
      obrigatória, o roxo (que pode esperar) fica em segundo plano; some sozinho quando o
@@ -608,6 +617,9 @@
   .enc-botoes-fixos{flex-shrink:0;padding:1.1rem 2.4rem;background:var(--card-bg-navy);border-top:1px solid var(--border);margin:0;}
   /* modal de pausa pro jantar pisca azul o tempo todo que estiver aberto (reforça visualmente a pausa) */
   #modal-pausa-jantar .modal-sheet{animation:subir .18s ease, piscar-azul 2.2s ease-in-out infinite;}
+  /* mesma ideia pro modal de manutenção, mas só na fase ATIVA (a fase de digitar o motivo, antes
+     de confirmar o início, fica parada — nada está "acontecendo" ainda nesse momento) */
+  #modal-manutencao .modal-sheet.ativa{animation:subir .18s ease, piscar-amarelo 2.2s ease-in-out infinite;}
   @keyframes subir{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
   .modal-titulo{font-size:1.3rem;font-weight:800;margin-bottom:1.2rem;}
   .modal-sub{color:var(--text-dim);font-size:.88rem;margin-top:-.8rem;margin-bottom:1.2rem;}
@@ -1307,7 +1319,10 @@
        Aqui eles continuam em LINHA (3 colunas), só que compactos: sem a descrição, ícone
        menor, texto centralizado. Ainda ≥44px de alvo de toque (WCAG), com folga real pra
        dedo com luva. */
-    .acoes-row{grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin-top:0;}
+    /* Eram 3 botões numa linha só; agora são 4 — 2x2 mantém a largura de cada botão parecida
+       com o que já estava calibrado (3 colunas), preservando o alvo de toque (WCAG) e evitando
+       comprimir "Chamar Responsável"/"Manutenção" numa coluna estreita demais. */
+    .acoes-row{grid-template-columns:1fr 1fr;gap:.6rem;margin-top:0;}
     .btn-acao{
       padding:.85rem .5rem;align-items:center;text-align:center;gap:.4rem;
       min-height:5.6rem;justify-content:center;
@@ -3991,7 +4006,7 @@ var qrcode = function() {
         </span>
         <span class="badge-proximo-apontamento" id="badge-proximo-apontamento">
           <span class="badge-proximo-apontamento-dot"></span>
-          Próximo apontamento: <span id="proximo-apontamento-tempo" class="num">--:--</span>
+          <span id="proximo-apontamento-label">Próximo apontamento:</span> <span id="proximo-apontamento-tempo" class="num">--:--</span>
         </span>
       </div>
       <div class="chips-direita">
@@ -4062,6 +4077,11 @@ var qrcode = function() {
           <span class="rotulo">Chamar Responsável</span>
           <span class="desc">Manutenção, material, qualidade...</span>
         </button>
+        <button class="btn-acao btn-manutencao" id="btn-manutencao">
+          <span class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+          <span class="rotulo">Manutenção</span>
+          <span class="desc">Início e fim ficam registrados</span>
+        </button>
         <button class="btn-acao btn-jantar" id="btn-parada-jantar">
           <span class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></span>
           <span class="rotulo">Parada p/ Jantar</span>
@@ -4074,7 +4094,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-45</div>
+    <div class="versao-build-canto">v2026.09.03-47</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -4643,6 +4663,33 @@ var qrcode = function() {
       <button class="btn-confirmar" id="btn-retomar-producao" style="width:100%">Retomar Produção</button>
     </div>
   </div>
+
+  <!-- ===================== MODAL: MANUTENÇÃO (iniciar/acompanhar/finalizar — bloqueia interação e não conta no cronômetro) ===================== -->
+  <div class="modal-overlay" id="modal-manutencao">
+    <div class="modal-sheet centro">
+      <div id="manutencao-fase-iniciar">
+        <div class="modal-titulo" style="text-align:center">Iniciar manutenção</div>
+        <div class="modal-sub" style="text-align:center;margin-bottom:.4rem">Esse tempo não entra no cronômetro de produção.</div>
+        <textarea class="campo-texto" id="manutencao-motivo" placeholder="Motivo da manutenção (obrigatório)" rows="2" style="resize:vertical"></textarea>
+        <div class="aviso-inline" id="manutencao-motivo-aviso">Descreva o motivo antes de iniciar.</div>
+        <button class="btn-confirmar" id="btn-manutencao-iniciar" style="width:100%;margin-top:.8rem">Iniciar Manutenção</button>
+      </div>
+      <div id="manutencao-fase-ativa" style="display:none">
+        <div class="pausa-icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+        <div class="modal-titulo" style="text-align:center">Em manutenção</div>
+        <div class="modal-sub" id="manutencao-motivo-display" style="text-align:center;margin-bottom:.4rem">—</div>
+        <div class="pausa-cronometro num" id="manutencao-cronometro-display">00:00:00</div>
+        <div class="secao-titulo" style="margin-top:1.1rem">Observações</div>
+        <div id="manutencao-lista-observacoes" style="max-height:7rem;overflow-y:auto;margin-bottom:.6rem"></div>
+        <div style="display:flex;gap:.5rem">
+          <input type="text" class="campo-texto" id="manutencao-nova-observacao" placeholder="Nova observação..." style="flex:1;margin-top:0">
+          <button class="btn-secundario" id="btn-manutencao-add-observacao" style="flex-shrink:0">Add</button>
+        </div>
+        <button class="btn-confirmar" id="btn-manutencao-finalizar" style="width:100%;margin-top:1.1rem">Finalizar Manutenção</button>
+      </div>
+    </div>
+  </div>
+
 
   <!-- ===================== MODAL: APONTAMENTO PERIÓDICO (hora a hora — sem opção de pular) ===================== -->
   <div class="modal-overlay" id="modal-apontamento-hora">
@@ -5374,6 +5421,7 @@ let cacheOrdensBanco = [];
 let cacheProducoesAtivas = {}; // {nomeMaquina: timestamp de início da sessão ativa} — pra status operando/parada E pra filtrar só as caixas dessa sessão
 let cacheApontamentosHora = []; // registros de apontamento de hora a hora de TODAS as máquinas — alimenta o Desempenho/Refugo ao vivo do Dashboard (turno ativo agora), mesmo recorte por sessão do cacheCaixasBanco
 let cacheSituacaoManual = {}; // {nomeMaquina: 'manutencao'} — override manual do admin
+let cacheManutencaoIniciadoEm = {}; // {nomeMaquina: timestamp} — só das manutenções abertas agora, pro contador do Ao Vivo
 let cacheMaquinasAguardandoResponsavel = new Set(); // nomes de máquina com chamado pendente agora
 let cacheChamadosPendentesDetalhe = []; // {maquina, criadoEm} de cada chamado pendente agora — precisa do horário pra contar a espera ao vivo no card
 let cacheChamadosHoje = []; // chamados criados HOJE (qualquer status) — usado no KPI de tempo médio de resolução da frota inteira
@@ -5382,7 +5430,7 @@ let cachePausasJantarHoje = []; // pausas pro jantar de HOJE + qualquer uma aind
 async function buscarDadosMaquinasDoBanco(){
   const hojeInicioISO = new Date(new Date().setHours(0,0,0,0)).toISOString();
   try{
-    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }, { data: chamadosPendentes, error: e5 }, { data: apontamentos, error: e6 }, { data: chamadosHoje, error: e7 }, { data: pausasJantar, error: e8 }, { data: chamadosResolvidos, error: e9 }] = await Promise.all([
+    const [{ data: caixas, error: e1 }, { data: ordens, error: e2 }, { data: ativas, error: e3 }, { data: maquinasDb, error: e4 }, { data: chamadosPendentes, error: e5 }, { data: apontamentos, error: e6 }, { data: chamadosHoje, error: e7 }, { data: pausasJantar, error: e8 }, { data: chamadosResolvidos, error: e9 }, { data: manutencoesAbertas, error: e10 }] = await Promise.all([
       db.from('historico_caixas').select('*').order('fechado_em', {ascending:true}),
       db.from('ordens_producao').select('*'),
       db.from('producoes_ativas').select('maquina, inicio_em'),
@@ -5391,7 +5439,8 @@ async function buscarDadosMaquinasDoBanco(){
       db.from('apontamentos_hora').select('*').order('registrado_em', {ascending:true}),
       db.from('chamados').select('maquina,criado_em,resolvido_em,status').gte('criado_em', hojeInicioISO),
       db.from('pausas_jantar').select('maquina,operador,iniciado_em,finalizado_em').or(`finalizado_em.is.null,iniciado_em.gte.${hojeInicioISO}`),
-      db.from('chamados').select('maquina,criado_em,resolvido_em').not('resolvido_em', 'is', null)
+      db.from('chamados').select('maquina,criado_em,resolvido_em').not('resolvido_em', 'is', null),
+      db.from('manutencoes_maquina').select('maquina,iniciado_em').is('finalizado_em', null)
     ]);
     if(e1) throw e1;
     if(e2) throw e2;
@@ -5402,6 +5451,7 @@ async function buscarDadosMaquinasDoBanco(){
     if(e7) throw e7;
     if(e8) throw e8;
     if(e9) throw e9;
+    if(e10) throw e10;
     cacheCaixasBanco = (caixas||[]).map(c => ({
       maquina:c.maquina, operador:c.operador, peca:c.peca, op:c.op, material:c.material,
       cavidades:c.cavidades, refugo:c.refugo, qtdPecas:c.qtd_pecas, injetadas:c.injetadas,
@@ -5423,6 +5473,10 @@ async function buscarDadosMaquinasDoBanco(){
     }));
     cacheSituacaoManual = {};
     (maquinasDb||[]).forEach(m => { if(m.situacao_manual) cacheSituacaoManual[m.nome] = m.situacao_manual; });
+    // {maquina: timestamp de início} — só das manutenções ainda abertas, pra calcular "há quanto
+    // tempo" no card do Ao Vivo sem precisar abrir o detalhe da máquina pra saber
+    cacheManutencaoIniciadoEm = {};
+    (manutencoesAbertas||[]).forEach(m => { cacheManutencaoIniciadoEm[m.maquina] = new Date(m.iniciado_em).getTime(); });
     cacheChamadosPendentesDetalhe = (chamadosPendentes||[]).map(c => ({ maquina:c.maquina, criadoEm:new Date(c.criado_em).getTime() }));
     // quais máquinas têm chamado esperando o responsável agora — usado pro card piscar roxo
     cacheMaquinasAguardandoResponsavel = new Set(cacheChamadosPendentesDetalhe.map(c => c.maquina));
@@ -5478,6 +5532,7 @@ function iniciarRealtimeMaquinas(){
     .on('postgres_changes', {event:'*', schema:'public', table:'chamados'}, agendarAtualizacaoMaquinas)
     .on('postgres_changes', {event:'INSERT', schema:'public', table:'apontamentos_hora'}, agendarAtualizacaoMaquinas)
     .on('postgres_changes', {event:'*', schema:'public', table:'pausas_jantar'}, agendarAtualizacaoMaquinas)
+    .on('postgres_changes', {event:'*', schema:'public', table:'manutencoes_maquina'}, agendarAtualizacaoMaquinas)
     .subscribe((status)=> console.log('[Supabase] canal realtime de máquinas:', status));
 }
 iniciarRealtimeMaquinas();
@@ -5793,14 +5848,30 @@ function atualizarCronometro(){
 // 1s do cronômetro principal (sem abrir outro setInterval só pra isso). Lê direto
 // apontamentoProximoAlvoMs, o mesmo alvo que verificarApontamentoPendente() usa pra decidir
 // quando abrir o modal — os dois nunca podem ficar dessincronizados porque é a mesma variável.
+// Enquanto o modal está aberto E tem chamado pendente (manutenção), o alarme (som + tela
+// vermelha) fica em silêncio — ver dispararAlarmeApontamentoSeAplicavel — e este badge é o
+// único aviso visível disso: fica parado (sem pulsar), avisando que a resposta ainda está
+// pendente, sem competir com o problema que já está sendo resolvido na máquina.
 function atualizarContagemProximoApontamento(){
   const elTempo = document.getElementById('proximo-apontamento-tempo');
+  const lbl = document.getElementById('proximo-apontamento-label');
   const badge = document.getElementById('badge-proximo-apontamento');
   if(!elTempo || !badge) return;
-  if(!apontamentoProximoAlvoMs){ elTempo.textContent = '--:--'; return; }
+  const modalAberto = document.getElementById('modal-apontamento-hora').classList.contains('open');
+  const chamadoAtivo = document.getElementById('screen-producao').classList.contains('chamado-ativo');
+  if(modalAberto && chamadoAtivo){
+    badge.classList.add('pendente-silencioso');
+    badge.classList.remove('urgente');
+    lbl.textContent = 'Apontamento pendente — sem som (chamado em aberto)';
+    elTempo.textContent = '';
+    return;
+  }
+  badge.classList.remove('pendente-silencioso');
+  if(!apontamentoProximoAlvoMs){ lbl.textContent = 'Próximo apontamento:'; elTempo.textContent = '--:--'; return; }
   const restanteMs = Math.max(0, apontamentoProximoAlvoMs - Date.now());
   const mm = Math.floor(restanteMs/60000);
   const ss = Math.floor((restanteMs%60000)/1000);
+  lbl.textContent = 'Próximo apontamento:';
   elTempo.textContent = String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
   badge.classList.toggle('urgente', restanteMs <= 60000); // último minuto avisa em amarelo antes do alarme
 }
@@ -5901,6 +5972,137 @@ document.getElementById('btn-retomar-producao').addEventListener('click', ()=>{
 });
 
 /* ============================================================
+   MANUTENÇÃO — mesma lógica da pausa pro jantar (pausa o cronômetro, não conta como
+   produção, bloqueia interação até finalizar), mas iniciada pelo PRÓPRIO operador em vez
+   de só pelo admin. Reaproveita a tabela manutencoes_maquina e o campo situacao_manual que
+   já existiam do lado do admin — só está sendo exposta aqui também agora, não duplicada.
+   Tem duas fases no mesmo modal: capturar o motivo antes de iniciar, e depois acompanhar
+   com cronômetro + observações até finalizar.
+   ============================================================ */
+let manutencaoInicioMs = null;
+let manutencaoTimerHandle = null;
+let manutencaoRegistroId = null; // id da linha em manutencoes_maquina desta manutenção — usado pra observações e pra fechar (finalizado_em) ao finalizar
+
+document.getElementById('btn-manutencao').addEventListener('click', ()=>{
+  document.getElementById('manutencao-motivo').value = '';
+  document.getElementById('manutencao-motivo-aviso').classList.remove('show');
+  document.getElementById('manutencao-fase-iniciar').style.display = '';
+  document.getElementById('manutencao-fase-ativa').style.display = 'none';
+  document.querySelector('#modal-manutencao .modal-sheet').classList.remove('ativa');
+  toggleModal('modal-manutencao', true);
+});
+
+document.getElementById('btn-manutencao-iniciar').addEventListener('click', ()=>{
+  const motivo = document.getElementById('manutencao-motivo').value.trim();
+  if(!motivo){
+    document.getElementById('manutencao-motivo-aviso').classList.add('show');
+    return;
+  }
+  manutencaoInicioMs = Date.now();
+  clearInterval(timerHandle);
+  clearInterval(apontamentoTimerHandle); // não pergunta apontamento de hora durante a manutenção
+  document.getElementById('manutencao-motivo-display').textContent = motivo;
+  document.getElementById('manutencao-lista-observacoes').innerHTML = '';
+  atualizarManutencaoCronometro();
+  manutencaoTimerHandle = setInterval(atualizarManutencaoCronometro, 1000);
+  document.getElementById('manutencao-fase-iniciar').style.display = 'none';
+  document.getElementById('manutencao-fase-ativa').style.display = '';
+  document.querySelector('#modal-manutencao .modal-sheet').classList.add('ativa');
+  document.getElementById('btn-manutencao').classList.add('ativa');
+  document.getElementById('screen-producao').classList.add('em-manutencao');
+
+  // grava no banco pra o Ao Vivo e o histórico saberem — mesmo espírito "sem trava" do
+  // resto do app: se a rede falhar, a manutenção local continua contando normalmente pro
+  // operador, só o Ao Vivo/histórico é que não vão saber até a rede voltar.
+  manutencaoRegistroId = null;
+  if(state.maquina){
+    if(!MAQUINAS.includes(state.maquina)){
+      console.error('[manutenção] state.maquina="' + state.maquina + '" não bate com nenhum nome em MAQUINAS — a escrita no banco vai falhar silenciosamente (0 linhas afetadas).');
+    }
+    db.from('manutencoes_maquina').insert({
+      maquina: state.maquina, motivo, operador: state.operador, turno: state.turno?.nome || null
+    }).select().single().then(({data, error})=>{
+      if(error){ console.error('[Supabase] falha ao registrar início da manutenção:', error); return; }
+      manutencaoRegistroId = data.id;
+    });
+    db.from('maquinas').update({ situacao_manual:'manutencao' }).eq('nome', state.maquina).select()
+      .then(({data, error})=>{
+        if(error) console.error('[Supabase] falha ao marcar manutenção:', error);
+        else if(!data || data.length === 0) console.error('[Supabase] manutenção: update rodou sem erro, mas 0 linhas afetadas — nome "' + state.maquina + '" não existe na tabela maquinas com esse texto exato.');
+      });
+  } else {
+    console.error('[manutenção] state.maquina está vazio/nulo no momento do clique — a gravação no banco nem foi tentada.');
+  }
+});
+
+function atualizarManutencaoCronometro(){
+  const diff = Date.now() - manutencaoInicioMs;
+  const h = Math.floor(diff/3600000), m = Math.floor((diff%3600000)/60000), s = Math.floor((diff%60000)/1000);
+  document.getElementById('manutencao-cronometro-display').textContent =
+    [h,m,s].map(n=>String(n).padStart(2,'0')).join(':');
+}
+
+// observações: log de várias notas ao longo da manutenção (não um motivo fixo só) — cada uma
+// vira uma linha em manutencoes_maquina_notas, mais recente primeiro na lista visível
+function renderizarObservacaoManutencao(nota, noTopo){
+  const wrap = document.getElementById('manutencao-lista-observacoes');
+  const linha = document.createElement('div');
+  linha.style.cssText = 'font-size:.82rem;padding:.35rem 0;border-bottom:1px solid var(--border);line-height:1.4';
+  const quando = new Date(nota.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  linha.innerHTML = `<span style="color:var(--text-faint)">${quando}${nota.autor?' · '+nota.autor:''}</span><br>${nota.texto}`;
+  if(noTopo) wrap.prepend(linha); else wrap.appendChild(linha);
+}
+document.getElementById('btn-manutencao-add-observacao').addEventListener('click', ()=>{
+  const input = document.getElementById('manutencao-nova-observacao');
+  const texto = input.value.trim();
+  if(!texto) return;
+  if(!manutencaoRegistroId){ toast('Ainda registrando o início no banco, tenta de novo em 1 segundo.'); return; }
+  input.value = '';
+  const criadoEm = new Date().toISOString();
+  renderizarObservacaoManutencao({ texto, autor: state.operador, criado_em: criadoEm }, true);
+  db.from('manutencoes_maquina_notas').insert({ manutencao_id: manutencaoRegistroId, texto, autor: state.operador })
+    .then(({error})=>{ if(error) console.error('[Supabase] falha ao gravar observação da manutenção:', error); });
+});
+
+document.getElementById('btn-manutencao-finalizar').addEventListener('click', ()=>{
+  const duracaoManutencao = Date.now() - manutencaoInicioMs;
+  state.inicioMs += duracaoManutencao; // desconta a manutenção do cronômetro de produção
+  if(state.ultimoApontamentoMs) state.ultimoApontamentoMs += duracaoManutencao; // mesmo desconto pro próximo apontamento de hora
+  manutencaoInicioMs = null;
+  clearInterval(manutencaoTimerHandle);
+  document.getElementById('btn-manutencao').classList.remove('ativa');
+  document.getElementById('screen-producao').classList.remove('em-manutencao');
+  toggleModal('modal-manutencao', false);
+  atualizarCronometro();
+  clearInterval(timerHandle);
+  timerHandle = setInterval(atualizarCronometro, 1000);
+  iniciarTimerApontamento(); // reinicia a contagem pro próximo apontamento a partir de agora
+  if(state.maquina){
+    db.from('maquinas').update({ situacao_manual:null }).eq('nome', state.maquina).select()
+      .then(({data, error})=>{
+        if(error) console.error('[Supabase] falha ao desmarcar manutenção:', error);
+        else if(!data || data.length === 0) console.error('[Supabase] finalizar manutenção: update rodou sem erro, mas 0 linhas afetadas — nome "' + state.maquina + '" não existe na tabela maquinas com esse texto exato.');
+      });
+  }
+  const finalizadoEm = new Date().toISOString();
+  if(manutencaoRegistroId){
+    db.from('manutencoes_maquina').update({ finalizado_em: finalizadoEm }).eq('id', manutencaoRegistroId)
+      .then(({error})=>{ if(error) console.error('[Supabase] falha ao fechar manutenção:', error); });
+  } else if(state.maquina){
+    // raro: o insert do início ainda não tinha voltado do banco quando clicou em finalizar —
+    // busca a manutenção aberta mais recente dessa máquina em vez de simplesmente desistir
+    db.from('manutencoes_maquina').select('id').eq('maquina', state.maquina).is('finalizado_em', null)
+      .order('iniciado_em', {ascending:false}).limit(1).maybeSingle()
+      .then(({data, error})=>{
+        if(error || !data){ console.error('[Supabase] não achei a manutenção aberta pra fechar:', error); return; }
+        db.from('manutencoes_maquina').update({ finalizado_em: finalizadoEm }).eq('id', data.id)
+          .then(({error:e2})=>{ if(e2) console.error('[Supabase] falha ao fechar manutenção (fallback):', e2); });
+      });
+  }
+  manutencaoRegistroId = null;
+});
+
+/* ============================================================
    APONTAMENTO PERIÓDICO — pergunta injetadas/refugo/motivo em
    intervalos regulares (INTERVALO_APONTAMENTO_MIN) e compara com a
    meta cadastrada na OP. Não pula: só fecha depois de preencher.
@@ -5948,8 +6150,7 @@ function abrirApontamentoHora(){
   document.getElementById('apt-refugo-valor').textContent = '0';
   document.getElementById('apt-motivo').value = '';
   toggleModal('modal-apontamento-hora', true);
-  document.getElementById('screen-producao').classList.add('apontamento-alerta');
-  tocarAlarmeApontamento();
+  iniciarAlarmeApontamento();
 }
 
 /* ============================================================
@@ -5957,8 +6158,18 @@ function abrirApontamentoHora(){
    Web Audio API pura — sem CDN, sem arquivo de áudio (mantém a tela do operador CDN-free).
    Navegador só libera áudio depois de um gesto do usuário; como o operador sempre toca na
    tela antes da 1ª hora fechar (turno → operador → OP), destravamos no primeiro toque.
+
+   Fica tocando em loop até o operador confirmar o apontamento (btn-apt-enviar chama
+   pararAlarmeApontamento) — não é mais um toque único. A cada repetição, reconfere se tem
+   chamado pendente (aguardando responsável/manutenção): se tiver, pula o som e a tela
+   piscando vermelha desta vez — só o aviso parado do badge fica visível (ver
+   atualizarContagemProximoApontamento) — porque a máquina já está com um problema documentado
+   e não faz sentido competir por atenção com uma sirene em cima disso. Reavalia a cada
+   repetição, não só na abertura, porque o chamado pode ser resolvido enquanto o apontamento
+   ainda está esperando resposta.
    ============================================================ */
 let audioCtxAlarme = null;
+let alarmeApontamentoIntervalId = null;
 function destravarAudioAlarme(){
   if(audioCtxAlarme) return;
   try{ audioCtxAlarme = new (window.AudioContext || window.webkitAudioContext)(); }
@@ -5966,25 +6177,54 @@ function destravarAudioAlarme(){
 }
 document.addEventListener('pointerdown', destravarAudioAlarme, { once:true });
 
+function iniciarAlarmeApontamento(){
+  pararAlarmeApontamento(); // segurança — nunca deixa dois loops rodando ao mesmo tempo
+  dispararAlarmeApontamentoSeAplicavel();
+  alarmeApontamentoIntervalId = setInterval(dispararAlarmeApontamentoSeAplicavel, 5000);
+}
+
+function pararAlarmeApontamento(){
+  clearInterval(alarmeApontamentoIntervalId);
+  alarmeApontamentoIntervalId = null;
+  document.getElementById('screen-producao').classList.remove('apontamento-alerta');
+}
+
+function dispararAlarmeApontamentoSeAplicavel(){
+  const tela = document.getElementById('screen-producao');
+  const chamadoAtivo = tela.classList.contains('chamado-ativo');
+  if(chamadoAtivo){
+    tela.classList.remove('apontamento-alerta'); // chamado pendente/manutenção: sem som, sem tela piscando
+    return;
+  }
+  tela.classList.add('apontamento-alerta');
+  tocarAlarmeApontamento();
+}
+
+// PLACEHOLDER — não consegui ver/ouvir o vídeo que você mandou (link deu erro ao abrir e a
+// busca não achou nada sobre esse vídeo específico). Botei uma sirene clássica (sobe/desce
+// entre dois tons, ~1.4s) em vez dos bipes de antes. Me descreve o som do vídeo (contínuo?
+// curto e repetido? grave ou agudo?) que eu ajusto pra ficar parecido.
 function tocarAlarmeApontamento(){
   if(!audioCtxAlarme) destravarAudioAlarme();
   if(!audioCtxAlarme) return; // sem gesto do usuário ainda — sem áudio, mas o pisca-pisca continua valendo
   if(audioCtxAlarme.state === 'suspended') audioCtxAlarme.resume();
   const t0 = audioCtxAlarme.currentTime;
-  // 3 bipes curtos alternando tom (880/660Hz) — chamativo o bastante pra se distinguir do
-  // barulho de chão de fábrica sem precisar de um arquivo de som
-  [0, .35, .7].forEach((offset, i) => {
-    const osc = audioCtxAlarme.createOscillator();
-    const gain = audioCtxAlarme.createGain();
-    osc.type = 'square';
-    osc.frequency.value = i % 2 === 0 ? 880 : 660;
-    gain.gain.setValueAtTime(0, t0 + offset);
-    gain.gain.linearRampToValueAtTime(.35, t0 + offset + .02);
-    gain.gain.linearRampToValueAtTime(0, t0 + offset + .22);
-    osc.connect(gain).connect(audioCtxAlarme.destination);
-    osc.start(t0 + offset);
-    osc.stop(t0 + offset + .25);
-  });
+  const osc = audioCtxAlarme.createOscillator();
+  const gain = audioCtxAlarme.createGain();
+  osc.type = 'sawtooth'; // mais "sirene industrial" que uma onda pura
+  const duracaoCiclo = .35, ciclos = 4; // 4 subidas/descidas ≈ 1.4s por toque do loop
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(.3, t0 + .05);
+  for(let i=0;i<ciclos;i++){
+    const inicio = t0 + i*duracaoCiclo;
+    osc.frequency.setValueAtTime(i % 2 === 0 ? 600 : 900, inicio);
+    osc.frequency.linearRampToValueAtTime(i % 2 === 0 ? 900 : 600, inicio + duracaoCiclo);
+  }
+  gain.gain.setValueAtTime(.3, t0 + ciclos*duracaoCiclo - .05);
+  gain.gain.linearRampToValueAtTime(0, t0 + ciclos*duracaoCiclo);
+  osc.connect(gain).connect(audioCtxAlarme.destination);
+  osc.start(t0);
+  osc.stop(t0 + ciclos*duracaoCiclo + .05);
 }
 
 document.getElementById('apt-campo-injetadas').addEventListener('click', ()=>{
@@ -6023,7 +6263,7 @@ document.getElementById('btn-apt-enviar').addEventListener('click', ()=>{
   // Dashboard (admin) é que não vai enxergar esse checkpoint específico
   gravarApontamentoHoraNoBanco(registro);
   toggleModal('modal-apontamento-hora', false);
-  document.getElementById('screen-producao').classList.remove('apontamento-alerta');
+  pararAlarmeApontamento();
   mostrarResultadoApontamento(registro);
 });
 async function gravarApontamentoHoraNoBanco(r){
@@ -6971,6 +7211,12 @@ function formatarDuracaoMs(ms){
   const min = totalMin % 60;
   return h > 0 ? `${h}h ${min}min` : `${min}min`;
 }
+// "há Xh Ymin" desde que a manutenção desta máquina começou — vazio se não tiver uma aberta
+// agora (cacheManutencaoIniciadoEm só guarda as que ainda não fecharam, ver buscarDadosMaquinasDoBanco)
+function duracaoManutencaoTexto(m){
+  const inicioMs = cacheManutencaoIniciadoEm[m];
+  return inicioMs ? ' · há ' + formatarDuracaoMs(Date.now() - inicioMs) : '';
+}
 function iniciaisOperador(nome){
   if(!nome) return '?';
   const partes = nome.trim().split(/\s+/).filter(Boolean);
@@ -7598,7 +7844,7 @@ async function renderCardsMaquinas(){
         : '';
       return `
       <div class="card-maquina sem-dados ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
-        <div class="card-maquina-status ${emManutencao?'manutencao':pausaJantar?'pausa_jantar':aguardandoResponsavel?'aguardando':'neutro'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:ICO_STATUS_MAQUINA.neutro}<span>${emManutencao?'Em manutenção':pausaJantar?'Pausa (jantar)':aguardandoResponsavel?'Aguardando responsável':'Parada'}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':pausaJantar?'pausa_jantar':aguardandoResponsavel?'aguardando':'neutro'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:ICO_STATUS_MAQUINA.neutro}<span>${emManutencao?'Em manutenção'+duracaoManutencaoTexto(m):pausaJantar?'Pausa (jantar)':aguardandoResponsavel?'Aguardando responsável':'Parada'}</span></div>
         <div class="card-maquina-nome">${m}</div>
         ${avisoChamadoPendente}
         <div class="item-admin-sub" style="padding:.3rem 0;white-space:normal;line-height:1.4">Livre pra nova produção.${ultimaHistorica ? ` Última: ${ultimaHistorica.peca} (${ultimaHistorica.operador}), ${new Date(ultimaHistorica.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}.` : ' Sem histórico registrado ainda.'}</div>
@@ -7625,7 +7871,7 @@ async function renderCardsMaquinas(){
         : 'Em produção agora — ainda sem apontamento ou caixa fechada nesta sessão.';
       return `
       <div class="card-maquina sem-dados ${classeBlink}" data-abrir-detalhe-maquina="${m}" ${atrasoEntrada}>
-        <div class="card-maquina-status ${emManutencao?'manutencao':pausaJantar?'pausa_jantar':aguardandoResponsavel?'aguardando':paradaManual?'neutro':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:paradaManual?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção':pausaJantar?'Pausa (jantar)':aguardandoResponsavel?'Aguardando responsável':paradaManual?'Parada':'Em produção'}</span></div>
+        <div class="card-maquina-status ${emManutencao?'manutencao':pausaJantar?'pausa_jantar':aguardandoResponsavel?'aguardando':paradaManual?'neutro':'operando'}">${emManutencao?ICO_STATUS_MAQUINA.manutencao:pausaJantar?ICO_STATUS_MAQUINA.pausa_jantar:aguardandoResponsavel?ICO_STATUS_MAQUINA.aguardando:paradaManual?ICO_STATUS_MAQUINA.neutro:ICO_STATUS_MAQUINA.operando}<span>${emManutencao?'Em manutenção'+duracaoManutencaoTexto(m):pausaJantar?'Pausa (jantar)':aguardandoResponsavel?'Aguardando responsável':paradaManual?'Parada':'Em produção'}</span></div>
         <div class="card-maquina-nome">${m}</div>
         <div class="item-admin-sub" style="padding:.3rem 0">${textoCorpo}</div>
         ${notaChamadoPendenteSePausado}
@@ -7681,7 +7927,7 @@ async function renderCardsMaquinas(){
 
     const classeStatus = emManutencao ? 'manutencao' : pausaJantar ? 'pausa_jantar' : aguardandoResponsavel ? 'aguardando' : cacheSituacaoManual[m]==='parada' ? 'neutro' : zona;
     const iconeStatus = emManutencao ? ICO_STATUS_MAQUINA.manutencao : pausaJantar ? ICO_STATUS_MAQUINA.pausa_jantar : aguardandoResponsavel ? ICO_STATUS_MAQUINA.aguardando : cacheSituacaoManual[m]==='parada' ? ICO_STATUS_MAQUINA.neutro : ICO_STATUS_MAQUINA[zona];
-    const labelStatus = emManutencao ? 'Em manutenção'
+    const labelStatus = emManutencao ? 'Em manutenção'+duracaoManutencaoTexto(m)
       : pausaJantar ? 'Pausa (jantar)'
       : aguardandoResponsavel ? 'Aguardando responsável'
       : cacheSituacaoManual[m]==='parada' ? 'Parada'
@@ -7751,18 +7997,56 @@ async function abrirDetalheMaquina(nomeMaquina){
   ]);
   if(e1 || e2){ const err = e1||e2; toast('Erro ao buscar dados: ' + err.message); console.error('[Supabase]', err); return; }
 
+  // observações de TODAS as manutenções desta máquina, numa consulta só — agrupadas por
+  // manutencao_id (evita 1 consulta por item do histórico)
+  const idsManutencao = (historico||[]).map(h => h.id);
+  let notasPorManutencao = {};
+  if(idsManutencao.length){
+    const { data: notas, error: e3 } = await db.from('manutencoes_maquina_notas').select('*')
+      .in('manutencao_id', idsManutencao).order('criado_em', {ascending:false});
+    if(e3) console.error('[Supabase] falha ao buscar observações de manutenção:', e3);
+    (notas||[]).forEach(n => {
+      if(!notasPorManutencao[n.manutencao_id]) notasPorManutencao[n.manutencao_id] = [];
+      notasPorManutencao[n.manutencao_id].push(n);
+    });
+  }
+
   const manutencaoAtiva = (historico||[]).find(h => !h.finalizado_em);
   const situacaoAtual = maquinaRow ? maquinaRow.situacao_manual : null;
-  renderStatusAtualMaquina(manutencaoAtiva, situacaoAtual);
-  renderHistoricoMaquina(historico||[]);
+  renderStatusAtualMaquina(manutencaoAtiva, situacaoAtual, manutencaoAtiva ? (notasPorManutencao[manutencaoAtiva.id]||[]) : []);
+  renderHistoricoMaquina(historico||[], notasPorManutencao);
 }
 
-function renderStatusAtualMaquina(manutencaoAtiva, situacaoAtual){
+function renderStatusAtualMaquina(manutencaoAtiva, situacaoAtual, notasAtivas){
   const wrapStatus = document.getElementById('detalhe-maquina-status-atual');
   const wrapAcao = document.getElementById('detalhe-maquina-acao');
   if(manutencaoAtiva){
-    wrapStatus.innerHTML = `<div class="item-admin-sub">Em manutenção desde ${new Date(manutencaoAtiva.iniciado_em).toLocaleString('pt-BR')} — <strong style="color:var(--text)">${manutencaoAtiva.motivo}</strong></div>`;
-    wrapAcao.innerHTML = `<button class="btn-secundario" id="btn-finalizar-manutencao" style="width:100%;margin-top:.9rem">Tirar de manutenção</button>`;
+    // operador/turno só existem em manutenções iniciadas pela tela do operador — as que o
+    // admin abriu por aqui mesmo continuam sem essa informação, e tudo bem
+    const quemIniciou = manutencaoAtiva.operador ? ` — iniciada por ${manutencaoAtiva.operador}${manutencaoAtiva.turno ? ' ('+manutencaoAtiva.turno+')' : ''}` : '';
+    const duracaoAtual = formatarDuracaoMs(Date.now() - new Date(manutencaoAtiva.iniciado_em).getTime());
+    const notasHtml = (notasAtivas||[]).map(n => `
+      <div class="item-admin-sub" style="padding:.35rem 0;border-bottom:1px solid var(--border);white-space:normal;line-height:1.4">
+        <span style="color:var(--text-faint);font-size:.72rem">${new Date(n.criado_em).toLocaleString('pt-BR')}${n.autor?' · '+n.autor:''}</span><br>${n.texto}
+      </div>`).join('') || '<div class="item-admin-sub" style="padding:.3rem 0">Nenhuma observação ainda.</div>';
+    wrapStatus.innerHTML = `<div class="item-admin-sub">Em manutenção há ${duracaoAtual} (desde ${new Date(manutencaoAtiva.iniciado_em).toLocaleString('pt-BR')})${quemIniciou} — <strong style="color:var(--text)">${manutencaoAtiva.motivo}</strong></div>`;
+    wrapAcao.innerHTML = `
+      <div class="config-bloco-titulo-sm" style="margin-top:1rem">Observações</div>
+      <div style="max-height:8rem;overflow-y:auto;margin-bottom:.6rem">${notasHtml}</div>
+      <div style="display:flex;gap:.5rem">
+        <input type="text" class="campo-texto" id="detalhe-maquina-nova-observacao" placeholder="Nova observação..." style="flex:1;margin-top:0">
+        <button class="btn-secundario" id="btn-detalhe-add-observacao" style="flex-shrink:0">Add</button>
+      </div>
+      <button class="btn-secundario" id="btn-finalizar-manutencao" style="width:100%;margin-top:.9rem">Tirar de manutenção</button>`;
+    document.getElementById('btn-detalhe-add-observacao').addEventListener('click', async ()=>{
+      const input = document.getElementById('detalhe-maquina-nova-observacao');
+      const texto = input.value.trim();
+      if(!texto) return;
+      input.value = '';
+      const { error } = await db.from('manutencoes_maquina_notas').insert({ manutencao_id: manutencaoAtiva.id, texto, autor: 'Admin' });
+      if(error){ toast('Erro ao gravar observação: ' + error.message); console.error('[Supabase]', error); return; }
+      abrirDetalheMaquina(detalheMaquinaAtual);
+    });
     document.getElementById('btn-finalizar-manutencao').addEventListener('click', async ()=>{
       const btn = document.getElementById('btn-finalizar-manutencao');
       btn.disabled = true;
@@ -7829,18 +8113,28 @@ function renderStatusAtualMaquina(manutencaoAtiva, situacaoAtual){
   }
 }
 
-function renderHistoricoMaquina(historico){
+function renderHistoricoMaquina(historico, notasPorManutencao){
   const wrap = document.getElementById('detalhe-maquina-historico');
   const passadas = historico.filter(h => h.finalizado_em);
   if(!passadas.length){
     wrap.innerHTML = '<div class="item-admin-sub" style="padding:.3rem 0">Nenhuma manutenção anterior registrada.</div>';
     return;
   }
-  wrap.innerHTML = passadas.map(h => `
+  wrap.innerHTML = passadas.map(h => {
+    const duracao = formatarDuracaoMs(new Date(h.finalizado_em).getTime() - new Date(h.iniciado_em).getTime());
+    const quem = h.operador ? ` · ${h.operador}${h.turno ? ' ('+h.turno+')' : ''}` : '';
+    const notas = notasPorManutencao?.[h.id] || [];
+    const notasHtml = notas.length ? `<div style="margin-top:.4rem">${notas.map(n => `
+      <div style="font-size:.72rem;color:var(--text-dim);padding:.2rem 0;white-space:normal;line-height:1.35">
+        <span style="color:var(--text-faint)">${new Date(n.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}${n.autor?' · '+n.autor:''}:</span> ${n.texto}
+      </div>`).join('')}</div>` : '';
+    return `
     <div class="item-config" style="display:block;">
       <div style="font-weight:700;font-size:.87rem">${h.motivo}</div>
-      <div style="font-size:.72rem;color:var(--text-faint);margin-top:.25rem">${new Date(h.iniciado_em).toLocaleString('pt-BR')} até ${new Date(h.finalizado_em).toLocaleString('pt-BR')}</div>
-    </div>`).join('');
+      <div style="font-size:.72rem;color:var(--text-faint);margin-top:.25rem">${new Date(h.iniciado_em).toLocaleString('pt-BR')} até ${new Date(h.finalizado_em).toLocaleString('pt-BR')} · durou ${duracao}${quem}</div>
+      ${notasHtml}
+    </div>`;
+  }).join('');
 }
 document.getElementById('btn-detalhe-maquina-fechar').addEventListener('click', ()=> toggleModal('modal-detalhe-maquina', false));
 
