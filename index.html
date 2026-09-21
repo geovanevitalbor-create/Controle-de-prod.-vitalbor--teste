@@ -4118,7 +4118,7 @@ var qrcode = function() {
         <span>Encerrar Turno</span>
       </button>
     </div>
-    <div class="versao-build-canto">v2026.09.03-50</div>
+    <div class="versao-build-canto">v2026.09.03-51</div>
   </section>
 
   <!-- ===================== ADMIN: CADASTRO E ANÁLISE ===================== -->
@@ -7966,7 +7966,13 @@ async function renderCardsMaquinas(){
     const desempenhoDisponivel = resultadoDesempenho !== null; // já teve pelo menos 1 apontamento com meta válida nesta sessão
     const minutosFaltando = Math.max(1, INTERVALO_APONTAMENTO_MIN - Math.floor((Date.now() - inicioSessao) / 60000));
     const zona = desempenhoDisponivel ? classificarGauge(desempenhoPct) : 'calculando';
-    if(!filtroMaquinasZonas.has(zona) && zona !== 'calculando') return ''; // escondida pelo filtro de desempenho (não filtra "calculando" — some da tela de vez em quando senão)
+    // manutenção/pausa jantar/aguardando responsável são um STATUS, não uma medição de
+    // desempenho — não faz sentido esse card sumir da tela só porque o filtro de zona (vermelho/
+    // amarelo/verde) está reduzido pra procurar máquina com problema de desempenho. Achei isso
+    // ao investigar por que "manutenção não aparecia no Ao Vivo": se o admin tivesse o filtro
+    // de zona estreitado bem na hora, o card sumia inteiro em vez de mostrar o status.
+    const statusPrioritarioIgnoraFiltro = emManutencao || pausaJantar || aguardandoResponsavel;
+    if(!statusPrioritarioIgnoraFiltro && !filtroMaquinasZonas.has(zona) && zona !== 'calculando') return ''; // escondida pelo filtro de desempenho (não filtra "calculando" — some da tela de vez em quando senão)
     const corBarra = zona==='verde' ? 'var(--success)' : zona==='amarelo' ? 'var(--warning)' : zona==='calculando' ? 'var(--azul)' : 'var(--danger)';
     const zonaRefugo = refugoPct >= 5 ? 'vermelho' : refugoPct >= 2 ? 'amarelo' : 'verde';
     // contexto (peça/operador/material/cavidades/OP): prefere a caixa mais recente; se ainda
